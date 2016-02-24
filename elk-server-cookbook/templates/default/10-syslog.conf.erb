@@ -1,0 +1,15 @@
+input {
+  file {
+    type => "syslog"
+    path => [ "/var/log/messages", "/var/log/*.log" ]
+  }
+}
+output {
+  stdout {
+    codec => rubydebug  # /var/log/logstash/logstash.stdout
+  }
+  elasticsearch {
+    host => "localhost" # Use internal IP of Elasticsearch server for production
+  }
+}
+

@@ -162,10 +162,6 @@ template '/etc/logstash/conf.d/30-elasticsearch-output.conf' do
   group 'root'
   mode '00644'
 end
-# restart Logstash service (sudo service logstash start)
-execute "restart Logstash service" do
-  command "service logstash restart"
-end
 
 # install SSL Certs for clients running Filebeat to ship logs to ELK server
 directory '/etc/pki/tls/certs' do
@@ -192,4 +188,9 @@ template '/etc/pki/tls/private/logstash-forwarder.key' do
   owner 'root'
   group 'root'
   mode '00644'
+end
+
+# restart Logstash service (sudo service logstash start)
+execute "restart Logstash service" do
+  command "service logstash restart"
 end

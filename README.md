@@ -1,2 +1,2 @@
-# hart_challenge
-chef cookbooks for Hart challenge
+# Infrastructure Automation
+Repo to help me learn, practice and improve my infrastructure automation skills

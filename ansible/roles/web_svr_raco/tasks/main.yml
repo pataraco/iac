@@ -1,0 +1,40 @@
+---
+# Install the httpd package
+#
+# TODO: make use of variables
+#
+- name: Install httpd (Apache) with `yum`
+  yum:
+    name: httpd
+    state: latest
+
+# don't modify the generic/installed httpd conf file just yet ;)
+# # Configure/modify generic/installed httpd conf file (httpd.conf)
+# - name: "change httpd DocumentRoot to {{ www_doc_root }} in generic/installed httpd.conf"
+#   lineinfile:
+#     dest: "{{ http_conf }}"
+#     line: 'DocumentRoot "{{ www_doc_root }}"'
+#     regexp: '^DocumentRoot'
+#   lineinfile:
+#     dest: "{{ http_conf }}"
+#     line: '<Directory "{{ www_doc_root_orig }}">'
+#     regexp: '^<Directory "/var/www/html">'
+
+# Install the web site page(s)
+#- name: "Copy/Install website content to {{ www_doc_root }}"
+- name: Copy/Install website content to DocumentRoot (/var/www/html)
+  copy:
+    backup: yes
+    #dest: "{{ www_doc_root }}/index.html"
+    dest: /var/www/html/index.html
+    mode: 0644
+    # if src = dir, "dir/": copy only contents of dir, otherwise copy recursively (i.e. rsync)
+    src: index.html
+
+# Start and enable the httpd service
+- name: Start and Enable httpd (Apache) service
+  service:
+    enabled: yes
+    name: httpd
+    state: started
+...

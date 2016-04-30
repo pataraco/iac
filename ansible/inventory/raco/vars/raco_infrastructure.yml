@@ -1,0 +1,122 @@
+---
+# TODO - modify (copied from solr_infrastructure.yml)
+# NOTE - this file is currently not being used at all
+#
+# Free variables required by one or more roles
+machine_role: raco
+instance_name: "{{ machine_role }}-{{ env}}-{{ release_label }}"
+lb_modify_dns: yes
+route53_zone: "nimaws.com"
+route53_ttl: 60
+default_chargecode: "INT03 - IT/Operations"
+
+launch_config_name: &lc_name "lc_{{ instance_name }}_r1"
+
+# user_data_script variables
+user_data_spec:
+  user_data_sh: "../../playbooks/raco/vars/ud_{{ instance_name }}.sh"
+  r53_zone_id: "{{ route53_private_zone_id }}"
+  r53_local_cname: "{{ machine_role }}-{{ env }}.{{ route53_private_zone }}"
+  r53_local_arecord: "{{ instance_name }}.{{ route53_private_zone }}"
+  ebs_mount_point: "/TCS"
+  ebs_snapshot_id: "snap-d4f6ae8b"
+  ebs_iops: "4020"
+  ebs_iotype: "io1"
+  playbook_path: "playbooks/{{ project }}/setup_{{ machine_role }}.yml"
+  playbook_args: "route53_zone={{ route53_public_zone }} env={{ env }}"
+  inventory_path: "inventory/{{ project }}/hosts_{{ cluster }}"
+
+# Infrastructure role specs
+aws_lc_specs:
+  - name: *lc_name
+    key_name: "ops.pem"
+    instance_monitoring: yes
+    image_id: "ami-9b0103ab"
+    security_groups:
+      - "{{ security_groups['sec-grp-http']['id'] }}"
+      - "{{ security_groups['sec-grp-https']['id'] }}"
+      - "{{ security_groups['sec-grp-default']['id'] }}"
+    instance_type: "m3.xlarge"
+    instance_profile_name: "AIOAutomation"
+    user_data_script: "{{ user_data_contents.content | b64decode | string }}"
+
+aws_asg_specs:
+  - name: "asg-{{ cluster }}-{{ instance_name | replace('_', '-') }}"
+    load_balancers:
+      - "elb-{{ cluster }}-{{ instance_name | replace('_', '-') }}-poi"
+      - "elb-{{ cluster }}-{{ instance_name | replace('_', '-') }}-ajax"
+    launch_config_name: *lc_name
+    min_size: 1
+    max_size: 1
+    desired_capacity: 1
+    vpc_zone_identifier: ["{{ internal_subnets[2] }}"]
+    health_check_period: 1800
+    health_check_type: ELB
+    r53_name: "{{ machine_role }}-{{ env }}"
+    tags:
+      - Env: "{{ env }}"
+      - MachineRole: "{{ machine_role }}"
+      - Cluster: "{{ project }}-{{cluster}}"
+      - Name: "{{ instance_name }}"
+      - Project: "{{ project }}"
+      - ChargeCode: "{{ default_chargecode }}"
+      - BranchTag: "{{ branch_tag | default('main') }}"
+
+aws_elb_specs:
+  - name: "elb-blue-{{ instance_name | replace('_', '-') }}-ajax"
+    state: "{{ state | default(present) }}"
+    region: "{{ region }}"
+    cross_az_load_balancing: yes
+    scheme: "internet-facing"
+    subnets: ["{{ external_subnets[2] }}"]
+    security_group_ids:
+      - "{{ security_groups['sec-grp-http-from-internet']['id'] }}"
+      - "{{ security_groups['sec-grp-https-from-internet']['id'] }}"
+    r53_name: "{{ machine_role }}-{{ env }}"
+    route53_zone: "nimaws.com"
+    listeners:
+      - protocol: "ssl"
+        load_balancer_port: 443
+        instance_protocol: "tcp"
+        instance_port: 80
+        ssl_certificate_id: "arn:aws:iam::033362729015:server-certificate/nimaws.com"
+      - protocol: "http"
+        load_balancer_port: 80
+        instance_port: 80
+    health_check:
+      ping_protocol: "http"
+      ping_port: 80
+      ping_path: "/hc/test.py"
+      response_timeout: 8
+      interval: 20
+      unhealthy_threshold: 2
+      healthy_threshold: 2
+  - name: "elb-blue-{{ instance_name | replace('_', '-') }}-poi"
+    state: "{{ state | default(present) }}"
+    region: "{{ region }}"
+    cross_az_load_balancing: yes
+    scheme: "internet-facing"
+    subnets: ["{{ external_subnets[2] }}"]
+    security_group_ids:
+      - "{{ security_groups['sec-grp-http-from-internet']['id'] }}"
+      - "{{ security_groups['sec-grp-https-from-internet']['id'] }}"
+    r53_name: "{{ machine_role }}-{{ env }}"
+    route53_zone: "nimaws.com"
+    listeners:
+      - protocol: "ssl"
+        load_balancer_port: 443
+        instance_protocol: "tcp"
+        instance_port: 80
+        ssl_certificate_id: "arn:aws:iam::033362729015:server-certificate/nimaws.com"
+      - protocol: "http"
+        load_balancer_port: 80
+        instance_port: 80
+    health_check:
+      ping_protocol: "http"
+      ping_port: 80
+      ping_path: "/hc/test.py"
+      response_timeout: 8
+      interval: 20
+      unhealthy_threshold: 2
+      healthy_threshold: 2
+...

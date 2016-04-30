@@ -1,0 +1,9 @@
+---
+# file: {{ web_svr_raco }}/vars/main.yml
+#
+www_doc_root_orig: /var/www/html
+# if I wnated to change the DocumentRoot location
+#www_doc_root: /var/www/html/root
+www_doc_root: /var/www/html
+http_conf: /etc/httpd/conf/httpd.conf
+...

@@ -1,0 +1,15 @@
+---
+# don't think that I need any includes
+# - include: ../util/tty_sudo.yml
+
+- name: setup_Web.yml
+  hosts: localhost
+  connection: local
+
+# avoid using vars_files. use hostvars and/or group vars. more scalable
+#   vars_files:
+#     - vars/Web.yml
+
+  roles:
+    - web_svr_raco
+...

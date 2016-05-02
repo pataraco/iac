@@ -1,0 +1,50 @@
+---
+# variables required by one or more playbooks
+#
+as_lc_name: "web_as_lc-{{ realm }}"
+asg_name: "web-asg-{{ realm }}"
+charge_code: INT03 - IT/Operations
+corp_cidr_av: 172.18.0.0/16
+dns_zone: nimaws.com
+elb_name: "elb-{{ realm }}"
+env: dev
+ext_rtbl_name: "rtbl-external-{{ realm }}"
+ext_subnet_name: "ext-us-west-2a-{{ realm }}"
+git_branch: praco_tutorial
+igw_name: "igw-{{ realm }}"
+instance:
+  ami: ami-775e4f16
+  cluster: rainbow
+  key_name: raco
+  name: "web-svr-{{ realm }}"
+  role: Web
+  type: t2.micro
+int_rtbl_name: "rtbl-internal-{{ realm }}"
+int_subnet_name: "int-us-west-2a-{{ realm }}"
+proj_url: "{{ realm }}_sample-proj.nimaws.com"
+realm: raco
+region: us-west-2
+sec_grp_http_ext_name: "http-ext-sec-grp-{{ realm }}"
+sec_grp_http_ext_desc: "HTTP Security Group (External) - {{ realm }}"
+sec_grp_http_int_name: "http-int-sec-grp-{{ realm }}"
+sec_grp_http_int_desc: "HTTP Security Group (Internal) - {{ realm }}"
+sec_grp_ssh_name: "ssh-sec-grp-{{ realm }}"
+sec_grp_ssh_desc: "SSH Security Group - {{ realm }}"
+sub_ext_2b:
+  az: us-west-2b
+  cidr: 10.150.5.0/24
+  name: "sub-ext-uw2b-{{ realm }}"
+sub_int_2a:
+  az: us-west-2a
+  cidr: 10.150.1.0/24
+  name: "sub-int-uw2a-{{ realm }}"
+sub_int_2c:
+  az: us-west-2c
+  cidr: 10.150.2.0/24
+  name: "sub-int-uw2c-{{ realm }}"
+# TODO: (IN-PROGRESS) find out if this is the correct way to designate the file
+# TODO: find out if can do this lookup in this file and if it'll pass it to the playbook
+user_data_file: "{{ lookup('file', 'files/user_data.sh') }}"
+vpc:                                 # Mordor
+  cidr: 10.150.0.0/16
+  name: "vpc-{{ realm }}"

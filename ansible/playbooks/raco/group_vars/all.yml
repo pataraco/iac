@@ -5,7 +5,7 @@ as_lc_name: "web_as_lc-{{ realm }}"
 asg_name: "web-asg-{{ realm }}"
 charge_code: INT03 - IT/Operations
 corp_cidr_av: 172.18.0.0/16
-dns_zone: nimaws.com
+dns_zone: raco.com
 elb_name: "elb-{{ realm }}"
 env: dev
 ext_rtbl_name: "rtbl-external-{{ realm }}"
@@ -21,7 +21,7 @@ instance:
   type: t2.micro
 int_rtbl_name: "rtbl-internal-{{ realm }}"
 int_subnet_name: "int-us-west-2a-{{ realm }}"
-proj_url: "{{ realm }}_sample-proj.nimaws.com"
+proj_url: "{{ realm }}_sample-proj.raco.com"
 realm: raco
 region: us-west-2
 sec_grp_http_ext_name: "http-ext-sec-grp-{{ realm }}"

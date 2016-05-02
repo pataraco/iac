@@ -30,12 +30,6 @@
       ec2_vpc_igw:
         region: "{{ region }}"
         state: present
-# WTH? Where did I get this from? Need to use "ec2_tag"
-#         tags:
-#            ChargeCode: "{{ charge_code }}"
-#            Env: "{{ env }}"
-#            Name: "{{ igw_name }}"
-#            VPCName: "{{ vpc.name }}"
         vpc_id: "{{ vpc_created.vpc_id }}"
       register: igw_created                     # igw_created.gateway_id
     - name: print out value of igw_created
@@ -226,11 +220,6 @@
           response_timeout: 5   # seconds
           unhealthy_threshold: 2
           healthy_threshold: 10
-# hopefully i can attach the instances to this ELB because they
-# have not been created yet (chicken <-> egg)
-#         instance_ids:
-#           - i-????????
-#           - i-????????
         name: "{{ elb_name }}"
         region: "{{ region }}"
         security_group_ids: "{{ http_ext_secgrp_created.group_id }}"

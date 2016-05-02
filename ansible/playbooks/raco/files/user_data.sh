@@ -2,16 +2,16 @@
 
 EC2_USER_HOME=~ec2-user
 LOG=${EC2_USER_HOME}/user-data.log
-GIT_BRANCH=praco_tutorial
+GIT_BRANCH=master
 REALM=raco
 
 function main() {
   yum install -y wget git
   curl "https://bootstrap.pypa.io/get-pip.py" -o "get-pip.py"
   python get-pip.py 
-  pip install --upgrade pip awscli
+  pip install --upgrade pip awscli ansible boto
 
-  # have to get AWS keys install some how ;)
+  # have to get AWS keys installed some how ;)
 
   export ANSIBLE_ROOT=${EC2_USER_HOME}/cloud_automation/ansible
 
@@ -29,12 +29,11 @@ function main() {
  
 
   # pull the automation from git on stor2
-  git clone git://172.18.2.105/cloud_automation.git ${EC2_USER_HOME}/cloud_automation
+  git clone https://github.com/pataraco/infrastructure-automation.git ${EC2_USER_HOME}/cloud_automation
   export ANSIBLE_HOSTS=$ANSIBLE_ROOT/ansible_hosts
   echo "localhost" > $ANSIBLE_HOSTS
   pushd $ANSIBLE_ROOT
 
-  #git checkout master
   git checkout $GIT_BRANCH
 
   # Call the appropriate playbook based on the tags given in the launch config

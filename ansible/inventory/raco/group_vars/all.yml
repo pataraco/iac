@@ -1,0 +1,176 @@
+---
+# variables required by one or more playbooks
+#
+
+# set up some pointers & values
+inet_cidr: &inet_cidr 0.0.0.0/0
+ext_sub_2b_cidr: &ext_sub_2b_cidr 10.150.5.0/24
+int_sub_2a_cidr: &int_sub_2a_cidr 10.150.1.0/24
+int_sub_2c_cidr: &int_sub_2c_cidr 10.150.2.0/24
+tcs_int_cidr: &tcs_int_cidr 172.18.0.0/16
+tcs_ext_cidr: &tcs_ext_cidr 70.168.250.62/32
+vpc_cidr: &vpc_cidr 10.150.0.0/16
+vpc_vpn_gw: &vpc_vpn_gw vgw-36598a28
+
+as_lc_name: "web_as_lc-{{ realm }}"
+asg_name: "web-asg-{{ realm }}"
+# TODO: delete aws_elb_specs - it's been placed into praco_tutorial
+# # TODO: the aws_elb_specs variable is NOT correct - need to change
+# aws_elb_specs:
+#   connection_draining_timeout: 150
+#   cross_az_load_balancing: yes
+#   health_check:
+#     interval: 30  # seconds
+#     ping_protocol: "http"
+#     ping_port: 80
+#     ping_path: "/index.html"
+#     response_timeout: 5  # seconds
+#     unhealthy_threshold: 2
+#     healthy_threshold: 10
+#   listeners:
+#     - protocol: "http"
+#       load_balancer_port: 80
+#       instance_port: 80
+#   name: "{{ elb_name }}"
+#   r53_name: ""
+#   route53_zone: ""
+#   scheme: internet-facing
+#   subnets:
+#     - subnet-05130a5c  # sub-int_uw2a
+#     - subnet-9f14dae9  # sub-int_uw2c
+#   security_group_ids:
+#     - sg-3f909058  # http-ext-sec-grp
+charge_code: INT03 - IT/Operations
+dhcp_options:
+  domain_name: "{{ route53_public_zone }}"
+  tags:
+    ChargeCode: "{{ charge_code }}"
+    Env: "{{ env }}"
+    Name: "dhcp-{{ realm }}"
+    VPCName: "{{ vpc_name }}"
+##dns_zone: nimaws.com
+elb_name: "elb-{{ realm }}"
+env: dev
+ext_rtbl_name: "rtbl-external-{{ realm }}"
+ext_subnet_name: "ext-us-west-2a-{{ realm }}"
+git_branch: praco_tutorial
+igw_name: "igw-{{ realm }}"
+instance:
+  ami: ami-775e4f16
+  cluster: rainbow
+  key_name: raco
+  name: "web-svr-{{ realm }}"
+  role: Web
+  type: t2.micro
+int_rtbl_name: "rtbl-internal-{{ realm }}"
+int_subnet_name: "int-us-west-2a-{{ realm }}"
+##proj_url: "{{ realm }}_sample-proj.nimaws.com"
+project: Ansible Tutorial Project
+realm: raco
+region: us-west-2
+route53_ttl: 300
+route53_public_zone: "nimaws.com"
+sec_grp_http_ext_name: "http-ext-sec-grp-{{ realm }}"
+sec_grp_http_ext_desc: "HTTP Security Group (External) - {{ realm }}"
+sec_grp_http_int_name: "http-int-sec-grp-{{ realm }}"
+sec_grp_http_int_desc: "HTTP Security Group (Internal) - {{ realm }}"
+sec_grp_ssh_name: "ssh-sec-grp-{{ realm }}"
+sec_grp_ssh_desc: "SSH Security Group - {{ realm }}"
+security_groups:
+  sec_grp_http_ext:
+    description: "HTTP Security Group (External) - {{ realm }}"
+    name: "http-ext-sec-grp-{{ realm }}"
+    rules:
+      - proto: tcp
+        from_port: 80
+        to_port: 80
+        cidr_ip: *inet_cidr
+    # not supplying 'rules_egress', a default all-out rule will be assumed
+  sec_grp_http_int:
+    description: "HTTP Security Group (Internal) - {{ realm }}"
+    name: "http-int-sec-grp-{{ realm }}"
+    rules:
+      - proto: tcp
+        from_port: 80
+        to_port: 80
+        cidr_ip: *vpc_cidr
+      - proto: tcp
+        from_port: 80
+        to_port: 80
+        cidr_ip: *tcs_int_cidr
+    # not supplying 'rules_egress', a default all-out rule will be assumed
+  sec_grp_ssh:
+    description: "SSH Security Group - {{ realm }}"
+    name: "ssh-sec-grp-{{ realm }}"
+    rules:
+      - proto: tcp
+        from_port: 22
+        to_port: 22
+        cidr_ip: *tcs_int_cidr
+    # not supplying 'rules_egress', a default all-out rule will be assumed
+sub_ext_2b:
+  az: us-west-2b
+  cidr: *ext_sub_2b_cidr
+  name: "sub-ext-uw2b-{{ realm }}"
+sub_int_2a:
+  az: us-west-2a
+  cidr: *int_sub_2a_cidr
+  name: "sub-int-uw2a-{{ realm }}"
+sub_int_2c:
+  az: us-west-2c
+  cidr: *int_sub_2c_cidr
+  name: "sub-int-uw2c-{{ realm }}"
+tenancy: default
+user_data_file: "{{ lookup('file', 'files/user_data.sh') }}"
+vpc_name: "vpc-{{ realm }}"
+# The following only creates the route table for the internet gateway,
+# subnets that use VPN and/or NAT will be handled separately.
+vpc_route_tables:
+  - subnets:
+    - *ext_sub_2b_cidr
+    - *int_sub_2a_cidr
+    - *int_sub_2c_cidr
+    routes:
+      - dest: *inet_cidr
+        gw: igw
+# not setting up route to VPN for now
+#       - dest: *tcs_int_cidr
+#         gw: *vpc_vpn_gw
+    resource_tags:
+      ChargeCode: "{{ charge_code }}"
+      Env: "{{ env }}"
+      Name: "{{ ext_rtbl_name }}"
+      VPCName: "{{ vpc_name }}"
+vpc_subnets:
+  - cidr: "{{ sub_ext_2b.cidr }}"
+    az: "{{ sub_ext_2b.az }}"
+    resource_tags:
+      ChargeCode: "{{ charge_code }}"
+      Env: "{{ env }}"
+      Name: "{{ sub_ext_2b.name }}"
+      VPCName: "{{ vpc_name }}"
+  - cidr: "{{ sub_int_2a.cidr }}"
+    az: "{{ sub_int_2a.az }}"
+    resource_tags:
+      ChargeCode: "{{ charge_code }}"
+      Env: "{{ env }}"
+      Name: "{{ sub_int_2a.name }}"
+      VPCName: "{{ vpc_name }}"
+  - cidr: "{{ sub_int_2c.cidr }}"
+    az: "{{ sub_int_2c.az }}"
+    resource_tags:
+      ChargeCode: "{{ charge_code }}"
+      Env: "{{ env }}"
+      Name: "{{ sub_int_2c.name }}"
+      VPCName: "{{ vpc_name }}"
+vpc_tags:
+  ChargeCode: "{{ charge_code }}"
+  Env: "{{ env }}"
+  Name: "{{ vpc_name }}"
+  VPCName: "{{ vpc_name }}"
+vpc_use_dns: yes        # default = "yes"
+vpc_use_igw: yes        # default = "no"
+vpc_use_ngw: no
+wait_for_vpc: yes
+wait_for_vpc_timeout: 600       # seconds
+...

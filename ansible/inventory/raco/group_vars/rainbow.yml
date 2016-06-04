@@ -1,0 +1,10 @@
+---
+# infrastructure variables
+cluster: rainbow
+external_subnets:
+  - subnet-3c2c9958  # sub-ext-uw2b-raco
+internal_subnets:
+  - subnet-05130a5c  # sub-int-uw2a-raco
+  - subnet-9f14dae9  # sub-int-uw2c-raco
+route53_private_zone: rainbow.nimaws.com
+...

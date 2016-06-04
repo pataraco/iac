@@ -1,0 +1,52 @@
+---
+# variables required by one or more playbooks
+#
+
+charge_code: INT03 - IT/Operations
+project: Racos Ansible Tutorial Project
+proj_url: "{{ realm }}_sample-proj.nimaws.com"
+profile: navtel
+
+# TODO: think all the stuff below should be in "inventory/raco/group_vars/all.yml
+
+# set up some pointers & values
+inet_cidr: &inet_cidr 0.0.0.0/0
+ext_sub_2b_cidr: &ext_sub_2b_cidr 10.150.5.0/24
+int_sub_2a_cidr: &int_sub_2a_cidr 10.150.1.0/24
+int_sub_2c_cidr: &int_sub_2c_cidr 10.150.2.0/24
+tcs_int_cidr: &tcs_int_cidr 172.18.0.0/16
+tcs_ext_cidr: &tcs_ext_cidr 70.168.250.62/32
+
+as_lc_name: "web_as_lc-{{ realm }}"
+asg_name: "web-asg-{{ realm }}"
+dns_zone: nimaws.com
+elb_name: "elb-{{ realm }}"
+env: dev
+ext_rtbl_name: "rtbl-external-{{ realm }}"
+ext_subnet_name: "ext-us-west-2a-{{ realm }}"
+git_branch: praco_tutorial
+igw_name: "igw-{{ realm }}"
+instance:
+  ami: ami-775e4f16
+  cluster: rainbow
+  key_name: raco
+  name: "web-svr-{{ realm }}"
+  role: Web
+  type: t2.micro
+int_rtbl_name: "rtbl-internal-{{ realm }}"
+int_subnet_name: "int-us-west-2a-{{ realm }}"
+realm: raco
+sub_ext_2b:
+  az: us-west-2b
+  cidr: 10.150.5.0/24
+  name: "sub-ext-uw2b-{{ realm }}"
+sub_int_2a:
+  az: us-west-2a
+  cidr: 10.150.1.0/24
+  name: "sub-int-uw2a-{{ realm }}"
+sub_int_2c:
+  az: us-west-2c
+  cidr: 10.150.2.0/24
+  name: "sub-int-uw2c-{{ realm }}"
+user_data_file: "{{ lookup('file', 'files/user_data.sh') }}"
+...

@@ -1,0 +1,60 @@
+---
+# create a brand new VPC
+#
+# Which host(s) to run on
+- hosts: localhost
+  connection: local
+  gather_facts: no
+
+  vars:
+    - state: present
+  # get remaining vars from inventory/group_vars
+
+  roles:
+    # Create new (sandbox) VPC
+    - aws_vpc
+    # role "aws_vpc" creates the following:
+    #   - VPC (and related components)  # module: ec2_vpc
+    #     - creates: vpc, internet gateway, subnets, internal route tables,
+    #                security groups
+    #   - DHCP shtuff                   # module: ec2_vpc_dhcp_options
+    #   - NAT gateway (and related infrastructure: EIP, route table(s), etc)
+    #     - NOTE: I am not configuring/using a NAT GW
+    #   - Security groups               # module: ec2_group
+
+  tasks: 
+    - name: tag the internet gateway
+      ec2_tag:
+        region: "{{ region | mandatory }}"
+        resource: "{{ new_vpc.igw_id }}"
+        state: present
+        tags:
+          ChargeCode: "{{ charge_code }}"
+          Env: "{{ env }}"
+          Name: "{{ igw_name }}"
+          VPCName: "{{ vpc_name }}"
+
+    - name: get subnet fact(s)
+      ec2_vpc_subnet_facts:
+        filters:
+          state: available
+          cidrBlock: "{{ sub_ext_2b.cidr }}"
+          vpc-id: "{{ new_vpc.vpc_id }}"
+          # ran into a "bug" in which the Name tag is getting incorrectly set
+          #"tag:Name": "{{ sub_ext_2b.name }}"
+        region: "{{ region | mandatory }}"
+      register: subnet_facts
+# TODO: remove these comments
+# done with this for now
+#     - name: print out value of subnet_facts
+#       debug: var=subnet_facts
+#     - debug: msg="the subnet id of {{ sub_ext_2b.name }} is {{ subnet_facts.subnets[0].id }}"
+
+    - name: correct the Name tag for {{ sub_ext_2b.name }}
+      ec2_tag:
+        region: "{{ region | mandatory }}"
+        resource: "{{ subnet_facts.subnets[0].id }}"
+        state: present
+        tags:
+          Name: "{{ sub_ext_2b.name }}"
+...

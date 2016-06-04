@@ -1,0 +1,482 @@
+---
+## BLUE/GREEN vars ##
+metric_alarms:
+  # API_NGINX
+  - metric: "BackendConnectionErrors"
+    unit: "Count"
+    statistic: "Sum"
+    comparison: ">"
+    name: "{{ project }}-{{ cluster }}-{{ lb_api_nginx  }}_backend_connection_errors"
+    period: 60
+    evaluation_periods: 2
+    threshold: 0
+    description: "Backend connection errors on {{ cluster }}-{{ lb_api_nginx }}. Verify nginx status, then verify api gunicorn status. Escalate to DevOPs if problem persists."
+    dimensions: { "LoadBalancerName": "{{ cluster }}-{{ lb_api_nginx }}" }
+    ok_actions: "{{ sns }}"
+    alarm_actions: "{{ sns }}"
+  - metric: "UnHealthyHostCount"
+    unit: "Count"
+    statistic: "Average"
+    comparison: ">"
+    name: "VMedix-{{ cluster }}-{{ lb_api_nginx }}_unhealthy_hosts"
+    period: 60
+    evaluation_periods: 2
+    threshold: 0
+    description: "Unhealthy hosts on {{ cluster }}-{{ lb_api_nginx }}. Verify hosts are reachable via network. Check for check_mk failures. Contact DevOPs for escalation."
+    dimensions: { "LoadBalancerName": "{{ cluster }}-{{ lb_api_nginx }}" }
+    ok_actions: "{{ sns }}"
+    alarm_actions: "{{ sns }}"
+  - metric: "SurgeQueueLength"
+    unit: "Count"
+    statistic: "Maximum"
+    comparison: ">"
+    name: "VMedix-{{ cluster }}-{{ lb_api_nginx }}_high_surge_queue_length"
+    period: 300
+    evaluation_periods: 1
+    threshold: 10
+    description: "Queuing on {{ cluster }}-{{ lb_api_nginx }}. Verify nginx status. Escalate to DevOPs if problem persists."
+    dimensions: { "LoadBalancerName": "{{ cluster }}-{{ lb_api_nginx }}" }
+    ok_actions: "{{ sns }}"
+    alarm_actions: "{{ sns }}"
+  - metric: "Latency"
+    unit: "Count"
+    statistic: "Maximum"
+    comparison: ">="
+    name: "VMedix-{{ cluster }}-{{ lb_api_nginx }}_high_average_latency"
+    period: 60
+    evaluation_periods: 5
+    threshold: 5
+    description: "High latency on {{ cluster }}-{{ lb_api_nginx }}. Verify redis instances are healthy, check logstash for any backend errors. Contact DevOPs for escalation."
+    dimensions: { "LoadBalancerName": "{{ cluster }}-{{ lb_api_nginx }}" }
+    ok_actions: "{{ sns }}"
+    alarm_actions: "{{ sns }}"
+  # API_INT
+  - metric: "BackendConnectionErrors"
+    unit: "Count"
+    statistic: "Sum"
+    comparison: ">"
+    name: "{{ project }}-{{ cluster }}-{{ lb_api_internal  }}_backend_connection_errors"
+    period: 60
+    evaluation_periods: 2
+    threshold: 0
+    description: "Backend connection errors on {{ cluster }}-{{ lb_api_internal }}. Verify gunicorn status. Bounce gunicorn if necessary. Escalate to DevOPs if problem persists."
+    dimensions: { "LoadBalancerName": "{{ cluster }}-{{ lb_api_internal }}" }
+    ok_actions: "{{ sns }}"
+    alarm_actions: "{{ sns }}"
+  - metric: "UnHealthyHostCount"
+    unit: "Count"
+    statistic: "Average"
+    comparison: ">"
+    name: "VMedix-{{ cluster }}-{{ lb_api_internal }}_unhealthy_hosts"
+    period: 60
+    evaluation_periods: 2
+    threshold: 0
+    description: "Unhealthy hosts on {{ cluster }}-{{ lb_api_internal }}. Verify hosts are reachable via network. Check for check_mk failures. Contact DevOPs for escalation."
+    dimensions: { "LoadBalancerName": "{{ cluster }}-{{ lb_api_internal }}" }
+    ok_actions: "{{ sns }}"
+    alarm_actions: "{{ sns }}"
+  - metric: "SurgeQueueLength"
+    unit: "Count"
+    statistic: "Maximum"
+    comparison: ">"
+    name: "VMedix-{{ cluster }}-{{ lb_api_internal }}_high_surge_queue_length"
+    period: 300
+    evaluation_periods: 1
+    threshold: 10
+    description: "Queuing on {{ cluster }}-{{ lb_api_internal }}. Verify redis status. Escalate to DevOPs if problem persists."
+    dimensions: { "LoadBalancerName": "{{ cluster }}-{{ lb_api_internal }}" }
+    ok_actions: "{{ sns }}"
+    alarm_actions: "{{ sns }}"
+  - metric: "Latency"
+    unit: "Count"
+    statistic: "Maximum"
+    comparison: ">="
+    name: "VMedix-{{ cluster }}-{{ lb_api_internal }}_high_average_latency"
+    period: 60
+    evaluation_periods: 5
+    threshold: 5
+    description: "High latency on {{ cluster }}-{{ lb_api_internal }}. Verify redis instances are healthy, check logstash for any backend errors. Contact DevOPs for escalation."
+    dimensions: { "LoadBalancerName": "{{ cluster }}-{{ lb_api_internal }}" }
+    ok_actions: "{{ sns }}"
+    alarm_actions: "{{ sns }}"
+  - metric: "RequestCount"
+    unit: "Count"
+    statistic: "Minimum"
+    comparison: "<="
+    name: "VMedix-{{ cluster }}-{{ lb_api_internal }}_low_request_count"
+    period: 60
+    evaluation_periods: 2
+    threshold: 0
+    description: "No requests coming through to {{ cluster }}-{{ lb_api_internal }}. Please bounce nginx on api_nginx. Contact DevOPs for escalation."
+    dimensions: { "LoadBalancerName": "{{ cluster }}-{{ lb_api_internal }}" }
+    ok_actions: "{{ sns }}"
+    alarm_actions: "{{ sns }}"
+    insufficient_data_actions: "{{ sns }}"
+  # VDOC_GBR APP
+  - metric: "BackendConnectionErrors"
+    unit: "Count"
+    statistic: "Sum"
+    comparison: ">"
+    name: "{{ project }}-{{ cluster }}-{{ lb_vdoc_gbr_app_nginx  }}_backend_connection_errors"
+    period: 60
+    evaluation_periods: 2
+    threshold: 0
+    description: "Backend connection errors on {{ cluster }}-{{ lb_vdoc_gbr_app_nginx }}. Verify nginx status. Escalate to DevOPs if problem persists."
+    dimensions: { "LoadBalancerName": "{{ cluster }}-{{ lb_vdoc_gbr_app_nginx }}" }
+    ok_actions: "{{ sns }}"
+    alarm_actions: "{{ sns }}"
+  - metric: "UnHealthyHostCount"
+    unit: "Count"
+    statistic: "Average"
+    comparison: ">"
+    name: "VMedix-{{ cluster }}-{{ lb_vdoc_gbr_app_nginx }}_unhealthy_hosts"
+    period: 60
+    evaluation_periods: 2
+    threshold: 0
+    description: "Unhealthy hosts on {{ cluster }}-{{ lb_vdoc_gbr_app_nginx }}. Verify hosts are reachable via network. Check for check_mk failures. Contact DevOPs for escalation."
+    dimensions: { "LoadBalancerName": "{{ cluster }}-{{ lb_vdoc_gbr_app_nginx }}" }
+    ok_actions: "{{ sns }}"
+    alarm_actions: "{{ sns }}"
+  - metric: "SurgeQueueLength"
+    unit: "Count"
+    statistic: "Maximum"
+    comparison: ">"
+    name: "VMedix-{{ cluster }}-{{ lb_vdoc_gbr_app_nginx }}_high_surge_queue_length"
+    period: 300
+    evaluation_periods: 1
+    threshold: 10
+    description: "Queuing on {{ cluster }}-{{ lb_vdoc_gbr_app_nginx }}. Verify nginx status. Check API health. Escalate to DevOPs if problem persists."
+    dimensions: { "LoadBalancerName": "{{ cluster }}-{{ lb_vdoc_gbr_app_nginx }}" }
+    ok_actions: "{{ sns }}"
+    alarm_actions: "{{ sns }}"
+  - metric: "Latency"
+    unit: "Count"
+    statistic: "Maximum"
+    comparison: ">="
+    name: "VMedix-{{ cluster }}-{{ lb_vdoc_gbr_app_nginx }}_high_average_latency"
+    period: 60
+    evaluation_periods: 5
+    threshold: 5
+    description: "High latency on {{ cluster }}-{{ lb_vdoc_gbr_app_nginx }}. Verify nginx status. Contact DevOPs for escalation."
+    dimensions: { "LoadBalancerName": "{{ cluster }}-{{ lb_vdoc_gbr_app_nginx }}" }
+    ok_actions: "{{ sns }}"
+    alarm_actions: "{{ sns }}"
+  # VDOC_IRL APP
+  - metric: "BackendConnectionErrors"
+    unit: "Count"
+    statistic: "Sum"
+    comparison: ">"
+    name: "{{ project }}-{{ cluster }}-{{ lb_vdoc_irl_app_nginx }}_backend_connection_errors"
+    period: 60
+    evaluation_periods: 2
+    threshold: 0
+    description: "Backend connection errors on {{ cluster }}-{{ lb_vdoc_irl_app_nginx }}. Verify nginx status. Escalate to DevOPs if problem persists."
+    dimensions: { "LoadBalancerName": "{{ cluster }}-{{ lb_vdoc_irl_app_nginx }}" }
+    ok_actions: "{{ sns }}"
+    alarm_actions: "{{ sns }}"
+  - metric: "UnHealthyHostCount"
+    unit: "Count"
+    statistic: "Average"
+    comparison: ">"
+    name: "VMedix-{{ cluster }}-{{ lb_vdoc_irl_app_nginx }}_unhealthy_hosts"
+    period: 60
+    evaluation_periods: 2
+    threshold: 0
+    description: "Unhealthy hosts on {{ cluster }}-{{ lb_vdoc_irl_app_nginx }}. Verify hosts are reachable via network. Check for check_mk failures. Contact DevOPs for escalation."
+    dimensions: { "LoadBalancerName": "{{ cluster }}-{{ lb_vdoc_irl_app_nginx }}" }
+    ok_actions: "{{ sns }}"
+    alarm_actions: "{{ sns }}"
+  - metric: "SurgeQueueLength"
+    unit: "Count"
+    statistic: "Maximum"
+    comparison: ">"
+    name: "VMedix-{{ cluster }}-{{ lb_vdoc_irl_app_nginx }}_high_surge_queue_length"
+    period: 300
+    evaluation_periods: 1
+    threshold: 10
+    description: "Queuing on {{ cluster }}-{{ lb_vdoc_irl_app_nginx }}. Verify nginx status. Check API health. Escalate to DevOPs if problem persists."
+    dimensions: { "LoadBalancerName": "{{ cluster }}-{{ lb_vdoc_irl_app_nginx }}" }
+    ok_actions: "{{ sns }}"
+    alarm_actions: "{{ sns }}"
+  - metric: "Latency"
+    unit: "Count"
+    statistic: "Maximum"
+    comparison: ">="
+    name: "VMedix-{{ cluster }}-{{ lb_vdoc_irl_app_nginx }}_high_average_latency"
+    period: 60
+    evaluation_periods: 5
+    threshold: 5
+    description: "High latency on {{ cluster }}-{{ lb_vdoc_irl_app_nginx }}. Verify nginx status. Contact DevOPs for escalation."
+    dimensions: { "LoadBalancerName": "{{ cluster }}-{{ lb_vdoc_irl_app_nginx }}" }
+    ok_actions: "{{ sns }}"
+    alarm_actions: "{{ sns }}"
+
+# TODO: the aws_elb_specs variable is NOT correct - need to change
+aws_elb_specs:
+  - connection_draining_timeout: 150
+    cross_az_load_balancing: yes
+    health_check:
+      interval: 30  # seconds
+      ping_protocol: "http"
+      ping_port: 80
+      ping_path: "/index.html"
+      response_timeout: 5  # seconds
+      unhealthy_threshold: 2
+      healthy_threshold: 10
+    listeners:
+      - protocol: "http"
+        load_balancer_port: 80
+        instance_port: 80
+    name: "{{ elb_name }}"
+    r53_name: "{{ realm }}_sample-proj"
+    route53_zone: "{{ route53_public_zone }}"
+    scheme: internet-facing
+    subnets:
+      - subnet-05130a5c  # sub-int_uw2a
+      - subnet-9f14dae9  # sub-int_uw2c
+    security_group_ids:
+      - sg-3f909058  # http-ext-sec-grp
+
+vmedix_lc_defaults: &lc_defaults
+  key_name: "{{ default_key_name }}"
+  instance_monitoring: yes
+  image_id: "{{ default_base_img }}"
+  user_data_script: "../../playbooks/infrastructure/files/user_data_ansible_pull.txt"
+  instance_profile_name: "{{ instance_profile }}"
+  tenancy: "{{ (env == 'staging') | ternary('default', 'dedicated') }}"
+
+bg_lc_specs:
+  -
+    << : *lc_defaults
+    name: "lc-{{ cluster }}-{{ lc_api_nginx }}"
+    image_name: "{{ (env != 'production') | ternary('DUMMY_NAME',''+project+'-'+api_nginx_name+'-'+branch_tag) }}"
+    security_groups:
+      - "{{ security_groups['sec-grp-default']['id'] }}"
+      - "{{ security_groups['sec-grp-https']['id'] }}"
+      - "{{ security_groups['sec-grp-http']['id'] }}"
+      - "{{ security_groups['sec-grp-snmp']['id'] }}"
+    instance_type: "{{ (env == 'staging') | ternary('m3.medium','m3.large') }}"
+  -
+    << : *lc_defaults
+    name: "lc-{{ cluster }}-{{ lc_app_nginx }}"
+    image_name: "{{ (env != 'production') | ternary('DUMMY_NAME',''+project+'-'+app_nginx_name+'-'+branch_tag) }}"
+    security_groups:
+      - "{{ security_groups['sec-grp-default']['id'] }}"
+      - "{{ security_groups['sec-grp-https']['id'] }}"
+      - "{{ security_groups['sec-grp-http']['id'] }}"
+      - "{{ security_groups['sec-grp-snmp']['id'] }}"
+    instance_type: "{{ (env == 'staging') | ternary('m3.medium','m3.large') }}"
+  -
+    << : *lc_defaults
+    name: "lc-{{ cluster }}-{{ lc_api }}"
+    image_name: "{{ (env != 'production') | ternary('DUMMY_NAME',''+project+'-'+api_name+'-'+branch_tag) }}"
+    security_groups:
+      - "{{ security_groups['sec-grp-default']['id'] }}"
+      - "{{ security_groups['sec-grp-redis']['id'] }}"
+      - "{{ security_groups['sec-grp-gunicorn']['id'] }}"
+      - "{{ security_groups['sec-grp-snmp']['id'] }}"
+    instance_type: "m3.xlarge"
+
+vmedix_asg_defaults: &asg_defaults
+  vpc_zone_identifier: "{{ internal_subnets | join(',') }}"
+  wait_for_instances: no
+
+vmedix_common_tags: &asg_tags
+  Env: "{{ env }}"
+  Cluster: "{{ cluster }}"
+  BranchTag: "{{ branch_tag | default('main') }}"
+  ChargeCode: "{{ charge_code }}"
+  Project: "{{ project }}"
+  VPCName: "{{ vpc_name }}"
+
+bg_asg_specs:
+  -
+    << : *asg_defaults
+    name: "asg-{{ cluster }}-{{ lc_api_nginx }}"
+    launch_config_name: "lc-{{ cluster }}-{{ lc_api_nginx }}"
+    load_balancers:
+      - "{{ cluster }}-{{ lb_api_nginx }}"
+    health_check_type: >
+      {%- if debug -%}
+      EC2
+      {%- else -%}
+      ELB
+      {%- endif -%}
+    health_check_period: 500
+    min_size: "{{ num_api_nginx | default(1) }}"
+    max_size: "{{ num_api_nginx | default(2) }}"
+    desired_capacity: "{{ num_api_nginx | default(omit) }}"
+    tags:
+      - *asg_tags
+      - Name: "{{ api_nginx_name }}"
+      - MachineRole: "{{ api_nginx_role }}"
+  -
+    << : *asg_defaults
+    name: "asg-{{ cluster }}-{{ lc_app_nginx }}"
+    launch_config_name: "lc-{{ cluster }}-{{ lc_app_nginx }}"
+    load_balancers:
+      - "{{ cluster }}-{{ lb_vdoc_gbr_app_nginx }}"
+      - "{{ cluster }}-{{ lb_vdoc_irl_app_nginx }}"
+    health_check_type: >
+      {%- if debug -%}
+      EC2
+      {%- else -%}
+      ELB
+      {%- endif -%}
+    health_check_period: 500
+    min_size: "{{ num_app_nginx | default(1) }}"
+    max_size: "{{ num_app_nginx | default(2) }}"
+    desired_capacity: "{{ num_app_nginx | default(omit) }}"
+    tags:
+      - *asg_tags
+      - Name: "{{ app_nginx_name }}"
+      - MachineRole: "{{ app_nginx_role }}"
+  -
+    << : *asg_defaults
+    name: "asg-{{ cluster }}-{{ lc_api }}"
+    launch_config_name: "lc-{{ cluster }}-{{ lc_api }}"
+    load_balancers:
+      - "{{ cluster }}-{{ lb_api_internal }}"
+    health_check_type: >
+      {%- if debug -%}
+      EC2
+      {%- else -%}
+      ELB
+      {%- endif -%}
+    health_check_period: 800
+    min_size: "{{ num_api | default(1) }}"
+    max_size: "{{ num_api | default(2) }}"
+    desired_capacity: "{{ num_api | default(omit) }}"
+    tags:
+      - *asg_tags
+      - Name: "{{ api_name }}"
+      - MachineRole: "{{ api_role }}"
+
+bg_cname_entries:
+  - record: api-eu
+    value: api-eu
+  - record: vdoc-gbr-prod-app
+    value: vdoc-gbr-prod-app
+  - record: vdoc-irl-prod-app
+    value: vdoc-irl-prod-app
+
+## SHARED vars ##
+shared_cname_entries:
+  - record: vdoc-gbr-redis1
+    value: redis1
+  - record: vdoc-irl-redis1
+    value: redis1
+  - record: vdoc-gbr-redis2
+    value: redis2
+  - record: vdoc-irl-redis2
+    value: redis2
+  - record: vdoc-gbr-redis3
+    value: redis3
+  - record: vdoc-irl-redis3
+    value: redis3
+  - record: vdoc-gbr-mongo1
+    value: mongo1
+  - record: vdoc-irl-mongo1
+    value: mongo1
+  - record: vdoc-gbr-mongo2
+    value: mongo2
+  - record: vdoc-irl-mongo2
+    value: mongo2
+  - record: vdoc-gbr-mongo3
+    value: mongo3
+  - record: vdoc-irl-mongo3
+    value: mongo3
+  - record: events-search1
+    value: search1
+  - record: events-search2
+    value: search2
+  - record: events-search3
+    value: search3
+  - record: vdoc-gbr-search1
+    value: search1
+  - record: vdoc-irl-search1
+    value: search1
+  - record: vdoc-gbr-search2
+    value: search2
+  - record: vdoc-irl-search2
+    value: search2
+  - record: vdoc-gbr-search3
+    value: search3
+  - record: vdoc-irl-search3
+    value: search3
+
+shared_lc_specs:
+  -
+    << : *lc_defaults
+    name: "lc-{{ cluster }}-{{ lc_search }}"
+    image_name: "{{ (env != 'production') | ternary('DUMMY_NAME',''+project+'-'+search_name+'-'+branch_tag) }}"
+    security_groups:
+      - "{{ security_groups['sec-grp-default']['id'] }}"
+      - "{{ security_groups['sec-grp-elasticsearch-cluster']['id'] }}"
+      - "{{ security_groups['sec-grp-http']['id'] }}"
+      - "{{ security_groups['sec-grp-snmp']['id'] }}"
+    instance_type: "{{ (env == 'staging') | ternary('m3.medium','m3.large') }}"
+  -
+    << : *lc_defaults
+    name: "lc-{{ cluster }}-{{ lc_redis }}"
+    image_name: "{{ (env != 'production') | ternary('DUMMY_NAME',''+project+'-'+redis_name+'-'+branch_tag) }}"
+    security_groups:
+      - "{{ security_groups['sec-grp-default']['id'] }}"
+      - "{{ security_groups['sec-grp-redis']['id'] }}"
+      - "{{ security_groups['sec-grp-snmp']['id'] }}"
+    instance_type: "{{ (env == 'staging') | ternary('m3.medium','m3.large') }}"
+
+shared_asg_specs:
+  -
+    << : *asg_defaults
+    name: "asg-{{ cluster }}-{{ lc_search }}"
+    launch_config_name: "lc-{{ cluster }}-{{ lc_search }}"
+    min_size: "{{ num_search | default(1) }}"
+    max_size: "{{ num_search | default(3) }}"
+    desired_capacity: "{{ num_search | default(omit) }}"
+    health_check_type: EC2
+    tags:
+      - *asg_tags
+      - Name: "{{ search_name }}"
+      - MachineRole: "{{ search_role }}"
+  -
+    << : *asg_defaults
+    name: "asg-{{ cluster }}-{{ lc_redis }}"
+    launch_config_name: "lc-{{ cluster }}-{{ lc_redis }}"
+    min_size: "{{ num_redis | default(1) }}"
+    max_size: "{{ num_redis | default(3) }}"
+    desired_capacity: "{{ num_redis | default(omit) }}"
+    health_check_type: EC2
+    tags:
+      - *asg_tags
+      - Name: "{{ redis_name }}"
+      - MachineRole: "{{ redis_role }}"
+
+## INFRA vars ##
+infra_lc_specs:
+  -
+    << : *lc_defaults
+    name: "lc-{{ cluster }}-nathost"
+    image_name: "{{ (env != 'production') | ternary('DUMMY_NAME',''+project+'-'+nat_name+'-'+branch_tag) }}"
+    image_id: "{{ nat_base_img }}"
+    assign_public_ip: yes
+    security_groups:
+      - "{{ security_groups['sec-grp-default']['id'] }}"
+      - "{{ security_groups['sec-grp-snmp']['id'] }}"
+      - "{{ security_groups['sec-grp-nathost']['id'] }}"
+    instance_type: "m3.medium"
+    instance_profile_name: NAT
+
+infra_asg_specs:
+  -
+    << : *asg_defaults
+    name: "asg-{{ cluster }}-nathost"
+    launch_config_name: "lc-{{ cluster }}-nathost"
+    min_size: 1
+    max_size: 1
+    desired_capacity: 1
+    health_check_type: EC2
+    tags:
+      - *asg_tags
+      - Name: "{{ nathost_name }}"
+      - MachineRole: "{{ nathost_role }}"

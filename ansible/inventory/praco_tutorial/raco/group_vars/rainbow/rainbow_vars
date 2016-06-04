@@ -1,0 +1,17 @@
+---
+# packages - changes for each drop go here
+nginx: 1.6.2-1.23.amzn1
+
+client_rpms:
+  - VirtuMedix-Web-vdoc_gbr-31.1.23-70_productioneu.amzn1.noarch
+  - VirtuMedix-Web-vdoc_irl-31.1.23-70_productioneu.amzn1.noarch
+
+api_server_rpms:
+  - compat-libtiff3
+  - compat-libffi5
+  - VirtuMedix-server-3.1.132-19.amzn1.noarch
+
+#route53_public_zone: &route_53_public_zone rainbow.nimaws.com
+route53_public_zone: &route_53_public_zone nimaws.com
+resolv_conf_search:
+  - "{{ route_53_private_zone }}"

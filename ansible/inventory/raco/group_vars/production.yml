@@ -1,0 +1,27 @@
+---
+env: production
+region: us-west-2
+key_name: ops.pem
+
+availability_zones:
+  - us-west-2a
+  - us-west-2b
+  - us-west-2c
+
+base_ami: ami-31795501
+
+log_host: logstash.mordor.nim
+
+nathost_security_groups: [sg-2e47184b, sg-3947185c]
+nathost_instance_type: t2.medium
+
+vpnhost_security_groups: [sg-2e47184b, sg-eb1c428e]
+vpnhost_instance_type: t2.medium
+
+jira_security_groups: [sg-2e47184b, sg-35471850, sg-0f47186a, sg-d8c59cbd]
+jira_instance_type: m3.large
+
+perforce_security_groups: [sg-2e47184b, sg-8a81a1ef]
+perforce_scm_instance_type: m3.large
+perforce_docs_instance_type: m3.large
+...

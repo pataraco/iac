@@ -1,0 +1,98 @@
+---
+# Which host(s) to run on
+- hosts: localhost
+  connection: local
+  gather_facts: no
+
+  vars:
+    - state: present
+  # get remaining vars from inventory/group_vars
+
+# TODO: remove this stuff
+#   pre_tasks: 
+#     - name: print out value of aws_elb_specs
+#       debug: var=aws_elb_specs
+#     - name: print out value of region
+#       debug: var=region
+
+  roles:
+    # Create new ELB and Route 53 CNAME
+    - aws_elb
+    # role "aws_elb" creates the following:
+    #   - ELB                   # module: ec2_elb_elb
+    #   - Route 53 CNAME        # module: route53
+
+  tasks: 
+# TODO: <HERE>
+    - name: print out value of elbs_created
+      debug: var=elbs_created
+
+#     # Create Route 53
+#     - name: "create Route 53 entry (CNAME for {{ proj_url }})"
+#       route53:
+#         command: create
+#         # hmmm - this may be dangerous
+#         overwrite: yes
+#         record: "{{ proj_url }}"
+#         ttl: 300        # seconds
+#         type: CNAME
+#         value: "{{ elb_created.elb.dns_name }}"
+#         zone: "{{ dns_zone }}"
+#         # maybe add health_check
+#         #health_check: ????
+
+#     # Create a key pair
+#     - name: create a key pair
+#       ec2_key:
+#         name: "{{ instance.key_name }}"
+#         region: "{{ region }}"
+#         state: present
+#       register: key_created                     # key_created.key.private_key
+#     - name: print out value of key_created
+#       debug: var=key_created
+#       # TODO: learn how to save the private key returned to a local file
+#     # Create Auto Scaling shtuff
+#     - name: create Auto Scaling launch config
+#       ec2_lc:
+#         image_id: "{{ instance.ami }}"
+#         instance_type: "{{ instance.type }}"
+#         key_name: "{{ instance.key_name }}"
+#         name: "{{ as_lc_name }}"
+#         region: "{{ region }}"
+#         security_groups:
+#           - "{{ http_int_secgrp_created.group_id }}"
+#           - "{{ ssh_secgrp_created.group_id }}"
+#         state: present
+#         user_data: "{{ user_data_file }}"
+#     - name: create/configure Auto Scaling groups
+#       ec2_asg:
+#         desired_capacity: 1
+#         launch_config_name: "{{ as_lc_name }}"
+#         load_balancers: "{{ elb_name }}"
+#         max_size: 1
+#         min_size: 1
+#         name: "{{ asg_name }}-{{ item.suffix }}"
+#         region: "{{ region }}"
+#         state: present
+#         tags:
+#           - BranchTag: "{{ git_branch }}"
+#           - ChargeCode: "{{ charge_code }}"
+#           - Cluster: "{{ instance.cluster }}"
+#           - Env: "{{ env }}"
+#           - MachineRole: "{{ instance.role }}"
+#           # hmmm, how to get the UUID of the instance attached to the name?
+#           # can add code to the user-data script/file
+#           - Name: "{{ instance.name }}-{{ item.suffix }}"
+#           - VPCName: "{{ vpc.name }}"
+#         vpc_zone_identifier: "{{ item.subnet }}"
+# # I don't think that I need this
+# #       ec2_scaling_policy:
+# #         adjustment_type: ExactCapacity
+# #         asg_name: "{{ awg_name }}-{{ item.suffix }}"
+# #         name: "{{ awg_name }}-{{ item.suffix }}-policy"
+# #         region: "{{ region }}"
+# #         state: present
+#       with_items:
+#         - { suffix: '2a', subnet: "{{ int_subnet_2a_created.subnet.id }}" }
+#         - { suffix: '2c', subnet: "{{ int_subnet_2c_created.subnet.id }}" }
+...

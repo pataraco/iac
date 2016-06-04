@@ -1,0 +1,11 @@
+[production:children]
+web
+infrastructure
+
+[web]
+web-svr-raco[1:2].uw2.nimaws.com
+
+[infrastructure]
+nathost-raco.uw2.nimaws.com
+vpnhost-raco.uw2.nimaws.com
+loghost-raco.uw2.nimaws.com

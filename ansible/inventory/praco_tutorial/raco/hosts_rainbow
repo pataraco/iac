@@ -1,0 +1,9 @@
+[rainbow:children]
+rainbow_web
+aws
+
+[rainbow_web]
+web-svr-raco[1:2].rainbow.nimaws.com
+
+[aws]
+localhost

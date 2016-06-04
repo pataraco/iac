@@ -1,0 +1,8 @@
+This directory holds automated inventory files containing the infrastructure
+for the Raco Anisible Tutorial cluster. A variety of Ansible plugins exist
+that will generate inventories for EC2 and other infrastructures.
+
+Inventory files should be refreshed and committed/pushed for each mop where
+one or more playbooks are intended to run.
+
+Reusability is a major goal, please help to further that goal.

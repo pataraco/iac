@@ -1,0 +1,40 @@
+---
+# infrastructure variables
+profile: navtel
+instance_profile: ec2-restricted-access
+domain: nimaws.com
+env: staging  # override to production on command line
+cli_tags: "untagged,always"
+log_host: logstash
+
+# load balancer variables
+lb_api_nginx: elb-api
+lb_api_internal: elb-api-int
+lb_modify_dns: yes
+
+# search
+search_name: &search_name search
+search_role: *search_name
+lc_search: *search_name
+
+# nat
+nat_name: &nat_name nathost
+nat_role: *nat_name
+
+# these are for check_mk
+top_level_cname_entries:
+  - record: api1
+    value: api1
+  - record: api2
+    value: api2
+  - record: api_nginx1
+    value: api_nginx1
+  - record: api_nginx2
+    value: api_nginx2
+  - record: app_nginx1
+    value: app_nginx1
+  - record: app_nginx2
+    value: app_nginx2
+
+# aws default vars
+namespace: "AWS/ELB"

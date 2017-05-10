@@ -1,0 +1,30 @@
+---
+# ansible-playbook -i localhost, [-e "a=EU"] send_sns.yml
+- hosts: localhost
+  connection: local
+  gather_facts: no
+  vars:
+    area: "{{ a | default('US') }}"
+    env: production
+    project: VMedix
+    region: "{{ (area == 'US') | ternary('us-east-1','eu-west-1') }}"
+    api_name: vmedix-api
+    delegate: "{{ del | default(api_name+'1') }}"
+    date_time: "{{ dt | default(lookup('pipe','date -d yesterday +%d%b%Y-%H%M')) }}"
+    sns:
+      - "arn:aws:sns:{{ region }}:801178088653:Virtumedix-{{ (env == 'production') | ternary('Prod','Test') }}-Notifications"
+
+  tasks:
+    - debug: var=project
+    - debug: var=env
+    - debug: var=region
+    - debug: var=sns[0]
+    - debug: var=date_time
+
+    - name: Send out test SNS notification
+      sns:
+        subject: "{{ project }} ({{ region }}): TESTING SNS"
+        msg: "TESTING {{ project }} SNS notifications. Do NOT reply. THANKS! AWS region ({{ region }}) on [{{ date_time }}]"
+        topic: "{{ sns[0] }}"
+        region: "{{ region }}"
+      when: env == "production"

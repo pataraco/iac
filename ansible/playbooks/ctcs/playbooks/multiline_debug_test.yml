@@ -1,0 +1,55 @@
+---
+# Used to try to create hostnames with either master or UIDs
+# Usage:
+#       
+#       ansible-playbook -i localhost, -e "hn=vmedix-api-aio az=us-west-2a ip=10.202.4.95" multiline_debug_test.yml
+#
+- hosts: localhost
+  connection: local
+  gather_facts: no
+  vars:
+    azone: "{{ az | mandatory }}"
+    instance_ip: "{{ ip | mandatory }}"
+    instance_name_base: "{{ hn | mandatory }}"
+    ansible_python_interpreter: /usr/bin/env python
+    apigw_dab: apigw_dab_file
+    username: praco
+    password: 5up3r5ecr37
+    db_name: db_test
+    multiline: |
+      This is a multiline
+      message that I'd like to
+      display.
+      Here's some vars:
+       Availability Zone = {{ azone }}
+       Instance IP       = {{ instance_ip }}
+       Instance Name     = {{ instance_name_base }}
+  tasks:
+    - set_fact:
+        multiline2: |
+          This is a multiline
+          message that I'd like to
+          display.
+
+          Here's some vars:
+           Availability Zone = {{ azone }}
+           Instance IP       = {{ instance_ip }}
+           Instance Name     = {{ instance_name_base }}
+        debug_msg: |
+          Update the folllowing with provided values in /tmp/{{ apigw_dab }}:
+          SQLALCHEMY_DATABASE_URI=postgresql+pg8000://{{ username }}:{{ password }}:5432/{{ db_name }}
+          PG_DATABASE={{ db_name }}
+          PG_USER={{ username }}
+          PG_PASSWORD={{ password }}
+          
+          Then, use the following command to setup an SSH tunnel to the remote docker cluster:
+          ssh -NL localhost:2374:/var/run/docker.sock docker &
+          
+          Login to the Comtech docker-registry:
+          
+          Then, use the following docker command to deploy the API gateway:
+          docker deploy --file /tmp/{{ apigw_dab }} --with-registry-auth studio
+     
+    - debug: msg="{{ debug_msg.split('\n') }}"
+    - debug: msg="{{ multiline.split('\n') }}"
+    - debug: msg="{{ multiline2.split('\n') }}"

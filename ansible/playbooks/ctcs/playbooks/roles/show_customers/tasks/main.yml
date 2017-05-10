@@ -1,0 +1,9 @@
+---
+- name: print some debug messages - customer name
+  debug: var=cname
+- name: print some debug messages - customer type
+  debug: var=type
+# - name: print some debug messages - with_items
+#   debug: var=with_items
+# - name: print some debug messages - when
+#   debug: var=when

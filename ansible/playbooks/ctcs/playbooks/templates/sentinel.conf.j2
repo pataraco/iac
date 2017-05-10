@@ -1,0 +1,6 @@
+# sentinel server
+sentinel_server={{ sentinel_server }}
+branch_tag={{ bt }}
+mop={{ bt[:7] | upper }}
+downtime message="MOP VMedix {{ bt[:7] | upper }}"
+customers = {{ customers | map(attribute='shell_name') | list }}

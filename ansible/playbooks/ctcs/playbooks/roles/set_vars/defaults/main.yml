@@ -1,0 +1,11 @@
+---
+#test_var_val: "{{ test_var_val | default(360) }}"      # does NOT work
+#test_var_val: "{{ (test_var_val != 0) | ternary(test_var_val,360) }}"   # do NOT work
+#test_var_val: "{{ (test_var_val is defined) | ternary(test_var_val,360) }}"   # do NOT work
+#test_var_val: "{% if test_var_val is defined%}test_var_val{% else %}360{% endif %}"   # do NOT work
+# test_var_val_setting: "{{ test_var_val | default(360) }}"   # \
+# test_var_val: "{{ test_var_val_setting }}"                  #  \-> these together don't work
+
+# test_var_val: set in set_vars(defaults) role
+test_var_val_setting: "{{ test_var_val | default('set by default in set_vars role') }}"
+

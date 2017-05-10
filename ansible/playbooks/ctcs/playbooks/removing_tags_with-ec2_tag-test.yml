@@ -1,0 +1,53 @@
+---
+# Used to test removing "MOP" tag from ASG
+# Usage:
+#       
+#       ansible-playbook -i localhost, -e "asgn=raco-test-asg ec2id=i-234fsd region=us-west-1" test_removing_tags.yml
+#
+- hosts: localhost
+  connection: local
+  gather_facts: no
+  vars:
+    ansible_python_interpreter: /usr/bin/env python
+  tasks:
+    # Below doesn't seem to work - "state: absent" won't remove the tags - WTF?
+    - name: Remove MOP tag from ASG
+      ec2_tag:
+        resource: "{{ asgn | mandatory }}"
+        region: "{{ region | mandatory }}"
+        state: absent
+        tags:
+          MOP: true
+    - name: Remove MOP tag from an instance
+      ec2_tag:
+        resource: "{{ ec2id | mandatory }}"
+        region: us-west-2
+        state: absent
+        tags:
+          MOP: true
+
+    # for shits & grins - let's try to add a tag...
+    # an ASG name gives "InvalidID"
+#     - name: Add MOP tag to ASG
+#       ec2_tag:
+#         #resource: "{{ asgn | mandatory }}"
+#         resource: "auto-scaling-group/{{ asgn | mandatory }}"
+#         region: "{{ region | mandatory }}"
+#         state: present
+#         tags:
+#           RacoWuzHere: true
+    - name: Add MOP tag to an instance
+      ec2_tag:
+        resource: "{{ ec2id | mandatory }}"
+        region: us-west-2
+        state: present
+        tags:
+          RacoWuzHere: true
+    - name: And then try to remove it
+      ec2_tag:
+        resource: "{{ ec2id | mandatory }}"
+        region: us-west-2
+        state: absent
+        tags:
+          RacoWuzHere: True
+#

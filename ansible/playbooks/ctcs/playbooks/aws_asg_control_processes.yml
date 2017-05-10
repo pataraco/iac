@@ -1,0 +1,32 @@
+---
+# Controls (suspends/resumes) AWS AutoScalingGroup processes
+# Example:
+# ansible-playbook \
+#     -i hostsfile \
+#     -e "cmd=suspend|resume [asgn=name_pattern] [dryrun=False]" \
+#     --vault-password-file=~/.vault
+#     playbooks/util/aws_asg_control_processes.yml
+# Options/Usage:
+#   - Must choose either "suspend" or "resume". 
+#   - Setting "asgn" is optional
+#       otherwise controls all AutoScalingGroups in inventory file
+#   - Defaults to "dry-run" - must set "dryrun=False" to run )
+
+- hosts: localhost
+  gather_facts: no
+  connection: local
+  vars:
+     dry_run: "{{ dryrun | default(True) }}"
+     cmd_given: "{{ cmd | mandatory }}"
+     pc_cmd: "{{ (cmd_given == 'suspend') | ternary('suspend-processes','resume-processes') }}"
+     aws_asg_specs: "{{ (cluster == 'shared1' or cluster == 'shared2') | ternary(shared_asg_specs,bg_asg_specs) }}"
+  tasks:
+    - name: "AWS ASG process control | {{ (cmd_given == 'suspend') | ternary('suspending','resuming') }} processes"
+      shell: aws autoscaling {{ pc_cmd }} --auto-scaling-group-name {{ item }}
+      with_items: "{{ aws_asg_specs | map(attribute='name') | list }}"
+      when: not dry_run and (asgn is not defined or (asgn is defined and item | search(asgn)))
+
+    - name: "AWS ASG process control | DRY-RUN; NOT {{ (cmd_given == 'suspend') | ternary('suspending','resuming') }} processes"
+      debug: msg="DRY-RUN; aws autoscaling {{ pc_cmd }} --auto-scaling-group-name {{ item }}"
+      with_items: "{{ aws_asg_specs | map(attribute='name') | list }}"
+      when: dry_run and (asgn is not defined or (asgn is defined and item | search(asgn)))

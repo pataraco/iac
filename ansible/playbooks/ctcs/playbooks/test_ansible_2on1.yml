@@ -1,0 +1,34 @@
+# Testing running Ansible 2.1x on 1.9x
+# Does this playbook get run locally or remotely?
+---
+- hosts: all
+#   connection: local
+  gather_facts: no
+
+  tasks:
+    - name: register a fail
+      #shell: /bin/false
+      shell: /tmp/fail
+      register: result_fail
+      ignore_errors: true
+    - debug: var=result_fail
+
+    - name: register a success
+      shell: /bin/true
+      register: result_pass
+    - debug: var=result_pass
+
+    - name: get uptime
+      command: /usr/bin/uptime
+      register: result_uptime
+    - debug: var=result_uptime
+
+    - debug: msg="yeah - it failed"
+      when: result_fail|failed
+
+    - debug: msg="yeah - it succeeded"
+      when: result_pass|succeeded
+#       when: result_pass|success
+
+    - debug: msg="yeah - got the uptime {{ result_uptime.stdout }}"
+      when: result_pass|succeeded

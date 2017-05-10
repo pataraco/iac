@@ -1,0 +1,17 @@
+---
+# ansible-playbook -i localhost, with_nested_fun.yml
+#
+- hosts: localhost
+  gather_facts: no
+  connection: local
+  vars_files: [ vars/route53_dev.yml ]
+  tasks:
+    - name: Create a text file simulating AWS Route53 entries
+      lineinfile:
+        create: yes
+        dest: /tmp/vmedix_dev_r53.txt
+        line: "record: {{ item[0] }}-{{ item[1] }}.{{ route53_zone }} value: {{ cname_base_name }}-{{ item[1] }}.{{ route53_zone }}"
+        state: present
+      with_nested:
+        - '{{ customers }}'
+        - '{{ instances }}'

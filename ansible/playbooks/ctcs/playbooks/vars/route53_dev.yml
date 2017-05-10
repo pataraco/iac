@@ -1,0 +1,33 @@
+route53_zone: nimaws.com
+cname_base_name: virtumedix
+customers:
+  - api-virtumedix
+  - conq
+  - eclinic
+  - fire
+  - hch
+  - pgp
+  - relymd
+  - vdoc
+  - vdoc-gbr
+  - vdoc-irl
+  - vhi
+  - vmedix
+  - vmedix-eu
+instances:
+  - cs
+  - cs2
+  - cs3
+  - demo
+  - demo2
+  - dev
+  - dm3
+  - mr-qa
+  - qa
+  - vm1
+  - vm2
+  - vm3
+  - vm4
+  - vm5
+  - vm6
+  - vm7

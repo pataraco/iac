@@ -1,0 +1,20 @@
+#!/bin/bash
+
+name=$1
+
+cat > /tmp/ans.fact << EOF
+{
+    "ansible_home": "$ANSIBLE_HOME",
+    "playbook_args": "{{ playbook_args | default ('') }}"
+}
+EOF
+
+branch_tag={{ branch_tag }}
+
+echo "Hello World!"
+echo "the inventory file option should be: '-i ansible/inventory/{{project}}/{{vpc_name}}/hosts_{% if bv | default(False) %}{{env}}{% else %}{{cluster}}{% endif %}'"
+
+echo "here is the 'playbook_args':"
+echo "'{{ playbook_args  }}'"
+
+echo "Goodbye {{ name_arg }}"

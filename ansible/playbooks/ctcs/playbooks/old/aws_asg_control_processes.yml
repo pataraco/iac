@@ -1,0 +1,23 @@
+---
+# ansible-playbook -i hostsfile -e "cmd=suspend|resume dryrun=false"
+# ( Must choose either "suspend" or "resume". Defaults to "dry-run" )
+
+- hosts: localhost
+  gather_facts: no
+  connection: local
+  vars:
+     dry_run: "{{ dryrun | default(True) }}"
+     cmd_given: "{{ cmd | mandatory }}"
+     pc_cmd: "{{ (cmd_given == 'suspend') | ternary('suspend-processes','resume-processes') }}"
+     aws_asg_specs: "{{ (cluster == 'shared1' or cluster == 'shared2') | ternary(shared_asg_specs,bg_asg_specs) }}"
+  tasks:
+    - name: "AWS ASG process control | {{ (cmd_given == 'suspend') | ternary('suspending','resuming') }} processes"
+      #shell: echo "aws autoscaling {{ pc_cmd }} --auto-scaling-group-name {{ item }}" > /tmp/{{ item }}
+      shell: aws autoscaling {{ pc_cmd }} --auto-scaling-group-name {{ item }}
+      with_items: "{{ aws_asg_specs | map(attribute='name') | list }}"
+      when: not dry_run
+
+    - name: "AWS ASG process control | DRY-RUN; NOT {{ (cmd_given == 'suspend') | ternary('suspending','resuming') }} processes"
+      debug: msg="DRY-RUN; aws autoscaling {{ pc_cmd }} --auto-scaling-group-name {{ item }}"
+      with_items: "{{ aws_asg_specs | map(attribute='name') | list }}"
+      when: dry_run

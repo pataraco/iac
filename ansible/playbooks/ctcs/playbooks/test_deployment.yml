@@ -1,0 +1,136 @@
+# Add more cases to me.
+---
+- hosts: localhost
+  connection: local
+  gather_facts: no
+  vars:
+    - success_color: green
+    - fail_color: red
+#     - success_msg: "{{ who }} deployment completed!"
+#     - fail_msg: "{{ who }} deployment failed!  Please check /var/log/ansible-pull.log"
+
+  pre_tasks:
+    - set_fact:
+      args:
+        success_msg: "{{ item }} {{ who }} deployment completed!"
+      with_random_choice:
+        - "Yes!"
+        - "Cool!"
+        - "Oh Yeah!"
+        - "Wow!"
+        - "Sweet!"
+        - "Awesome!"
+        - "Whew!"
+
+    - set_fact:
+      args:
+        fail_msg: "{{ item }} {{ who }} deployment FAILED!  Check /var/log/ansible-pull.log"
+      with_random_choice:
+        - "No!"
+        - "Seriously?"
+        - "Boo!"
+        - "Dang it!"
+        - "WUT?"
+        - "LOL!"
+        - "Crap!"
+
+    - name: Test HTTP/S URL connection
+      get_url: url="{{ test_url }}" dest=/tmp/healthcheck
+               validate_certs=no force=yes
+      ignore_errors: yes
+      register: result_url
+      until: "'OK' in result_url.msg"
+      retries: 5
+      delay: 10
+      when: test_url is defined
+    - debug: var=result_url
+
+    - name: Test GET/POST to a URI
+      uri: url="{{ test_uri['uri'] }}"
+           method="{{ test_uri['method'] | default(omit) }}"
+           validate_certs="{{ test_uri['validate_certs'] | default(omit) }}"
+           HEADER_HOST="{{ test_uri['header_host'] | default(omit) }}"
+           HEADER_X-API-KEY="{{ test_uri['header_x_api_key'] | default(omit) }}"
+           follow_redirects=safe
+           status_code=200
+      register: result_uri
+      ignore_errors: yes
+      until: result_uri|succeeded
+      retries: 10
+      delay: 10
+      when: test_uri is defined
+    - debug: var=result_uri
+
+    - debug: var=test_redis
+    - debug: var=redis_servers
+    - debug: var=redis_install_dir
+    - name: Test redis
+      shell: >
+        {{ redis_install_dir }}/bin/redis-cli -h localhost
+        -p {{ item.redis_port }} info replication
+      with_items:
+        - "{{ redis_servers | default([]) }}"
+      register: redis_result
+      ignore_errors: yes
+      when: test_redis is defined
+    - debug: var=redis_result
+
+    - set_fact:
+        redis_passed: True
+      with_items:
+        - "{{ redis_result.results | default([]) }}"
+      when: "test_redis is defined and (item is defined and
+            ('role:master' in item.stdout or
+            'role:slave' in item.stdout))"
+
+    - set_fact:
+        redis_passed: False
+      with_items:
+        - "{{ redis_result.results | default([]) }}"
+      when: "test_redis is defined and (item is not defined or
+            (item is defined and
+            ('role:master' not in item.stdout and
+            'role:slave' not in item.stdout)))"
+
+    - name: Test mongo status
+      shell: >
+        mongo --ssl --sslAllowInvalidCertificates --host {{ instance_name }} --eval 'printjson(rs.conf())'
+      register: mongo_status
+      when: test_mongo_instance is defined
+    - debug: var=mongo_status
+
+    - set_fact:
+        mongo_instance_passed: True
+      when: "test_mongo_instance is defined and
+            mongo_status.rc == 0 and instance_name in mongo_status.stdout"
+
+    - set_fact:
+        mongo_instance_passed: False
+      when: "test_mongo_instance is defined and
+            mongo_status.rc != 0 or instance_name not in mongo_status.stdout"
+
+  roles:
+    - { role: hipchat_alert, color: "{{ success_color }}",
+        msg: "[result_url] {{ success_msg }}", room: "{{ hipchat_room }}",
+        when: "test_url is defined and (result_url is defined and 'OK' in result_url.msg)" }
+    - { role: hipchat_alert, color: "{{ fail_color }}",
+        msg: "[result_url] {{ fail_msg }}", room: "{{ hipchat_room }}",
+        when: "test_url is defined and (result_url is not defined or 'OK' not in result_url.msg)" }
+    - { role: hipchat_alert, color: "{{ success_color }}",
+        msg: "[result_uri] {{ success_msg }}", room: "{{ hipchat_room }}",
+        when: "test_uri is defined and (result_uri is defined and result_uri|succeeded)" }
+    - { role: hipchat_alert, color: "{{ fail_color }}",
+        msg: "[result_uri] {{ fail_msg }}", room: "{{ hipchat_room }}",
+        when: "test_uri is defined and (result_uri is not defined or result_uri|failed)" }
+    - { role: hipchat_alert, color: "{{ success_color }}",
+        msg: "[test_redis] {{ success_msg }}", room: "{{ hipchat_room }}",
+        when: "test_redis is defined and redis_passed" }
+    - { role: hipchat_alert, color: "{{ fail_color }}",
+        msg: "[test_redis] {{ fail_msg }}", room: "{{ hipchat_room }}",
+        when: "test_redis is defined and not redis_passed" }
+    - { role: hipchat_alert, color: "{{ success_color }}",
+        msg: "[test_mongo_instance] {{ success_msg }}", room: "{{ hipchat_room }}",
+        when: "test_mongo_instance is defined and mongo_instance_passed" }
+    - { role: hipchat_alert, color: "{{ fail_color }}",
+        msg: "[test_mongo_instance] {{ fail_msg }}", room: "{{ hipchat_room }}",
+        when: "test_mongo_instance is defined and not mongo_instance_passed" }

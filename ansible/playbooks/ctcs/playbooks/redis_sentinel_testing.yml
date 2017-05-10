@@ -1,0 +1,40 @@
+- hosts: localhost
+  connection: local
+  gather_facts: no
+  vars:
+    sentinel_server: "sentinel_{{ env }}"
+    debug: false
+    customers:
+      - shell_name: vdoc-gbr
+      - shell_name: vdoc_irl
+      - shell_name: vhi
+
+  pre_tasks:
+    - debug: var=sentinel_server
+
+  tasks:
+    - name: create config
+      template: src=sentinel.conf.j2 dest=/tmp/sentinel_key.conf
+      register: create_config_status
+
+    - name: update config
+      lineinfile: dest=/tmp/sentinel_main.conf regexp="^sentinel monitor {{item}}_master" line="sentinel monitor {{item}}_master_{{env}} {{item}} 6371 2"
+      register: update_config_status
+      with_items:
+        - relymd
+        - iowa
+        - tcs
+      when: create_config_status.changed
+
+    - name: remove /tmp/remove_me
+      file: path=/tmp/remove_me
+            state=absent
+      register: file_removed
+
+  post_tasks:
+    - debug: var={{item}}
+      with_items:
+        - create_config_status.changed
+        - update_config_status.changed
+        - file_removed.changed
+      when: debug

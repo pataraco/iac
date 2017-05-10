@@ -1,0 +1,12 @@
+- hosts: localhost
+  connection: local
+  gather_facts: no
+  vars:
+    distro: "2015.03"
+    euregion: "eu-west-1"
+    usregion: "us-east-1"
+    ami_id_eu: "{{ lookup('find_ami2', euregion,'amazon','amzn-ami-hvm-'+distro+'.*.x86_64-ebs','name',True) }}"
+    ami_id_us: "{{ lookup('find_ami2', usregion,'amazon','amzn-ami-hvm-'+distro+'.*.x86_64-ebs','name',True) }}"
+  tasks:
+    - debug: var=ami_id_eu
+    - debug: var=ami_id_us

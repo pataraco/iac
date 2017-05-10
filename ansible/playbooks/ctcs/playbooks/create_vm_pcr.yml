@@ -1,0 +1,49 @@
+---
+# Used to create new PCR file - Update vars before use
+#
+# Usage:
+#       # Create PCR with default scheduled downtime and (DB) update needed
+#       ansible-playbook \
+#           -i inventory/VMedix/mirkwood/hosts_local \
+#           -e "bn=vm-1608-rc-1 cn=green us=mop_vm-1608_update.py" \
+#           --vault-password-file=~/.vault \
+#           playbooks/VMedix/create_vm_pcr.yml
+#
+#       # Create PCR with NO scheduled downtime and NO (DB) update needed
+#       ansible-playbook \
+#           -i inventory/VMedix/mirkwood/hosts_local \
+#           -e "bn=vm-1608-rc-1 cn=green dt=no" \
+#           --vault-password-file=~/.vault \
+#           playbooks/VMedix/create_vm_pcr.yml
+#
+# Template used:
+#       playbooks/VMedix/templates/vm_pcr.j2
+#
+# Creates the file:
+#       playbooks/VMedix/PCR/{{ BRANCH_NEW }}.txt
+#
+- hosts: localhost
+  connection: local
+  gather_facts: no
+  vars:
+    # new git branch
+    branch_new: "{{ bn | mandatory }}"
+    # new cluster color
+    cluster_new: "{{ cn | mandatory }}"
+    # old cluster color
+    cluster_old: "{{ (cluster_new == 'blue') | ternary('green', 'blue') }}"
+    # update script to run (set with "us=" if needed)
+    update_script: "{{ us | default('') }}"
+    # new hosts inventory file
+    hosts_new: "hosts_{{ cluster_new }}"
+    # old hosts inventory file
+    hosts_old: "hosts_{{ cluster_old }}"
+    # Is there a scheduled downtime? (yes|no)
+    scheduled_downtime: "{{ dt | default('yes') }}"
+    # staging delegate:  the api server created in staging
+    staging_delegate: "{{ sd | default('api1') }}"
+    # Ansible Vault password file
+    vault_password_file: "{{ vpf | default('~/.vault') }}"
+  tasks:
+    - name: Create the VMedix PCR file
+      template: src=templates/vm_pcr.j2 dest=playbooks/VMedix/PCR/{{ branch_new }}.txt

@@ -1,0 +1,43 @@
+---
+# Used to test if i can use 'with_items' to call a role
+# Usage:
+#       
+#   ansible-playbook -i localhost, looping_roles_test.yml
+#
+- hosts: localhost
+  connection: local
+  gather_facts: no
+  vars:
+    customers:
+      - cname: one
+        type: clothing
+      - cname: two
+        type: rental
+      - cname: three
+        type: auto
+    penv: prod
+  roles:
+    - role: show_customers
+      cname: "one"
+      type: "clothing"
+      when: "penv != 'prod'"
+#     - role: show_customers
+#       name: "{{ item.name }}"
+#       type: "{{ item.type }}"
+#       with_items:
+#         - "{{ customers }}"
+#       when: env == 'prod'
+    #- { role: show_customers, name: "{{ item.name }}", type: "{{ item.type }}", with_items: "{{ customers }}" }
+## for some reason the `when` conditional doesn't work here
+#   tasks:
+#     - name: show value of penv
+#       debug: var=penv
+#     - name: include role in loop
+#       include_role:
+#         name: show_customers
+#       vars:
+#         cname: "{{ item.cname }}"
+#         type: "{{ item.type }}"
+#       with_items: "{{ customers }}"
+#       #when: "{{ penv }} == 'prod'"
+#         when: penv is not defined

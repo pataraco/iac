@@ -1,0 +1,34 @@
+some shit i'd like to save
+--------------------------
+# this has example of getting EC2 facts/tags
+- hosts: localhost
+  connection: local
+  become: yes
+  gather_facts: no
+
+   pre_tasks:
+     - name: setup_common | Get EC2 facts of instance
+       ec2_facts:
+ 
+     - name: setup_common | Retrieve instance tags
+       ec2_tag:
+         region: '{{ ansible_ec2_placement_region }}'
+         resource: '{{ ansible_ec2_instance_id }}'
+         state: list
+       register: ec2_tags
+ 
+     - name: "setup_common | set some facts"
+       set_fact:
+         az: "{{ ansible_ec2_placement_availability_zone }}"
+         instance_name: "{{ ec2_tags.tags.Name }}"
+         instance_id: "{{ ansible_ec2_instance_id }}"
+         region: "{{ ansible_ec2_placement_region }}"
+-----------------------------
+# this has cool regexp to find an IP address
+- name: tag_name | Update the IPv4 FQDN (pt. 3) - (/etc/hosts)
+  lineinfile:
+    dest: /etc/hosts
+    regexp: '^(\d{1,3}\.){3}\d{1,3}\s*{{ instance_name }}'
+    line: "{{ instance_ip }}{{'\t'}}{{ instance_name }}.{{ route53_private_zone }}"
+    state: present
+-----------------------------

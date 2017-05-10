@@ -1,0 +1,19 @@
+---
+# ansible-playbook -i IP debian_gcc_fun.yml
+#
+- hosts: all
+  remote_user: ubuntu
+  become: yes
+  accelerate: false
+  gather_facts: yes
+  tasks:
+    - name: install gcc - Debian
+      apt: pkg={{ item }} state=present
+      with_items:
+        - gcc
+      when: ansible_os_family == "Debian"
+    - name: clean up and remove gcc compiler - Debian
+      apt: pkg="gcc" state=absent
+      when: ansible_os_family == "Debian"
+
+

@@ -1,0 +1,23 @@
+---
+# Used to try to create hostnames with either master or UIDs
+# Usage:
+#       
+#       ansible-playbook -i localhost, -e "b_v=False" templating_test.yml
+#
+- hosts: localhost
+  connection: local
+  gather_facts: no
+  vars:
+    project: "{{ p | default('vmedix') }}"
+    branch_tag: test_branch
+    vpc_name: "{{ v | default('mirkwood') }}"
+    bv: "{{ b_v | mandatory }}"
+    env: blue_violet
+    cluster: blue_green
+    name_arg: $name
+    playbook_args: "{{ '--limit localhost -e env='+env+' -e cluster='+cluster+' -e branch_tag=\\$branch_tag' | string }}"
+
+  tasks:
+    - name: Create the hello world inventory file
+      template: src=templates/hello_world.sh.j2
+                dest="/tmp/hello_world_inv.sh" mode=0744

@@ -1,0 +1,42 @@
+---
+# Used to test lookup ami
+# Usage:
+#       ansible-playbook -i localhost, -e "asgn=raco-test-asg region=us-west-1 mr=api bt=vm-1701-rc-1 p=VMedix" getting_asg_instances.yml
+#
+- hosts: localhost
+  connection: local
+  gather_facts: no
+  vars:
+    ansible_python_interpreter: /usr/bin/env python
+    hai_qry: "[?health_status=='Healthy'].instance_id"
+    machine_role: "{{ mr | mandatory }}"
+    branch_tag: "{{ bt | mandatory }}"
+    project: "{{ p | mandatory }}"
+  tasks:
+    - name: Get ASG facts
+      ec2_asg_facts:
+        name: "{{ asgn | mandatory }}"
+        region: "{{ region | mandatory }}"
+      register: aws_asgs
+    - set_fact:
+        instances: "{{ aws_asgs.results[0].instances }}"
+    - set_fact:
+        ha_instances: "{{ instances | json_query(hai_qry) }}"
+    - debug: var=aws_asgs
+    - debug: var=instances
+    - debug: var=ha_instances
+
+    - name: "Get instance data by MachineRole/BranchTag"
+      get_aws_objects:
+        type: instance
+        region: "{{ region }}"
+        filters:
+          "tag:MachineRole": "{{ machine_role | default(omit)}}"
+          "tag:BranchTag": "{{ branch_tag | default(omit)}}"
+          "tag:Project": "{{ project | default(omit)}}"
+          "instance-state-name": "running"
+      register: instance_data
+      when: machine_role is defined and
+            branch_tag is defined and
+            project is defined
+    - debug: var=instance_data

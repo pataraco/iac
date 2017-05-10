@@ -1,0 +1,26 @@
+---
+# Used to try to create hostnames with either master or UIDs
+# Usage:
+#       
+#       ansible-playbook -i localhost, nginx_conf_lif_test.yml
+#
+- hosts: localhost
+  connection: local
+  gather_facts: no
+  vars:
+    config_file: "/tmp/fire.conf"
+    le_pems_dest: "/etc/letsencrypt/live"
+    le_cert_name: "fullchain.pem"
+    le_key_name: "privkey.pem"
+    common_name: "consult.firecrackerhealth.com"
+  tasks:
+    - name: Certs set-up for auto-renewal, modify config file to point to them (CRT)
+      lineinfile:
+        dest: "{{ config_file }}"
+        regexp: '^(\s)*ssl_certificate(\s)'
+        line: '    ssl_certificate      {{ le_pems_dest }}/{{ common_name }}/{{ le_cert_name }};'
+    - name: Certs set-up for auto-renewal, modify config file to point to them (KEY)
+      lineinfile:
+        dest: "{{ config_file }}"
+        regexp: '^(\s)*ssl_certificate_key(\s)'
+        line: '    ssl_certificate_key  {{ le_pems_dest }}/{{ common_name }}/{{ le_key_name }};'

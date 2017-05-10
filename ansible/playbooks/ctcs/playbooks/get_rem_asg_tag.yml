@@ -1,0 +1,75 @@
+---
+# Used to test getting ASG tag info, removing one tag and updating the ASG
+# Usage:
+#       ansible-playbook -i localhost, -e "asgn=raco-test-asg region=us-west-1" test_get_rem_asg_tag.yml
+#
+# try something like this?:
+#
+#    ipmunge: |
+#      [
+#      {% for anip in [''.join(instance_ip.split('.'))] %}
+#      "{{ anip }}"
+#      {% endfor %}
+#      ]
+
+- hosts: localhost
+  connection: local
+  gather_facts: no
+  vars:
+    ansible_python_interpreter: /usr/bin/env python
+    no_mop_qry: "[?key!='MOP']"
+    hard_coded_tags:
+      - Project: raco-test
+      - Env: dev
+      - MOP: true
+      - BranchTag: N/A
+        propagate_at_launch: no
+  tasks:
+    - name: Get ASG facts
+      ec2_asg_facts:
+        name: "{{ asgn | mandatory }}"
+        region: "{{ region | mandatory }}"
+      register: aws_asgs
+    - set_fact:
+        orig_tags: "{{ aws_asgs.results[0].tags }}"
+    - set_fact:
+        mop_removed_tags: "{{ orig_tags | json_query(no_mop_qry) }}"
+    - debug: var=mop_removed_tags
+    - set_fact:
+      args:
+        new_tags_list:
+          "{{ item.key }}": "{{ item.value }}"
+          propagate_at_launch: "{{ item.propagate_at_launch }}"
+      with_items: "{{ mop_removed_tags }}"
+      register: new_tags_list_results
+    - debug: var=new_tags_list
+    - set_fact:
+        new_tags: "{{ new_tags_list_results.results | map(attribute='ansible_facts.new_tags_list') | list }}"
+    - debug: var=new_tags
+
+    - name: Write new ASG tags
+      ec2_asg:
+        name: "{{ asgn | mandatory }}"
+        region: "{{ region | mandatory }}"
+        launch_config_name: "{{ aws_asgs.results[0].launch_configuration_name }}"
+        # temporarily using hard_coded until i figure out how to get above to work
+        #tags: "{{ new_tags }}"
+        tags: "{{ hard_coded_tags }}"
+
+# COMMENTS
+#
+# above doesn't work, creates this:
+#  "rnt": [
+#      {
+#          "propagate_at_launch": false,
+#          "{{ item.key }}": "N/A"
+#      },
+#      {
+#         "propagate_at_launch": true,
+#          "{{ item.key }}": "dev"
+#      },
+#      {
+#          "propagate_at_launch": true,
+#          "{{ item.key }}": "raco-test"
+#      }
+#  ]

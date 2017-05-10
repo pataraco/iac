@@ -1,0 +1,27 @@
+---
+# Used to test lookup ami
+# Usage:
+#       ansible-playbook \
+#           -i localhost \
+#           -e "region=us-east-1 distro=2016.09" \
+#           test_lookup_ami.yml
+#
+#       ansible-playbook -i localhost, -e "region=us-west-1 distro=2016.09" test_lookup_ami.yml
+#
+- hosts: localhost
+  connection: local
+  gather_facts: no
+  vars:
+    default_base_img_gp2: "{{ lookup('find_ami2', region,'amazon','amzn-ami-hvm-'+distro+'.*.x86_64-gp2','name',True) }}"
+    default_base_img_ebs: "{{ lookup('find_ami2', region,'amazon','amzn-ami-hvm-'+distro+'.*.x86_64-ebs','name',True) }}"
+    default_base_img_gp2_2: "{{ lookup('find_ami2', region,'amazon','amzn-ami-hvm-'+distro+'.*-x86_64-gp2','name',True) }}"
+    default_base_img_ebs_2: "{{ lookup('find_ami2', region,'amazon','amzn-ami-hvm-'+distro+'.*-x86_64-ebs','name',True) }}"
+    default_base_img_gp2_3: "{{ lookup('find_ami2', region,'amazon','amzn-ami-hvm-'+distro+'.*x86_64-gp2','name',True) }}"
+    default_base_img_ebs_3: "{{ lookup('find_ami2', region,'amazon','amzn-ami-hvm-'+distro+'.*x86_64-ebs','name',True) }}"
+  tasks:
+    - debug: var=default_base_img_gp2
+    - debug: var=default_base_img_ebs
+    - debug: var=default_base_img_gp2_2
+    - debug: var=default_base_img_ebs_2
+    - debug: var=default_base_img_gp2_3
+    - debug: var=default_base_img_ebs_3

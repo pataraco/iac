@@ -1,0 +1,259 @@
+# {{ ansible_managed }}
+#
+# WARNING! This file is NOT to be run as a script
+#          It is purely used for reference and verification during code review
+#          Commands are to be copied and pasted as needed
+#
+# NOTE:    Make sure your ssh keys are on OLD servers in order to run Ansible
+
+#        #==================================================#        #
+#        #                     STAGING                      #        #
+#        #==================================================#        #
+
+{% set step_no = 0 %}
+# {% set step_no = step_no + 1 %}{{ step_no }}. Create NEW shared2 cluster (redis, search & mongo)
+$ ansible-playbook -i inventory/VMedix/{{ vpc_name }}/hosts_shared2 -e "env=staging branch_tag={{ branch_new }} num_search=3 num_redis=3" --vault-password-file={{ vault_password_file }} playbooks/VMedix/create_shared.yml
+
+# WAIT for HipChat creation notifications from ALL shared2 instances (~30-60 minutes)
+
+# {% set step_no = step_no + 1 %}{{ step_no }}. Restore MongoDB snapshot from production
+$ ansible-playbook -i inventory/VMedix/{{ vpc_name }}/hosts_shared2 -e "env=production" --vault-password-file={{ vault_password_file }} playbooks/VMedix/mongo_restore.yml
+
+# {% set step_no = step_no + 1 %}{{ step_no }}. Restore prev day prod Elasticsearch snapshot
+$ ansible-playbook -i inventory/VMedix/{{ vpc_name }}/hosts_shared2 -e "env=staging" --vault-password-file={{ vault_password_file }} playbooks/VMedix/search_restore.yml
+
+# {% set step_no = step_no + 1 %}{{ step_no }}. Create NEW {{ cluster_new }} cluster (api, app_nginx & api_nginx)
+$ ansible-playbook -i inventory/VMedix/{{ vpc_name }}/{{ hosts_new }} -e "branch_tag={{ branch_new }} num_api=1 num_app_nginx=1 num_api_nginx=1 env=staging debug=yes" --vault-password-file={{ vault_password_file }} playbooks/VMedix/create_blue_green.yml
+
+# WAIT for HipChat creation notifications from ALL {{ cluster_new }} instances (~8-25 minutes)
+
+{% if update_script %}
+# {% set step_no = step_no + 1 %}{{ step_no }}. Update/Migrate DB/run a script (perform on an API instance)
+# (a. get on an API, b. Change envs, c. Change CWD, d. Run the script)
+$ ssh {{ staging_delegate }}.{{ cluster_new }}.{{ vpc_name }}.nim "source /var/virtumedix/bin/activate; cd ~virtumedix; python tools/mop_scripts/{{ update_script }}"
+{% else %}
+# No DB migration needed - NOT running any DB migration scripts
+{% endif %}
+
+# {% set step_no = step_no + 1 %}{{ step_no }}. Change 'admin' password(s) for QA testing
+# (looks like it fails, but as long as we can log in, it's fine)
+$ ansible-playbook -i inventory/VMedix/{{ vpc_name }}/{{ hosts_new }} -e "env=staging delegate={{ staging_delegate }}" --vault-password-file={{ vault_password_file }} playbooks/VMedix/change_admin_password.yml
+
+# {% set step_no = step_no + 1 %}{{ step_no }}. Disable customer notifications
+$ ansible-playbook -i inventory/VMedix/{{ vpc_name }}/{{ hosts_new }} -e "delegate={{ staging_delegate }}" --vault-password-file={{ vault_password_file }} playbooks/VMedix/disable_notify.yml
+
+# {% set step_no = step_no + 1 %}{{ step_no }}. Determine the IP addresses for the staging ELBs
+$ playbooks/VMedix/scripts/create_vm_qa_hosts_file.sh {{ cluster_new }}
+
+# {% set step_no = step_no + 1 %}{{ step_no }}. Add entries to hosts file (c:\Windows\System32\Drivers\etc\hosts)
+
+# {% set step_no = step_no + 1 %}{{ step_no }}. Smoke Test: Test admin login and verify data exists
+# (a. login; https://{{ customers[0].server_name }}, admin@ad.min/nim1nim1)
+# (b. check; Click [Choices in the Application > Chief Complaints])
+
+# {% set step_no = step_no + 1 %}{{ step_no }}. Remove entries from hosts file (c:\Windows\System32\Drivers\etc\hosts)
+
+# {% set step_no = step_no + 1 %}{{ step_no }}. Send host entries to VirtuMedix team
+
+# {% set step_no = step_no + 1 %}{{ step_no }}. Hand off to QA for TESTING...
+#   If QA tests PASSED - Create AMIs and destroy {{ cluster_new }} and shared2 clusters
+#   If QA Tests FAILED - Destroy {{ cluster_new }} and shared2 clusters and rebuild (with fixes)
+
+# {% set step_no = step_no + 1 %}{{ step_no }}. Create the snapshots (AMIs) if QA tests PASSED
+# (ignore "suspend cron" errors - it works)
+$ ansible-playbook -i inventory/VMedix/{{ vpc_name }}/{{ hosts_new }} --limit '!aws' -e "branch_tag={{ branch_new }} project=VMedix overwrite=true" --vault-password-file={{ vault_password_file }} playbooks/VMedix/create_amis.yml
+
+# Destroy both staging clusters if QA FAILED or AMI's OK
+
+# {% set step_no = step_no + 1 %}{{ step_no }}. Destroy the {{ cluster_new }} cluster
+$ ansible-playbook -i inventory/VMedix/{{ vpc_name }}/{{ hosts_new }} -e "branch_tag={{ branch_new }}" --vault-password-file={{ vault_password_file }} playbooks/VMedix/destroy_blue_green.yml
+
+# {% set step_no = step_no + 1 %}{{ step_no }}. Destroy the shared2 cluster
+$ ansible-playbook -i inventory/VMedix/{{ vpc_name }}/hosts_shared2 -e "branch_tag={{ branch_new }}" --vault-password-file={{ vault_password_file }} playbooks/VMedix/destroy_shared.yml
+
+# {% set step_no = step_no + 1 %}{{ step_no }}. Code review, merge branch with main, tag the repo and push the tag to origin
+$ arc diff --reviewers akulkarni,candonov,pfreeman,praco,sbenjamin,tbenichou,tholcomb main
+$ arc land --onto main
+$ git tag {{ branch_new }}
+$ git push origin refs/tags/{{ branch_new }}
+$ git branch -d {{ branch_new }}
+$ git push origin :refs/heads/{{ branch_new }}
+
+# At this point staging is complete and the repo is ready for the production MOP
+
+#        #==================================================#        #
+#        #                    PRODUCTION                    #        #
+#        #==================================================#        #
+
+{% set step_no = 0 %}
+# {% set step_no = step_no + 1 %}{{ step_no }}. Put VMedix into Check_MK downtime starting "now" and for 4 hours
+# (to specify a start time use -s option; e.g. "-s 9:00pm")
+$ ssh -n monitor1 '~/cmd_downtime -l "4 hours" -r "MOP VMedix {{ branch_new[:7] | upper }}" add {{ check_mk_list }}'
+
+# {% set step_no = step_no + 1 %}{{ step_no }}. Remove OLD {{ cluster_old }} cluster AWS CloudWatch alarms
+$ ansible-playbook -i inventory/VMedix/{{ vpc_name }}/{{ hosts_old }} --limit aws -e "state=absent aws_service=elb" --vault-password-file={{ vault_password_file }} playbooks/infrastructure/aws_alarms.yml
+
+# {% set step_no = step_no + 1 %}{{ step_no }}. Double-check and confirm OLD {{ cluster_old }} cluster AWS CloudWatch alarms are gone
+$ aws cloudwatch describe-alarms --region {{ region }} | grep AlarmName | grep VMedix | grep {{ cluster_old }}
+
+# {% set step_no = step_no + 1 %}{{ step_no }}. Suspend cron jobs on OLD {{ cluster_old }} cluster
+$ ansible -i inventory/VMedix/{{ vpc_name }}/{{ hosts_old }} "all:\!aws" -m service -a "name=crond state=stopped" --vault-password-file {{ vault_password_file }} --become
+
+# {% set step_no = step_no + 1 %}{{ step_no }}. Put OLD {{ cluster_old }} cluster AWS ASG into "debug" mode (health check type: ELB -> EC2)
+$ ansible-playbook -i inventory/VMedix/{{ vpc_name }}/{{ hosts_old }} -e "debug=yes" --vault-password-file={{ vault_password_file }} playbooks/util/change_asg_health_check_type.yml
+
+{% if scheduled_downtime == 'yes' %}
+# {% set step_no = step_no + 1 %}{{ step_no }}. Put website into "Maintenance Mode"
+# (touch /var/www/vmedix/.in_full_maint.txt file on app_nginx servers)
+$ ansible -i inventory/VMedix/{{ vpc_name }}/{{ hosts_old }} "app_nginx*" -a "touch /var/www/vmedix/.in_full_maint.txt" --vault-password-file {{ vault_password_file }} --become
+{% else %}
+# No down time expected - do NOT need to put website into "Maintenance Mode"
+{% endif %}
+
+# {% set step_no = step_no + 1 %}{{ step_no }}. Shutdown services on OLD {{ cluster_old }} API servers with `sdown` (RUN TWICE)
+# (note: looks like it fails because of the "1" return code)
+$ ansible -i inventory/VMedix/{{ vpc_name }}/{{ hosts_old }} "api[0-9]*" -a "sdown" --vault-password-file {{ vault_password_file }}
+
+# {% set step_no = step_no + 1 %}{{ step_no }}. Verify services stopped on OLD {{ cluster_old }} API servers with `sstat`
+$ ansible -i inventory/VMedix/{{ vpc_name }}/{{ hosts_old }} "api[0-9]*" -a "sstat" --vault-password-file {{ vault_password_file }}
+
+# {% set step_no = step_no + 1 %}{{ step_no }}. Take MongoDB snapshot
+$ ansible-playbook -i inventory/VMedix/{{ vpc_name }}/hosts_shared1 -e "env=production" --vault-password-file={{ vault_password_file }} playbooks/VMedix/mongo_dump.yml
+
+# {% set step_no = step_no + 1 %}{{ step_no }}. Take ElasticSearch snapshot
+$ ansible-playbook -i inventory/VMedix/{{ vpc_name }}/hosts_shared1 -e "env=production" --vault-password-file={{ vault_password_file }} playbooks/VMedix/search_dump.yml
+
+# {% set step_no = step_no + 1 %}{{ step_no }}. Create NEW {{ cluster_new }} cluster (api, app_nginx & api_nginx)
+$ ansible-playbook -i inventory/VMedix/{{ vpc_name }}/{{ hosts_new }} -e "branch_tag={{ branch_new }} num_api=2 num_app_nginx=2 num_api_nginx=2 env=production" --vault-password-file={{ vault_password_file }} playbooks/VMedix/create_blue_green.yml
+
+# WAIT for HipChat creation notifications from ALL {{ cluster_new }} instances (~8-25 minutes)
+
+{% if update_script %}
+# {% set step_no = step_no + 1 %}{{ step_no }}. Shutdown services on NEW {{ cluster_new }} API servers with `sdown` (RUN TWICE)
+# (note: looks like it fails because of the "1" return code)
+$ ansible -i inventory/VMedix/{{ vpc_name }}/{{ hosts_new }} "api[0-9]*" -a "sdown" --vault-password-file {{ vault_password_file }}
+
+# {% set step_no = step_no + 1 %}{{ step_no }}. Verify services stopped on NEW {{ cluster_new }} API servers with `sstat`
+$ ansible -i inventory/VMedix/{{ vpc_name }}/{{ hosts_new }} "api[0-9]*" -a "sstat" --vault-password-file {{ vault_password_file }}
+
+# {% set step_no = step_no + 1 %}{{ step_no }}. Update/Migrate DB/run a script (perform on a {{ cluster_new }} API instance)
+# (a. get on an API, b. Change envs, c. Change CWD, d. Run the script)
+$ ssh api1.{{ cluster_new }}.{{ vpc_name }}.nim "source /var/virtumedix/bin/activate; cd ~virtumedix; python tools/mop_scripts/{{ update_script }}"
+
+# {% set step_no = step_no + 1 %}{{ step_no }}. Start services on NEW {{ cluster_new }} API servers with `sup`
+$ ansible -i inventory/VMedix/{{ vpc_name }}/{{ hosts_new }} "api[0-9]*" -a "sup" --vault-password-file {{ vault_password_file }}
+
+# {% set step_no = step_no + 1 %}{{ step_no }}. Verify services running on NEW {{ cluster_new }} API servers with `sstat`
+$ ansible -i inventory/VMedix/{{ vpc_name }}/{{ hosts_new }} "api[0-9]*" -a "sstat" --vault-password-file {{ vault_password_file }}
+{% else %}
+# No DB migration needed - NOT running any DB migration scripts
+{% endif %}
+
+# {% set step_no = step_no + 1 %}{{ step_no }}. Do the DNS flip to NEW {{ cluster_new }} cluster: ({{ cluster_old }} -> {{ cluster_new }})
+{% if scheduled_downtime == 'yes' %}
+# (also takes website out of "Maintenance Mode")
+{% endif %}
+$ ansible-playbook -i inventory/VMedix/{{ vpc_name }}/{{ hosts_new }} --vault-password-file={{ vault_password_file }} playbooks/VMedix/{{ cluster_old }}_to_{{ cluster_new }}.yml
+
+# {% set step_no = step_no + 1 %}{{ step_no }}. Verify DNS flip succeeded (should see CNAME records to "{{ cluster_new }}") 
+$ for h in $(egrep -r 'server_name:|api_server:' inventory/VMedix/{{ vpc_name }} | awk '{print $NF}'); do dig $h | egrep -v '^$|^;' | grep CNAME | egrep 'blue|green'; done
+
+# {% set step_no = step_no + 1 %}{{ step_no }}. Change 'admin' password(s) for QA testing
+$ ansible-playbook -i inventory/VMedix/{{ vpc_name }}/{{ hosts_new }} -e "env=staging delegate=api1" --vault-password-file={{ vault_password_file }} playbooks/VMedix/change_admin_password.yml
+
+# {% set step_no = step_no + 1 %}{{ step_no }}. Smoke Test: Test admin login and verify data exists
+# (a. login; https://{{ customers[0].server_name }}, admin@ad.min/nim1nim1)
+# (b. check; Click [Choices in the Application > Chief Complaints])
+
+# {% set step_no = step_no + 1 %}{{ step_no }}. Hand off to QA for TESTING...
+
+# If QA testing "PASSED" proceed, otherwise go to "ROLL-BACK" instructions below
+
+# {% set step_no = step_no + 1 %}{{ step_no }}. Create NEW {{ cluster_new }} cluster AWS CloudWatch alarms
+$ ansible-playbook -i inventory/VMedix/{{ vpc_name }}/{{ hosts_new }} --limit aws -e "state=present aws_service=elb" --vault-password-file={{ vault_password_file }} playbooks/infrastructure/aws_alarms.yml
+
+# {% set step_no = step_no + 1 %}{{ step_no }}. Restore 'admin' password(s)
+$ ansible-playbook -i inventory/VMedix/{{ vpc_name }}/{{ hosts_new }} -e "env=production delegate=api1" --vault-password-file={{ vault_password_file }} playbooks/VMedix/change_admin_password.yml
+
+# {% set step_no = step_no + 1 %}{{ step_no }}. Verify "green" (OK) statuses in Check_MK
+
+# {% set step_no = step_no + 1 %}{{ step_no }}. Take VMedix out of Check_MK downtime
+$ ssh -n monitor1 '~/cmd_downtime -r "MOP VMedix {{ branch_new[:7] | upper }}" delete {{ check_mk_list }}'
+
+# STOP - MOP COMPLETE (If QA testing PASSED)
+
+#        #==================================================#        #
+#        #                    ROLL-BACK                     #        #
+#        #==================================================#        #
+
+{% set step_no = 0 %}
+# Rollback (If QA testing FAILED - proceed, otherwise STOP)
+
+# {% set step_no = step_no + 1 %}{{ step_no }}. Flip DNS back to OLD {{ cluster_old }} cluster: ({{ cluster_new }} -> {{ cluster_old }})
+{% if scheduled_downtime == 'yes' %}
+# (also puts website back into "Maintenance Mode")
+{% endif %}
+$ ansible-playbook -i inventory/VMedix/{{ vpc_name }}/{{ hosts_old }} --vault-password-file={{ vault_password_file }} playbooks/VMedix/{{ cluster_new }}_to_{{ cluster_old }}.yml
+
+# {% set step_no = step_no + 1 %}{{ step_no }}. Verify DNS flip succeeded (should see CNAME records to "{{ cluster_old }}") 
+$ for h in $(egrep -r 'server_name:|api_server:' inventory/VMedix/{{ vpc_name }} | awk '{print $NF}'); do dig $h | egrep -v '^$|^;' | grep CNAME | egrep 'blue|green'; done
+
+# {% set step_no = step_no + 1 %}{{ step_no }}. Remove NEW {{ cluster_new }} cluster AWS CloudWatch alarms
+$ ansible-playbook -i inventory/VMedix/{{ vpc_name }}/{{ hosts_new }} --limit aws -e "state=absent aws_service=elb" --vault-password-file={{ vault_password_file }} playbooks/infrastructure/aws_alarms.yml
+
+# {% set step_no = step_no + 1 %}{{ step_no }}. Double-check and confirm NEW {{ cluster_new }} cluster AWS CloudWatch alarms are gone
+$ aws cloudwatch describe-alarms --region {{ region }} | grep AlarmName | grep VMedix | grep {{ cluster_new }}
+
+# {% set step_no = step_no + 1 %}{{ step_no }}. Destroy NEW {{ cluster_new }} FAILED cluster
+$ ansible-playbook -i inventory/VMedix/{{ vpc_name }}/{{ hosts_new }} -e "branch_tag={{ branch_new }}" --vault-password-file={{ vault_password_file }} playbooks/VMedix/destroy_blue_green.yml
+
+# {% set step_no = step_no + 1 %}{{ step_no }}. Restore MongoDB from latest snapshot
+$ ansible-playbook -i inventory/VMedix/{{ vpc_name }}/hosts_shared1 -e "env=production" --vault-password-file={{ vault_password_file }} playbooks/VMedix/mongo_restore.yml
+
+# {% set step_no = step_no + 1 %}{{ step_no }}. Restore Elasticsearch from latest snapshot
+# (NOTE: Need to change "ts=YYYY_MM_DD_hh_mm" to latest timestamp)
+$ ansible-playbook -i inventory/VMedix/{{ vpc_name }}/hosts_shared1 -e "env=production ts=YYYY_MM_DD_hh_mm" --vault-password-file={{ vault_password_file }} playbooks/VMedix/search_restore.yml
+
+# {% set step_no = step_no + 1 %}{{ step_no }}. Start services on OLD {{ cluster_old }} API servers with `sup`
+$ ansible -i inventory/VMedix/{{ vpc_name }}/{{ hosts_old }} "api[0-9]*" -a "sup" --vault-password-file {{ vault_password_file }}
+
+# {% set step_no = step_no + 1 %}{{ step_no }}. Verify services running on OLD {{ cluster_old }} API servers with `sstat`
+$ ansible -i inventory/VMedix/{{ vpc_name }}/{{ hosts_old }} "api[0-9]*" -a "sstat" --vault-password-file {{ vault_password_file }}
+
+{% if scheduled_downtime == 'yes' %}
+# {% set step_no = step_no + 1 %}{{ step_no }}. Take website out of "Maintenance Mode"
+# (remove /var/www/vmedix/.in_full_maint.txt file on app_nginx servers)
+$ ansible -i inventory/VMedix/{{ vpc_name }}/{{ hosts_old }} "app_nginx*" -a "rm -f /var/www/vmedix/.in_full_maint.txt" --vault-password-file {{ vault_password_file }} --become
+{% else %}
+# No down time expected - do NOT need to take website out of "Maintenance Mode"
+{% endif %}
+
+# {% set step_no = step_no + 1 %}{{ step_no }}. Change 'admin' password(s) for QA testing
+$ ansible-playbook -i inventory/VMedix/{{ vpc_name }}/{{ hosts_old }} -e "env=staging delegate=api1" --vault-password-file={{ vault_password_file }} playbooks/VMedix/change_admin_password.yml
+
+# {% set step_no = step_no + 1 %}{{ step_no }}. Smoke Test: Test admin login and verify data exists
+# (a. login; https://{{ customers[0].server_name }}, admin@ad.min/nim1nim1)
+# (b. check; Click [Choices in the Application > Chief Complaints])
+
+# {% set step_no = step_no + 1 %}{{ step_no }}. Hand off to QA for TESTING...
+
+# If QA testing "PASSED" proceed, otherwise something is really wrong - Fix it!
+
+# {% set step_no = step_no + 1 %}{{ step_no }}. Replace OLD {{ cluster_old }} cluster AWS CloudWatch alarms
+$ ansible-playbook -i inventory/VMedix/{{ vpc_name }}/{{ hosts_old }} --limit aws -e "state=present aws_service=elb" --vault-password-file={{ vault_password_file }} playbooks/infrastructure/aws_alarms.yml
+
+# {% set step_no = step_no + 1 %}{{ step_no }}. Take OLD {{ cluster_old }} cluster AWS ASG out of "debug" mode (health check type: EC2 -> ELB)
+$ ansible-playbook -i inventory/VMedix/{{ vpc_name }}/{{ hosts_old }} --vault-password-file={{ vault_password_file }} playbooks/util/change_asg_health_check_type.yml
+
+# {% set step_no = step_no + 1 %}{{ step_no }}. Resume cron jobs on OLD {{ cluster_old }} cluster
+$ ansible -i inventory/VMedix/{{ vpc_name }}/{{ hosts_old }} "all:\!aws" -m service -a "name=crond state=started" --vault-password-file {{ vault_password_file }} --become
+
+# {% set step_no = step_no + 1 %}{{ step_no }}. Restore 'admin' password(s)
+$ ansible-playbook -i inventory/VMedix/{{ vpc_name }}/{{ hosts_old }} -e "env=production delegate=api1" --vault-password-file={{ vault_password_file }} playbooks/VMedix/change_admin_password.yml
+
+# {% set step_no = step_no + 1 %}{{ step_no }}. Verify "green" (OK) statuses in Check_MK
+
+# {% set step_no = step_no + 1 %}{{ step_no }}. Take VMedix out of Check_MK downtime
+$ ssh -n monitor1 '~/cmd_downtime -r "MOP VMedix {{ branch_new[:7] | upper }}" delete {{ check_mk_list }}'
+
+# STOP - ROLLBACK COMPLETE (If QA testing FAILED)

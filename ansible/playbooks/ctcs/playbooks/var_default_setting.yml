@@ -1,0 +1,19 @@
+---
+# ansible-playbook -i localhost, var_default_setting.yml
+- hosts: localhost
+  connection: local
+  gather_facts: no
+  vars:
+#     test_var_val: set in var_default_setting playbook
+    api_name: vmedix-api
+    delegate: "{{ del | default(api_name+'1') }}"
+
+  roles:
+    - role: test
+    - role: set_vars
+
+  post_tasks:
+#     - name: print value of test_var_val
+#       debug: var=test_var_val
+      - debug: var=delegate
+

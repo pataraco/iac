@@ -1,0 +1,63 @@
+---
+# Used to try to create hostnames with either master or UIDs
+# Usage:
+#       
+#       ansible-playbook -i localhost, -e "hn=vmedix-api-aio az=us-west-2a ip=10.202.4.95" creating_uid_hostnames.yml
+#
+- hosts: localhost
+  connection: local
+  gather_facts: no
+  vars:
+    azone: "{{ az | mandatory }}"
+    instance_ip: "{{ ip | mandatory }}"
+    instance_name_base: "{{ hn | mandatory }}"
+    ansible_python_interpreter: /usr/bin/env python
+  tasks:
+#     - name: Get the date
+#       command: date +%s
+#       register: date
+#     #- debug: var=date
+
+    #- name: Turn the date into a UID
+    - name: Get the date and turn it into a UID
+      #command: "printf '%x\n' {{ date.stdout }}"
+      command: "printf '%x\n' {{ lookup('pipe', 'date +%s') }}"
+      register: uid
+    #- debug: var=uid
+
+    # This is ugly - Need a better way!
+    - name: Set the master instance name for AZ a
+      set_fact:
+        instance_name: "{{ instance_name_base }}-master"
+      when: azone.split('-')[2].find('a') != -1
+
+    - name: Add UID to instance_name for AZ's b, c and d
+      set_fact:
+        instance_name_1: "{{ instance_name_base }}-{{ uid.stdout }}"
+      when: azone.split('-')[2].find('b') != -1 or
+            azone.split('-')[2].find('c') != -1 or
+            azone.split('-')[2].find('d') != -1
+
+    - name: Get octets
+      set_fact:
+      args:
+        octet: "{% if item|length == 3 %}{{ item }}{% elif item|length == 2 %}{{ '0'+item }}{% else %}{{ '00'+item }}{% endif %}"
+      with_items: "{{ instance_ip.split('.') }}"
+      register: octets
+    #- debug: msg="Here are the octets; {{ octets }}"
+
+    - name: Join octets
+      set_fact:
+        padded_host_uid: "{{ octets.results | map(attribute='ansible_facts.octet') | join() }}"
+    #- debug: msg="Here is the padded octet; {{ padded_host_uid }}"
+
+#     - name: Get rid of . in IP
+#       set_fact:
+#         host_uid: "{{ instance_ip.split('.') | join() }}"
+
+    - name: Add padded IP UID to instance_name
+      set_fact:
+        instance_name_2: "{{ instance_name_base }}-{{ padded_host_uid }}"
+
+    - debug: msg="Here is the instance name; {{ instance_name_1 }}"
+    - debug: msg="Or this might be cool too; {{ instance_name_2 }}"

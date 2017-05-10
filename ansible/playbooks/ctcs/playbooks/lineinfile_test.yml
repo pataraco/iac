@@ -1,0 +1,30 @@
+---
+# Used to try to create hostnames with either master or UIDs
+# Usage:
+#       
+#       ansible-playbook -i localhost, lineinfile_test.yml
+#
+- hosts: localhost
+  connection: local
+  gather_facts: no
+  vars:
+    instance_ip: 172.18.17.58
+    instance_name: praco
+    route53_private_zone: dev.local
+  tasks:
+    - name: Add line to /tmp/hosts file
+      lineinfile: dest=/tmp/hosts line="127.0.0.1{{'\t'}}redis-sentinel"
+                  insertafter=EOF
+                  create=yes
+    - name: Update the IPv4 IP (/etc/hosts)
+      lineinfile:
+        dest: /tmp/hosts
+        regexp: '^(\d{1,3}\.){3}\d{1,3}\s*{{ instance_name }}'
+        line: "{{ instance_ip }}{{'\t'}}{{ instance_name }}.{{ route53_private_zone }}"
+        state: present
+    - name: Update the FQDN (/etc/hosts)
+      lineinfile:
+        dest: /tmp/hosts
+        regexp: "^{{ instance_ip }}"
+        line: "{{ instance_ip }}{{'\t'}}{{ instance_name }}.{{ route53_private_zone }}"
+        state: present

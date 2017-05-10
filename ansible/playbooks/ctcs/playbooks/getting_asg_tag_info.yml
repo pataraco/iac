@@ -1,0 +1,114 @@
+---
+# Used to test getting ASG tag info and setting it too
+# Usage:
+# #       ansible-playbook \
+# #           -i inventory/VMedix/mirkwood/hosts_blue \
+# #           --vault-password-file=~/.vault
+# #           test_getting_asg_tag.yml
+#
+# #       ansible-playbook -i inventory/VMedix/mirkwood/hosts_blue --vault-password-file=~/.vault test_getting_asg_tag.yml
+#       
+#       ansible-playbook -i localhost, -e "asgn=raco-test-asg region=us-west-1" test_getting_asg_tag.yml
+#
+- hosts: localhost
+  connection: local
+  gather_facts: no
+  vars:
+    ansible_python_interpreter: /usr/bin/env python
+    no_mop_qry: "[?key!='MOP']"
+    hard_coded_tags:
+      - Project: raco-test
+      - Env: dev
+      - MOP: true
+      - BranchTag: N/A
+        propagate_at_launch: no
+  tasks:
+    - name: Get ASG facts
+      ec2_asg_facts:
+        name: "{{ asgn | mandatory }}"
+        region: "{{ region | mandatory }}"
+      register: aws_asgs
+    - set_fact:
+        #no_mop_qry: aws_asg.results[0].tags[][?key!='MOP']
+        #no_mop_qry: aws_asg.results[0].tags[*][?key!='MOP']
+        orig_tags: "{{ aws_asgs.results[0].tags }}"
+    - set_fact:
+        new_tags: "{{ orig_tags | json_query(no_mop_qry) }}"
+        #new_tags: "{{ orig_tags | json_query('[?key!='MOP']') }}"
+        #new_tags: "{{ orig_tags }}"
+    - debug: var=new_tags
+    # below doesn't work, creates this:
+    #  "rnt": [
+    #      {
+    #          "propagate_at_launch": false,
+    #          "{{ item.key }}": "N/A"
+    #      },
+    #      {
+    #         "propagate_at_launch": true,
+    #          "{{ item.key }}": "dev"
+    #      },
+    #      {
+    #          "propagate_at_launch": true,
+    #          "{{ item.key }}": "raco-test"
+    #      }
+    #  ]
+    - set_fact:
+      args:
+        really_new_tags:
+          #- "{{ item.key }}": "{{ item.value }}"
+          "{{ item.key }}": "{{ item.value }}"
+          #Project: "{{ item.value }}"
+          #- Project : "{{ item.value }}"
+          propagate_at_launch: "{{ item.propagate_at_launch }}"
+      with_items: "{{ new_tags }}"
+      register: rnt_results
+    - debug: var=really_new_tags
+    - set_fact:
+        rnt: "{{ rnt_results.results | map(attribute='ansible_facts.really_new_tags') | list }}"
+#     - debug: var=orig_tags    # good
+#     - debug: var=no_mop_qry   # good
+    - debug: var=rnt
+#     - debug: var=hard_coded_tags
+#     - debug: var=rnt_results
+#     - debug: var=item
+#       with_items: "{{ new_tags }}"
+#     - debug: var=aws_asgs.results[0].launch_configuration_name        # good
+#     - debug: var=aws_asgs.results[0]   # good
+
+# temporarily commented out while tested above
+#     - name: Put ASG facts
+#       ec2_asg:
+#         name: "{{ asgn | mandatory }}"
+#         region: "{{ region | mandatory }}"
+#         launch_config_name: "{{ aws_asgs.results[0].launch_configuration_name }}"
+#         #tags: "{{ new_tags | to_nice_json }}"
+#         tags: "{{ hard_coded_tags }}"
+
+########################
+#
+#     old shtuff
+#
+#     ---------------
+#- hosts: aws
+#   pre_tasks:
+#     - name: Get ASG facts
+#       ec2_asg_facts:
+#         name: "asg-{{ project }}-{{ lc_api }}-{{ cluster }}"
+#         region: "{{ region | mandatory }}"
+#       register: aws_asgs
+#     - name: Get tags from AWS ASG
+#       ec2_tag:
+#         #resource: "asg-{{ project }}-{{ lc_api }}-{{ cluster }}"
+#         #resource: var=aws_asgs.results[0].auto_scaling_group_arn
+#         resource: "autoScalingGroupName/asg-{{ project }}-{{ lc_api }}-{{ cluster }}"
+#         region: "{{ region }}"
+#         state: list
+#       register: aws_asg_tags
+#   tasks:
+    #- debug: var=aws_asgs                                      # OK
+    #- debug: var=aws_asgs.results[0].tags.BranchTag            # undefined
+    #- debug: var=aws_asgs.results[0].auto_scaling_group_arn    # OK
+    #- debug: var=aws_asgs.results[0].tags                      # OK
+    #- debug: var=aws_asgs.results[0].tags[0].[?key=='BranchTag'].value
+#     - debug: var=aws_asg_tags
+#     ---------------

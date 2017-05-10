@@ -1,0 +1,22 @@
+- hosts: localhost
+  connection: local
+  gather_facts: no
+  vars:
+    test_url: True
+    result_url: True
+    result_url_msg: "Test OK"
+
+  tasks:
+    - debug: msg="test1- {{ test_url }}"
+      when: "test_url is defined and (result_url is defined and 'OK' in result_url_msg)"
+    - debug: msg="test2- {{ test_url }}"
+      when: "test_url is defined and 'OK' in result_url_msg"
+    - debug: msg="test3- {{ test_url }}"
+      when: "test_url is defined and result_url is defined"
+  roles:
+    - { role: test,
+        when: "test_url is defined and (result_url is defined and 'OK' in result_url_msg)" }
+    - { role: test,
+      when: "test_url is defined and 'OK' in result_url_msg" }
+    - { role: test,
+      when: "test_url is defined and result_url is defined" }

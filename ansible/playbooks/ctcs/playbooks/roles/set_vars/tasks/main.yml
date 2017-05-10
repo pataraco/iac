@@ -1,0 +1,7 @@
+---
+- name: print value of test_var_val
+  debug: var=test_var_val
+# - name: print value of test_var_val                   # kindof works
+#   debug: var="{{ test_var_val | default(720) }}"      # kindof works
+- name: print value of test_var_val_setting
+  debug: var=test_var_val_setting

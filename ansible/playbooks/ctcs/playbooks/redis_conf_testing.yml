@@ -1,0 +1,64 @@
+- hosts: localhost
+  connection: local
+  gather_facts: no
+  vars:
+    slaveof1: no one
+    slaveof2: host1 1
+    slaveof3: host1 2
+    region: us-west-1
+    customers:
+      - server: 1
+        az: us-west-1a
+        redis_master: tcs_master
+        redis_host: tcs-redis1
+        redis_port: 6371
+      - server: 2
+        az: us-west-1b
+        redis_master: abc_master
+        redis_host: abc-redis2
+        redis_port: 6372
+      - server: 3
+        az: us-west-1c
+        redis_master: tcs_master
+        redis_host: xyz-redis3
+        redis_port: 6373
+
+  pre_tasks:
+    - set_fact:
+      args:
+        rservers:
+          redis_port: "{{ item.redis_port }}"
+#           redis_slaveof: >
+#             {%- if item.server == 1 -%}
+#             no one
+#             {%- else -%}
+#             {{ item.redis_host }} {{ item.redis_port }}
+#             {%- endif -%}
+          #redis_slaveof: '{%- if item.server == 1 -%} no one {%- else -%} {{ item.redis_host }} {{ item.redis_port }} {%- endif -%}'
+          #redis_slaveof: '{% if item.server == 1 %}no one{% else %}{{ item.redis_host }} {{ item.redis_port }}{% endif %}'
+          redis_slaveof: "{{ (item.az == region+'a') | ternary('no one', item.redis_host+' '+(item.redis_port|string)) }}"
+      with_items:
+        - "{{ customers }}"
+      register: redis_result
+
+    - set_fact:
+        redis_servers: "{{ redis_result.results | map(attribute='ansible_facts.rservers') | list }}"
+
+  tasks:
+    - debug: var=item
+      with_items:
+        - "{{ slaveof1 }}"
+        - "{{ slaveof2 }}"
+        - "{{ slaveof3 }}"
+    - name: create configs
+      template: src=redis.1.conf.j2 dest=/tmp/redis.{{ item }}.conf
+      with_items:
+        - "{{ slaveof1 }}"
+        - "{{ slaveof2 }}"
+        - "{{ slaveof3 }}"
+    - debug: var=redis_servers
+    - name: create some more configs
+      template: src=redis.conf.j2 dest=/tmp/redis.{{ item.redis_port }}.conf
+      with_items:
+        - "{{ redis_servers }}"
+

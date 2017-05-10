@@ -1,0 +1,13 @@
+- hosts: localhost
+  connection: local
+  gather_facts: no
+  vars:
+    cust1: vdoc_gbl
+    cust2: vdoc_gbl_test
+    cust3: vdoc-gbl
+  tasks:
+    - debug: var=item
+      with_items:
+        - "{{ cust1 | regex_replace('_', '-') }}"
+        - "{{ cust2 | regex_replace('_', '-') }}"
+        - "{{ cust3 | regex_replace('_', '-') }}"

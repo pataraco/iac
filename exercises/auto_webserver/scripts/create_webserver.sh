@@ -1,21 +1,40 @@
 #!/bin/bash
 
-AWS_KEY_PAIR_NAME="raco"
-AWS_PRIVATE_KEY_LOC="$HOME/.ssh/${AWS_KEY_PAIR_NAME}.pem"
-
 # automates the creation of a webserver and the AWS infrastructure for it to run in
 
-# create a key pair via CLI (if it doesn't exist)
+# requirements
+#   - aws cli installed
+#   - aws environment set up,
+#     i.e. the following environment variables set/exported
+#      AWS_DEFAULT_PROFILE
+#        OR
+#      AWS_ACCESS_KEY_ID
+#      AWS_SECRET_ACCESS_KEY
+#      AWS_DEFAULT_REGION
+#   - jq installed
+
+CREATOR_NAME="raco"
+REPOS_DIR="$HOME/repos"
+REPO_NAME="infrastructure-automation"
+PROJECT="auto_webserver"
+AWS_KEY_PAIR_NAME="$CREATOR_NAME"
+AWS_PRIVATE_KEY="$HOME/.ssh/${AWS_KEY_PAIR_NAME}.pem"
+CF_STACK_TEMPLATE="file:/$REPOS_DIR/$REPO_NAME/exercises/$PROJECT/files/${CREATOR_NAME}_cf_template.json"
+
+# create a key pair via CLI (if it doesn't exist) to use for the instances
 aws ec2 describe-key-pairs --key-name $AWS_KEY_PAIR_NAME &> /dev/null
 if [ $? -ne 0 ]; then
    echo "public key doesn't exist in AWS, creating key pair: $AWS_KEY_PAIR_NAME"
-   aws ec2 create-key-pair --key-name $AWS_KEY_PAIR_NAME | jq -r .KeyMaterial > $AWS_PRIVATE_KEY_LOC
-elif [ ! -f $AWS_PRIVATE_KEY_LOC ]; then
+   aws ec2 create-key-pair --key-name $AWS_KEY_PAIR_NAME | jq -r .KeyMaterial > $AWS_PRIVATE_KEY
+elif [ ! -f $AWS_PRIVATE_KEY ]; then
    echo "the public key exists in AWS: $AWS_KEY_PAIR_NAME"
-   echo "but you don't seem to have access to the private key: $AWS_PRIVATE_KEY_LOC"
+   echo "but you don't seem to have access to the private key: $AWS_PRIVATE_KEY"
 else
    echo "the public key already exists in AWS: $AWS_KEY_PAIR_NAME"
 fi
+
+# create a SNS topic to get notifications
+NOTIFICATION_ARN=$(aws sns create-topic --name "all-${CREATOR_NAME}-notifications" | jq -r .TopicArn)
 
 # I. create the infrastructure in AWS via AWS CLI and CloudFormation (CF)
 #   1. create a json file for CF that does the following:
@@ -28,6 +47,7 @@ fi
 #     - create the route53 entry to point to the ELB
 #     - create key
 #   2. use AWS cloudformation CLI to create the infrastructure using the json file
+aws cloudformation create-stack --stack-name $CREATOR_NAME --template-body $CF_STACK_TEMPLATE --disable-rollback --notification-arns $NOTIFICATION_ARN --tags Key=Name,Value=$CREATOR_NAME 
 
 # II. create a Web Server via Ansible
 #   - manually: create a user-data script (UDS)

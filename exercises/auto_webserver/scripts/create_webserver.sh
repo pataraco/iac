@@ -55,7 +55,7 @@ aws cloudformation create-stack --stack-name $CREATOR_NAME --template-body $CF_S
 #      - installs ansible
 #      - performs ansible pull from AWS CodeCommit to configure itself
 #   - via ansible: create the launch config (LC) specifying the:
-#      - UDS, and latest/greatest centos ami, Sg's, inst type, profile, and key
+#      - UDS, and latest/greatest centos ami, SG's, inst type (t2.micro), profile, and key
 #   - via ansible: create a auto scaling group with instance numbers 1/5/1 (min/max/desired)
 #      - designate the ELB to attach the instances to
 #      - health check type of "ELB"
@@ -71,6 +71,7 @@ aws cloudformation create-stack --stack-name $CREATOR_NAME --template-body $CF_S
 
 # III. create another Web Server via Chef
 #   - Create a Chef server in AWS
+#      - m1.small instance
 #      - manually for now, but think of how to automate
 #   - Set up knife file on local linux box (or on another instance in AWS)
 #   - Create cookbooks/recipes and push up to the chef server
@@ -80,6 +81,7 @@ aws cloudformation create-stack --stack-name $CREATOR_NAME --template-body $CF_S
 #      - configures the knife file
 #      - runs chef to configure itself
 #   - manually via python: create the launch config (LC) with the UDS and latest/greatest centos ami
+#      - UDS, and latest/greatest centos ami, SG's, inst type (t2.micro), profile, and key
 #   - manually via python: create a auto scaling group with instance numbers 1/5/1 (min/max/desired)
 #      - designate the ELB to attach the instances to
 #      - health check type of "ELB"

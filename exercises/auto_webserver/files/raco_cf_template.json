@@ -7,6 +7,7 @@
          "Type" : "String",
          "Default": "raco"
       }
+   },
    "Resources" : {
       "VPC" : {
          "Type" : "AWS::EC2::VPC",
@@ -18,41 +19,54 @@
             "Tags" : [ {"Key" : "Name", "Value" : {"Ref": "Creator"} } ]
          }
       },
-      "Subnet-Int-1" : {
+      "SubnetInt1" : {
          "Type" : "AWS::EC2::Subnet",
          "Properties" : {
-            "VpcId" : { "Ref" : {"Ref": "Creator"} },
+            "VpcId" : {"Ref": "VPC"},
             "CidrBlock" : "8.12.1.0/24",
             "AvailabilityZone" : "us-west-1a",
-            "Tags" : [ { "Key" : "Name", "Value" : {"Ref": "Creator"} } ]
+            "Tags" : [ { "Key" : "Name", "Value" : {"Fn::Join": ["", [{"Ref": "Creator"}, "-int-usw-1a"]]} } ]
          }
-      }
-      "Subnet-Int-2" : {
+      },
+      "SubnetInt2" : {
          "Type" : "AWS::EC2::Subnet",
          "Properties" : {
-            "VpcId" : { "Ref" : {"Ref": "Creator"} },
+            "VpcId" : {"Ref": "VPC"},
             "CidrBlock" : "8.12.3.0/24",
             "AvailabilityZone" : "us-west-1b",
-            "Tags" : [ { "Key" : "Name", "Value" : {"Ref": "Creator"} } ]
+            "Tags" : [ { "Key" : "Name", "Value" : {"Fn::Join": ["", [{"Ref": "Creator"}, "-int-usw-1b"]]} } ]
          }
-      }
-      "Subnet-Ext-1" : {
+      },
+      "SubnetExt1" : {
          "Type" : "AWS::EC2::Subnet",
          "Properties" : {
-            "VpcId" : { "Ref" : {"Ref": "Creator"} },
+            "VpcId" : {"Ref": "VPC"},
             "CidrBlock" : "8.12.2.0/24",
             "AvailabilityZone" : "us-west-1a",
-            "Tags" : [ { "Key" : "Name", "Value" : {"Ref": "Creator"} } ]
+            "Tags" : [ { "Key" : "Name", "Value" : {"Fn::Join": ["", [{"Ref": "Creator"}, "-ext-usw-1a"]]} } ]
          }
-      }
-      "Subnet-Ext-2" : {
+      },
+      "SubnetExt2" : {
          "Type" : "AWS::EC2::Subnet",
          "Properties" : {
-            "VpcId" : { "Ref" : {"Ref": "Creator"} },
+            "VpcId" : {"Ref": "VPC"},
             "CidrBlock" : "8.12.4.0/24",
             "AvailabilityZone" : "us-west-1b",
-            "Tags" : [ { "Key" : "Name", "Value" : {"Ref": "Creator"} } ]
+            "Tags" : [ { "Key" : "Name", "Value" : {"Fn::Join": ["", [{"Ref": "Creator"}, "-ext-usw-1b"]]} } ]
+         }
+      },
+      "IGW" : {
+         "Type" : "AWS::EC2::InternetGateway",
+         "Properties" : {
+            "Tags" : [ { "Key" : "Name", "Value" : {"Fn::Join": ["", [{"Ref": "Creator"}, "-igw"]]} } ]
+         }
+      }
+      "AttachIGW" : {
+         "Type" : "AWS::EC2::VPCGatewayAttachment",
+         "Properties" : {
+            "VpcId" : { "Ref" : "VPC" },
+            "InternetGatewayId" : { "Ref" : "IGW" }
          }
       }
    }
-}
+}     

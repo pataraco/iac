@@ -233,6 +233,7 @@
       "ELB" : {
          "Type" : "AWS::ElasticLoadBalancing::LoadBalancer",
          "Properties" : {
+            "LoadBalancerName" : { "Fn::Join": ["", [{"Ref": "Creator"}, "-website"]] },
             "HealthCheck" : {
                "Target" : "HTTP:80/index.html",
                "HealthyThreshold" : "3",

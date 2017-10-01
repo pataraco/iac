@@ -60,7 +60,7 @@
          "Properties" : {
             "Tags" : [ { "Key" : "Name", "Value" : {"Fn::Join": ["", [{"Ref": "Creator"}, "-igw"]]} } ]
          }
-      }
+      },
       "AttachIGW" : {
          "Type" : "AWS::EC2::VPCGatewayAttachment",
          "Properties" : {

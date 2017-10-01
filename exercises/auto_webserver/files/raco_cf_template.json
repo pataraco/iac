@@ -67,6 +67,20 @@
             "VpcId" : { "Ref" : "VPC" },
             "InternetGatewayId" : { "Ref" : "IGW" }
          }
+      },
+      "NGW" : {
+         "Type" : "AWS::EC2::NatGateway",
+         "Properties" : {
+            "AllocationId" : { "Fn::GetAtt" : ["NGWEIP", "AllocationId"]},
+            "SubnetId" : { "Ref" : "SubnetExt1"},
+            "Tags" : [ { "Key" : "Name", "Value" : {"Fn::Join": ["", [{"Ref": "Creator"}, "-ngw"]]} } ]
+         }
+      },
+      "NGWEIP" : {
+         "Type" : "AWS::EC2::EIP",
+         "Properties" : {
+            "Domain" : "vpc"
+         }
       }
    }
 }     

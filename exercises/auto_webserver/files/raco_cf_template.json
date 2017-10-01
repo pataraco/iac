@@ -5,75 +5,105 @@
       "Creator" : {
          "Description": "Name of person creating the infrastructure",
          "Type" : "String",
-         "Default": "raco"
+         "Default" : "raco"
+      },
+      "VpcCidr" : {
+         "Description": "CIDR for VPC",
+         "Type" : "String",
+         "Default" : "8.12.0.0/16"
+      },
+      "SubnetIntCidr1" : {
+         "Description": "CIDR for VPC",
+         "Type" : "String",
+         "Default" : "8.12.1.0/24"
+      },
+      "SubnetExtCidr1" : {
+         "Description": "CIDR for VPC",
+         "Type" : "String",
+         "Default" : "8.12.2.0/24"
+      },
+      "SubnetIntCidr2" : {
+         "Description": "CIDR for VPC",
+         "Type" : "String",
+         "Default" : "8.12.3.0/24"
+      },
+      "SubnetExtCidr2" : {
+         "Description": "CIDR for VPC",
+         "Type" : "String",
+         "Default" : "8.12.4.0/24"
+      },
+      "MyPubIp" : {
+         "Description": "My public IP from 'curl http://ipecho.net/plain'",
+         "Type" : "String",
+         "Default" : "70.168.250.62"
       }
    },
    "Resources" : {
       "VPC" : {
          "Type" : "AWS::EC2::VPC",
          "Properties" : {
-            "CidrBlock" : "8.12.0.0/16",
+            "CidrBlock" : {"Ref":"VpcCidr"},
    	    "EnableDnsSupport" : "false",
    	    "EnableDnsHostnames" : "false",
             "InstanceTenancy" : "default",
-            "Tags" : [ {"Key" : "Name", "Value" : {"Ref": "Creator"} } ]
+            "Tags" : [{"Key":"Name","Value":{"Ref":"Creator"}}]
          }
       },
       "SubnetInt1" : {
          "Type" : "AWS::EC2::Subnet",
          "Properties" : {
-            "VpcId" : {"Ref": "VPC"},
-            "CidrBlock" : "8.12.1.0/24",
+            "VpcId" : {"Ref":"VPC"},
+            "CidrBlock" : {"Ref":"SubnetIntCidr1"},
             "AvailabilityZone" : "us-west-1a",
-            "Tags" : [ { "Key" : "Name", "Value" : {"Fn::Join": ["", [{"Ref": "Creator"}, "-int-usw-1a"]]} } ]
+            "Tags" : [{"Key":"Name","Value":{"Fn::Join":["",[{"Ref":"Creator"},"-int-usw-1a"]]}}]
          }
       },
       "SubnetInt2" : {
          "Type" : "AWS::EC2::Subnet",
          "Properties" : {
-            "VpcId" : {"Ref": "VPC"},
-            "CidrBlock" : "8.12.3.0/24",
+            "VpcId" : {"Ref":"VPC"},
+            "CidrBlock" : {"Ref":"SubnetIntCidr2"},
             "AvailabilityZone" : "us-west-1b",
-            "Tags" : [ { "Key" : "Name", "Value" : {"Fn::Join": ["", [{"Ref": "Creator"}, "-int-usw-1b"]]} } ]
+            "Tags" : [{"Key":"Name","Value":{"Fn::Join":["",[{"Ref":"Creator"},"-int-usw-1b"]]}}]
          }
       },
       "SubnetExt1" : {
          "Type" : "AWS::EC2::Subnet",
          "Properties" : {
-            "VpcId" : {"Ref": "VPC"},
-            "CidrBlock" : "8.12.2.0/24",
+            "VpcId" : {"Ref":"VPC"},
+            "CidrBlock" : {"Ref":"SubnetExtCidr1"},
             "AvailabilityZone" : "us-west-1a",
-            "Tags" : [ { "Key" : "Name", "Value" : {"Fn::Join": ["", [{"Ref": "Creator"}, "-ext-usw-1a"]]} } ]
+            "Tags" : [{"Key":"Name","Value":{"Fn::Join":["",[{"Ref":"Creator"},"-ext-usw-1a"]]}}]
          }
       },
       "SubnetExt2" : {
          "Type" : "AWS::EC2::Subnet",
          "Properties" : {
-            "VpcId" : {"Ref": "VPC"},
-            "CidrBlock" : "8.12.4.0/24",
+            "VpcId" : {"Ref":"VPC"},
+            "CidrBlock" : {"Ref":"SubnetExtCidr2"},
             "AvailabilityZone" : "us-west-1b",
-            "Tags" : [ { "Key" : "Name", "Value" : {"Fn::Join": ["", [{"Ref": "Creator"}, "-ext-usw-1b"]]} } ]
+            "Tags" : [{"Key":"Name","Value":{"Fn::Join":["",[{"Ref":"Creator"},"-ext-usw-1b"]]}}]
          }
       },
       "IGW" : {
          "Type" : "AWS::EC2::InternetGateway",
          "Properties" : {
-            "Tags" : [ { "Key" : "Name", "Value" : {"Fn::Join": ["", [{"Ref": "Creator"}, "-igw"]]} } ]
+            "Tags" : [{"Key":"Name","Value":{"Fn::Join":["",[{"Ref":"Creator"},"-igw"]]}}]
          }
       },
       "AttachIGW" : {
          "Type" : "AWS::EC2::VPCGatewayAttachment",
          "Properties" : {
-            "VpcId" : { "Ref" : "VPC" },
-            "InternetGatewayId" : { "Ref" : "IGW" }
+            "VpcId" : {"Ref":"VPC"},
+            "InternetGatewayId" : {"Ref":"IGW"}
          }
       },
       "NGW" : {
          "Type" : "AWS::EC2::NatGateway",
          "Properties" : {
-            "AllocationId" : { "Fn::GetAtt" : ["NGWEIP", "AllocationId"]},
-            "SubnetId" : { "Ref" : "SubnetExt1"},
-            "Tags" : [ { "Key" : "Name", "Value" : {"Fn::Join": ["", [{"Ref": "Creator"}, "-ngw"]]} } ]
+            "AllocationId" : {"Fn::GetAtt":["NGWEIP","AllocationId"]},
+            "SubnetId" : {"Ref":"SubnetExt1"},
+            "Tags" : [{"Key":"Name","Value":{"Fn::Join":["",[{"Ref":"Creator"},"-ngw"]]}}]
          }
       },
       "NGWEIP" : {
@@ -85,155 +115,155 @@
       "RouteTableInt" : {
          "Type" : "AWS::EC2::RouteTable",
          "Properties" : {
-            "VpcId" : { "Ref" : "VPC" },
-            "Tags" : [ { "Key" : "Name", "Value" : {"Fn::Join": ["", [{"Ref": "Creator"}, "-rtbl-int"]]} } ]
+            "VpcId" : {"Ref":"VPC"},
+            "Tags" : [{"Key":"Name","Value":{"Fn::Join":["",[{"Ref":"Creator"},"-rtbl-int"]]}}]
          }
       },
       "RouteTableExt" : {
          "Type" : "AWS::EC2::RouteTable",
          "Properties" : {
-            "VpcId" : { "Ref" : "VPC" },
-            "Tags" : [ { "Key" : "Name", "Value" : {"Fn::Join": ["", [{"Ref": "Creator"}, "-rtbl-ext"]]} } ]
+            "VpcId" : {"Ref":"VPC"},
+            "Tags" : [{"Key":"Name","Value":{"Fn::Join":["",[{"Ref":"Creator"},"-rtbl-ext"]]}}]
          }
       },
       "RouteIntOut" : {
          "Type" : "AWS::EC2::Route",
          "Properties" : {
            "DestinationCidrBlock" : "0.0.0.0/0",
-           "NatGatewayId" : { "Ref" : "NGW" },
-           "RouteTableId" : { "Ref" : "RouteTableInt" }
+           "NatGatewayId" : {"Ref":"NGW"},
+           "RouteTableId" : {"Ref":"RouteTableInt"}
          }
       },
       "RouteExtOut" : {
          "Type" : "AWS::EC2::Route",
          "Properties" : {
            "DestinationCidrBlock" : "0.0.0.0/0",
-           "GatewayId" : { "Ref" : "IGW" },
-           "RouteTableId" : { "Ref" : "RouteTableExt" }
+           "GatewayId" : {"Ref":"IGW"},
+           "RouteTableId" : {"Ref":"RouteTableExt"}
          }
       },
       "SubnetRouteTableAssociationInt1" : {
          "Type" : "AWS::EC2::SubnetRouteTableAssociation",
          "Properties" : {
-            "SubnetId" : { "Ref" : "SubnetInt1" },
-            "RouteTableId" : { "Ref" : "RouteTableInt" }
+            "SubnetId" : {"Ref":"SubnetInt1"},
+            "RouteTableId" : {"Ref":"RouteTableInt"}
          }
       },
       "SubnetRouteTableAssociationInt2" : {
          "Type" : "AWS::EC2::SubnetRouteTableAssociation",
          "Properties" : {
-            "SubnetId" : { "Ref" : "SubnetInt2" },
-            "RouteTableId" : { "Ref" : "RouteTableInt" }
+            "SubnetId" : {"Ref":"SubnetInt2"},
+            "RouteTableId" : {"Ref":"RouteTableInt"}
          }
       },
       "SubnetRouteTableAssociationExt1" : {
          "Type" : "AWS::EC2::SubnetRouteTableAssociation",
          "Properties" : {
-            "SubnetId" : { "Ref" : "SubnetExt1" },
-            "RouteTableId" : { "Ref" : "RouteTableExt" }
+            "SubnetId" : {"Ref":"SubnetExt1"},
+            "RouteTableId" : {"Ref":"RouteTableExt"}
          }
       },
       "SubnetRouteTableAssociationExt2" : {
          "Type" : "AWS::EC2::SubnetRouteTableAssociation",
          "Properties" : {
-            "SubnetId" : { "Ref" : "SubnetExt2" },
-            "RouteTableId" : { "Ref" : "RouteTableExt" }
+            "SubnetId" : {"Ref":"SubnetExt2"},
+            "RouteTableId" : {"Ref":"RouteTableExt"}
          }
       },
       "SgHttpAny" : {
          "Type" : "AWS::EC2::SecurityGroup",
          "Properties" : {
-            "GroupName" : {"Fn::Join": ["", [{"Ref": "Creator"}, "-http-from-any"]]},
+            "GroupName" : {"Fn::Join":["",[{"Ref":"Creator"},"-http-from-any"]]},
             "GroupDescription" : "Allow HTTP from ANY",
-            "SecurityGroupIngress" : [{
+            "SecurityGroupIngress" : [ {
                   "IpProtocol" : "tcp",
                   "FromPort" : "80",
                   "ToPort" : "80",
                   "CidrIp" : "0.0.0.0/0"
             }],
-            "VpcId" : {"Ref" : "VPC"},
-            "Tags" : [ { "Key" : "Name", "Value" : {"Fn::Join": ["", [{"Ref": "Creator"}, "-http-from-any"]]} } ]
+            "VpcId" : {"Ref":"VPC"},
+            "Tags" : [{"Key":"Name","Value":{"Fn::Join":["",[{"Ref":"Creator"},"-http-from-any"]]}}]
          }
       },
       "SgHttpElb" : {
          "Type" : "AWS::EC2::SecurityGroup",
          "Properties" : {
-            "GroupName" : {"Fn::Join": ["", [{"Ref": "Creator"}, "-http-from-elb"]]},
+            "GroupName" : {"Fn::Join":["",[{"Ref":"Creator"},"-http-from-elb"]]},
             "GroupDescription" : "Allow HTTP from ELB - Uses Lambda to update CIDR",
-            "SecurityGroupIngress" : [{
+            "SecurityGroupIngress" : [ {
                   "IpProtocol" : "tcp",
                   "FromPort" : "80",
                   "ToPort" : "80",
                   "CidrIp" : "0.0.0.0/0"
             }],
-            "VpcId" : {"Ref" : "VPC"},
-            "Tags" : [ { "Key" : "Name", "Value" : {"Fn::Join": ["", [{"Ref": "Creator"}, "-http-from-elb"]]} } ]
+            "VpcId" : {"Ref":"VPC"},
+            "Tags" : [ {"Key":"Name","Value":{"Fn::Join":["",[{"Ref":"Creator"},"-http-from-elb"]]}}]
          }
       },
       "SgIcmpMe" : {
          "Type" : "AWS::EC2::SecurityGroup",
          "Properties" : {
-            "GroupName" : {"Fn::Join": ["", [{"Ref": "Creator"}, "-icmp-from-me"]]},
+            "GroupName" : {"Fn::Join":["",[{"Ref":"Creator"},"-icmp-from-me"]]},
             "GroupDescription" : "Allow ICMP from ME",
             "SecurityGroupIngress" : [{
                   "IpProtocol" : "icmp",
                   "FromPort" : "-1",
                   "ToPort" : "-1",
-                  "CidrIp" : "70.168.250.62/32"
+                  "CidrIp" : {"Fn::Join":["",[{"Ref":"MyPubIp"},"/32"]]}
             }],
-            "VpcId" : {"Ref" : "VPC"},
-            "Tags" : [ { "Key" : "Name", "Value" : {"Fn::Join": ["", [{"Ref": "Creator"}, "-icmp-from-me"]]} } ]
+            "VpcId" : {"Ref":"VPC"},
+            "Tags" : [{"Key":"Name","Value":{"Fn::Join":["",[{"Ref":"Creator"},"-icmp-from-me"]]}}]
          }
       },
       "SgIcmpInt" : {
          "Type" : "AWS::EC2::SecurityGroup",
          "Properties" : {
-            "GroupName" : {"Fn::Join": ["", [{"Ref": "Creator"}, "-icmp-from-int"]]},
+            "GroupName" : {"Fn::Join":["",[{"Ref":"Creator"},"-icmp-from-int"]]},
             "GroupDescription" : "Allow ICMP from Internal Instance",
             "SecurityGroupIngress" : [{
                   "IpProtocol" : "icmp",
                   "FromPort" : "-1",
                   "ToPort" : "-1",
-                  "CidrIp" : "8.12.0.0/16"
+                  "CidrIp" : {"Ref":"VpcCidr"}
             }],
-            "VpcId" : {"Ref" : "VPC"},
-            "Tags" : [ { "Key" : "Name", "Value" : {"Fn::Join": ["", [{"Ref": "Creator"}, "-icmp-from-int"]]} } ]
+            "VpcId" : {"Ref":"VPC"},
+            "Tags" : [{"Key":"Name","Value":{"Fn::Join":["",[{"Ref":"Creator"},"-icmp-from-int"]]}}]
          }
       },
       "SgSshInt" : {
          "Type" : "AWS::EC2::SecurityGroup",
          "Properties" : {
-            "GroupName" : {"Fn::Join": ["", [{"Ref": "Creator"}, "-ssh-from-int"]]},
+            "GroupName" : {"Fn::Join":["",[{"Ref":"Creator"},"-ssh-from-int"]]},
             "GroupDescription" : "Allow SSH from Internal Instance",
             "SecurityGroupIngress" : [{
                   "IpProtocol" : "tcp",
                   "FromPort" : "22",
                   "ToPort" : "22",
-                  "CidrIp" : "8.12.0.0/16"
+                  "CidrIp" : {"Ref":"VpcCidr"}
             }],
-            "VpcId" : {"Ref" : "VPC"},
-            "Tags" : [ { "Key" : "Name", "Value" : {"Fn::Join": ["", [{"Ref": "Creator"}, "-ssh-from-int"]]} } ]
+            "VpcId" : {"Ref":"VPC"},
+            "Tags" : [{"Key":"Name","Value":{"Fn::Join":["",[{"Ref":"Creator"},"-ssh-from-int"]]}}]
          }
       },
       "SgSshMe" : {
          "Type" : "AWS::EC2::SecurityGroup",
          "Properties" : {
-            "GroupName" : {"Fn::Join": ["", [{"Ref": "Creator"}, "-ssh-from-me"]]},
+            "GroupName" : {"Fn::Join":["",[{"Ref":"Creator"},"-ssh-from-me"]]},
             "GroupDescription" : "Allow SSH from ME",
             "SecurityGroupIngress" : [{
                   "IpProtocol" : "tcp",
                   "FromPort" : "22",
                   "ToPort" : "22",
-                  "CidrIp" : "70.168.250.62/32"
+                  "CidrIp" : {"Fn::Join":["",[{"Ref":"MyPubIp"},"/32"]]}
             }],
-            "VpcId" : {"Ref" : "VPC"},
-            "Tags" : [ { "Key" : "Name", "Value" : {"Fn::Join": ["", [{"Ref": "Creator"}, "-ssh-from-me"]]} } ]
+            "VpcId" : {"Ref":"VPC"},
+            "Tags" : [{"Key":"Name","Value":{"Fn::Join":["",[{"Ref":"Creator"},"-ssh-from-me"]]}}]
          }
       },
       "ELB" : {
          "Type" : "AWS::ElasticLoadBalancing::LoadBalancer",
          "Properties" : {
-            "LoadBalancerName" : { "Fn::Join": ["", [{"Ref": "Creator"}, "-website"]] },
+            "LoadBalancerName" : {"Fn::Join":["",[{"Ref":"Creator"},"-website"]]},
             "HealthCheck" : {
                "Target" : "HTTP:80/index.html",
                "HealthyThreshold" : "3",
@@ -241,14 +271,48 @@
                "Interval" : "15",
                "Timeout" : "5"
             },
-            "Listeners" : [ {
+            "Listeners" : [{
                "LoadBalancerPort" : "80",
                "InstancePort" : "80",
                "Protocol" : "HTTP"
-            } ],
-            "SecurityGroups" : [ {"Ref": "SgHttpAny"} ],
-            "Subnets" : [ {"Ref": "SubnetExt1"}, {"Ref": "SubnetExt2"} ],
-            "Tags" : [ { "Key" : "Name", "Value" : {"Fn::Join": ["", [{"Ref": "Creator"}, "-website"]]} } ]
+            }],
+            "SecurityGroups" : [{"Ref":"SgHttpAny"}],
+            "Subnets" : [{"Ref":"SubnetExt1"},{"Ref":"SubnetExt2"}],
+            "Tags" : [{"Key":"Name","Value":{"Fn::Join":["",[{"Ref":"Creator"},"-website"]]}}]
+         }
+      },
+      "InstIamRole" : {
+         "Type": "AWS::IAM::Role",
+         "Properties": {
+            "RoleDescription" : "Restricted access for Raco's instances to allow them to call some AWS services",
+            "AssumeRolePolicyDocument": {
+               "Version" : "2012-10-17",
+            },
+            "ManagedPolicyArns": [
+               "arn:aws:iam::aws:policy/AmazonRoute53DomainsReadOnlyAccess",
+               "arn:aws:iam::aws:policy/AmazonS3FullAccess",
+               "arn:aws:iam::aws:policy/AmazonEC2ReadOnlyAccess",
+               "arn:aws:iam::aws:policy/AmazonVPCReadOnlyAccess",
+               "arn:aws:iam::aws:policy/AmazonRoute53ReadOnlyAccess",
+               "arn:aws:iam::aws:policy/AWSCodeCommitReadOnly",
+               "arn:aws:iam::aws:policy/AmazonSNSFullAccess"
+            ],
+            "RoleName" : {"Fn::Join":["",[{"Ref":"Creator"},"-ec2-restricted"]]}
+         }
+      },
+      "BastionHost" : {
+         "Type" : "AWS::EC2::Instance",
+         "Properties" : {
+            "AvailabilityZone" : "us-west-1a",
+            "DisableApiTermination" : "True",
+            "IamInstanceProfile" : {"Ref":"InstIamRole"},
+            "ImageId" : "ami-3a674d5a",
+            "InstanceType" : "t2.micro",
+            "KeyName" : {"Ref":"Creator"},
+            "SecurityGroups" : [{"Ref":"SgSshMe"},{"Ref":"SgIcmpMe"}],
+            "SubnetId" : {"Ref":"SubnetExt1"},
+            "Tags" : [{"Key":"Name","Value":{"Fn::Join":["",[{"Ref":"Creator"},"-bastion"]]}}],
+            "Tenancy" : "default"
          }
       }
    }

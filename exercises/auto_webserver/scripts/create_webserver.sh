@@ -52,7 +52,6 @@ NOTIFICATION_ARN=$($AWS_CMD sns create-topic --name "all-${CREATOR_NAME}-notific
 #     - (if using ansible): set up codecommit to push ansible code to and pull from
 #        - set up policy for the instance to be able to pull the code
 #     - create the route53 entry to point to the ELB
-#     - create key
 #   2. use AWS cloudformation CLI to create the infrastructure using the json file
 
 # check if the CF stack already exists, if so update it, otherwise create it

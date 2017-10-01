@@ -100,7 +100,7 @@
          "Type" : "AWS::EC2::Route",
          "Properties" : {
            "DestinationCidrBlock" : "0.0.0.0/0",
-           "NatGatewayId" : { "Ref" : "NGW" }
+           "NatGatewayId" : { "Ref" : "NGW" },
            "RouteTableId" : { "Ref" : "RouteTableInt" }
          }
       },
@@ -108,8 +108,36 @@
          "Type" : "AWS::EC2::Route",
          "Properties" : {
            "DestinationCidrBlock" : "0.0.0.0/0",
-           "GatewayId" : { "Ref" : "IGW" }
-           "RouteTableId" : { "Ref" : "RouteTableInt" }
+           "GatewayId" : { "Ref" : "IGW" },
+           "RouteTableId" : { "Ref" : "RouteTableExt" }
+         }
+      },
+      "SubnetRouteTableAssociationInt1" : {
+         "Type" : "AWS::EC2::SubnetRouteTableAssociation",
+         "Properties" : {
+            "SubnetId" : { "Ref" : "SubnetInt1" },
+            "RouteTableId" : { "Ref" : "RouteTableInt" }
+         }
+      },
+      "SubnetRouteTableAssociationInt2" : {
+         "Type" : "AWS::EC2::SubnetRouteTableAssociation",
+         "Properties" : {
+            "SubnetId" : { "Ref" : "SubnetInt2" },
+            "RouteTableId" : { "Ref" : "RouteTableInt" }
+         }
+      },
+      "SubnetRouteTableAssociationExt1" : {
+         "Type" : "AWS::EC2::SubnetRouteTableAssociation",
+         "Properties" : {
+            "SubnetId" : { "Ref" : "SubnetExt1" },
+            "RouteTableId" : { "Ref" : "RouteTableExt" }
+         }
+      },
+      "SubnetRouteTableAssociationExt2" : {
+         "Type" : "AWS::EC2::SubnetRouteTableAssociation",
+         "Properties" : {
+            "SubnetId" : { "Ref" : "SubnetExt2" },
+            "RouteTableId" : { "Ref" : "RouteTableExt" }
          }
       }
    }

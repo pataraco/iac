@@ -59,10 +59,10 @@ $AWS_CMD cloudformation describe-stacks --stack-name $AWS_CF_STACK_NAME &> /dev/
 if [ $? -eq 0 ]; then
    echo "CloudFormation stack exists, updating: $AWS_CF_STACK_NAME"
    #$AWS_CMD cloudformation update-stack --stack-name $AWS_CF_STACK_NAME --template-body $CF_STACK_TEMPLATE --notification-arns $NOTIFICATION_ARN
-   $AWS_CMD cloudformation update-stack --stack-name $AWS_CF_STACK_NAME --template-body $CF_STACK_TEMPLATE
+   $AWS_CMD cloudformation update-stack --stack-name $AWS_CF_STACK_NAME --capabilities CAPABILITY_NAMED_IAM --template-body $CF_STACK_TEMPLATE
 else
    echo "CloudFormation stack does not exist, creating: $AWS_CF_STACK_NAME"
-   $AWS_CMD cloudformation create-stack --stack-name $AWS_CF_STACK_NAME --template-body $CF_STACK_TEMPLATE --disable-rollback --notification-arns $NOTIFICATION_ARN --tags Key=Name,Value=$AWS_CF_STACK_NAME 
+   $AWS_CMD cloudformation create-stack --stack-name $AWS_CF_STACK_NAME --capabilities CAPABILITY_NAMED_IAM --template-body $CF_STACK_TEMPLATE --disable-rollback --notification-arns $NOTIFICATION_ARN --tags Key=Name,Value=$AWS_CF_STACK_NAME 
 fi
 
 # II. create a Web Server via Ansible

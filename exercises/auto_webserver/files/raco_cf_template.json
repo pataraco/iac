@@ -81,6 +81,20 @@
          "Properties" : {
             "Domain" : "vpc"
          }
+      },
+      "RouteTableInt" : {
+         "Type" : "AWS::EC2::RouteTable",
+         "Properties" : {
+            "VpcId" : { "Ref" : "VPC" },
+            "Tags" : [ { "Key" : "Name", "Value" : {"Fn::Join": ["", [{"Ref": "Creator"}, "-rtbl-int"]]} } ]
+         }
+      },
+      "RouteTableExt" : {
+         "Type" : "AWS::EC2::RouteTable",
+         "Properties" : {
+            "VpcId" : { "Ref" : "VPC" },
+            "Tags" : [ { "Key" : "Name", "Value" : {"Fn::Join": ["", [{"Ref": "Creator"}, "-rtbl-ext"]]} } ]
+         }
       }
    }
 }     

@@ -139,6 +139,116 @@
             "SubnetId" : { "Ref" : "SubnetExt2" },
             "RouteTableId" : { "Ref" : "RouteTableExt" }
          }
+      },
+      "SgHttpAny" : {
+         "Type" : "AWS::EC2::SecurityGroup",
+         "Properties" : {
+            "GroupName" : {"Fn::Join": ["", [{"Ref": "Creator"}, "-http-from-any"]]},
+            "GroupDescription" : "Allow HTTP from ANY",
+            "SecurityGroupIngress" : [{
+                  "IpProtocol" : "tcp",
+                  "FromPort" : "80",
+                  "ToPort" : "80",
+                  "CidrIp" : "0.0.0.0/0"
+            }],
+            "VpcId" : {"Ref" : "VPC"},
+            "Tags" : [ { "Key" : "Name", "Value" : {"Fn::Join": ["", [{"Ref": "Creator"}, "-http-from-any"]]} } ]
+         }
+      },
+      "SgHttpElb" : {
+         "Type" : "AWS::EC2::SecurityGroup",
+         "Properties" : {
+            "GroupName" : {"Fn::Join": ["", [{"Ref": "Creator"}, "-http-from-elb"]]},
+            "GroupDescription" : "Allow HTTP from ELB - Uses Lambda to update CIDR",
+            "SecurityGroupIngress" : [{
+                  "IpProtocol" : "tcp",
+                  "FromPort" : "80",
+                  "ToPort" : "80",
+                  "CidrIp" : "0.0.0.0/0"
+            }],
+            "VpcId" : {"Ref" : "VPC"},
+            "Tags" : [ { "Key" : "Name", "Value" : {"Fn::Join": ["", [{"Ref": "Creator"}, "-http-from-elb"]]} } ]
+         }
+      },
+      "SgIcmpMe" : {
+         "Type" : "AWS::EC2::SecurityGroup",
+         "Properties" : {
+            "GroupName" : {"Fn::Join": ["", [{"Ref": "Creator"}, "-icmp-from-me"]]},
+            "GroupDescription" : "Allow ICMP from ME",
+            "SecurityGroupIngress" : [{
+                  "IpProtocol" : "icmp",
+                  "FromPort" : "-1",
+                  "ToPort" : "-1",
+                  "CidrIp" : "70.168.250.62/32"
+            }],
+            "VpcId" : {"Ref" : "VPC"},
+            "Tags" : [ { "Key" : "Name", "Value" : {"Fn::Join": ["", [{"Ref": "Creator"}, "-icmp-from-me"]]} } ]
+         }
+      },
+      "SgIcmpInt" : {
+         "Type" : "AWS::EC2::SecurityGroup",
+         "Properties" : {
+            "GroupName" : {"Fn::Join": ["", [{"Ref": "Creator"}, "-icmp-from-int"]]},
+            "GroupDescription" : "Allow ICMP from Internal Instance",
+            "SecurityGroupIngress" : [{
+                  "IpProtocol" : "icmp",
+                  "FromPort" : "-1",
+                  "ToPort" : "-1",
+                  "CidrIp" : "8.12.0.0/16"
+            }],
+            "VpcId" : {"Ref" : "VPC"},
+            "Tags" : [ { "Key" : "Name", "Value" : {"Fn::Join": ["", [{"Ref": "Creator"}, "-icmp-from-int"]]} } ]
+         }
+      },
+      "SgSshInt" : {
+         "Type" : "AWS::EC2::SecurityGroup",
+         "Properties" : {
+            "GroupName" : {"Fn::Join": ["", [{"Ref": "Creator"}, "-ssh-from-int"]]},
+            "GroupDescription" : "Allow SSH from Internal Instance",
+            "SecurityGroupIngress" : [{
+                  "IpProtocol" : "tcp",
+                  "FromPort" : "22",
+                  "ToPort" : "22",
+                  "CidrIp" : "8.12.0.0/16"
+            }],
+            "VpcId" : {"Ref" : "VPC"},
+            "Tags" : [ { "Key" : "Name", "Value" : {"Fn::Join": ["", [{"Ref": "Creator"}, "-ssh-from-int"]]} } ]
+         }
+      },
+      "SgSshMe" : {
+         "Type" : "AWS::EC2::SecurityGroup",
+         "Properties" : {
+            "GroupName" : {"Fn::Join": ["", [{"Ref": "Creator"}, "-ssh-from-me"]]},
+            "GroupDescription" : "Allow SSH from ME",
+            "SecurityGroupIngress" : [{
+                  "IpProtocol" : "tcp",
+                  "FromPort" : "22",
+                  "ToPort" : "22",
+                  "CidrIp" : "70.168.250.62/32"
+            }],
+            "VpcId" : {"Ref" : "VPC"},
+            "Tags" : [ { "Key" : "Name", "Value" : {"Fn::Join": ["", [{"Ref": "Creator"}, "-ssh-from-me"]]} } ]
+         }
+      },
+      "ELB" : {
+         "Type" : "AWS::ElasticLoadBalancing::LoadBalancer",
+         "Properties" : {
+            "HealthCheck" : {
+               "Target" : "HTTP:80/index.html",
+               "HealthyThreshold" : "3",
+               "UnhealthyThreshold" : "5",
+               "Interval" : "15",
+               "Timeout" : "5"
+            },
+            "Listeners" : [ {
+               "LoadBalancerPort" : "80",
+               "InstancePort" : "80",
+               "Protocol" : "HTTP"
+            } ],
+            "SecurityGroups" : [ {"Ref": "SgHttpAny"} ],
+            "Subnets" : [ {"Ref": "SubnetExt1"}, {"Ref": "SubnetExt2"} ],
+            "Tags" : [ { "Key" : "Name", "Value" : {"Fn::Join": ["", [{"Ref": "Creator"}, "-website"]]} } ]
+         }
       }
    }
-}     
+}

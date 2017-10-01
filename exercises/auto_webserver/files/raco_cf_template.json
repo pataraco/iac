@@ -43,8 +43,8 @@
          "Type" : "AWS::EC2::VPC",
          "Properties" : {
             "CidrBlock" : {"Ref":"VpcCidr"},
-   	    "EnableDnsSupport" : "false",
-   	    "EnableDnsHostnames" : "false",
+   	    "EnableDnsSupport" : "true",
+   	    "EnableDnsHostnames" : "true",
             "InstanceTenancy" : "default",
             "Tags" : [{"Key":"Name","Value":{"Ref":"Creator"}}]
          }
@@ -72,6 +72,7 @@
          "Properties" : {
             "VpcId" : {"Ref":"VPC"},
             "CidrBlock" : {"Ref":"SubnetExtCidr1"},
+            "MapPublicIpOnLaunch": "true",
             "AvailabilityZone" : "us-west-1a",
             "Tags" : [{"Key":"Name","Value":{"Fn::Join":["",[{"Ref":"Creator"},"-ext-usw-1a"]]}}]
          }
@@ -81,6 +82,7 @@
          "Properties" : {
             "VpcId" : {"Ref":"VPC"},
             "CidrBlock" : {"Ref":"SubnetExtCidr2"},
+            "MapPublicIpOnLaunch": "true",
             "AvailabilityZone" : "us-west-1b",
             "Tags" : [{"Key":"Name","Value":{"Fn::Join":["",[{"Ref":"Creator"},"-ext-usw-1b"]]}}]
          }
@@ -284,9 +286,13 @@
       "InstIamRole" : {
          "Type": "AWS::IAM::Role",
          "Properties": {
-            "RoleDescription" : "Restricted access for Raco's instances to allow them to call some AWS services",
             "AssumeRolePolicyDocument": {
                "Version" : "2012-10-17",
+               "Statement": [{
+                  "Action": "sts:AssumeRole",
+                  "Effect": "Allow",
+                  "Principal": {"Service":["ec2.amazonaws.com"]}
+               }]
             },
             "ManagedPolicyArns": [
                "arn:aws:iam::aws:policy/AmazonRoute53DomainsReadOnlyAccess",
@@ -300,16 +306,23 @@
             "RoleName" : {"Fn::Join":["",[{"Ref":"Creator"},"-ec2-restricted"]]}
          }
       },
+      "InstProfile" : {
+         "Type": "AWS::IAM::InstanceProfile",
+         "Properties": {
+            "Roles" : [{"Ref":"InstIamRole"}],
+            "InstanceProfileName" : {"Fn::Join":["",[{"Ref":"Creator"},"-ec2-restricted"]]}
+         }
+      },
       "BastionHost" : {
          "Type" : "AWS::EC2::Instance",
          "Properties" : {
             "AvailabilityZone" : "us-west-1a",
             "DisableApiTermination" : "True",
-            "IamInstanceProfile" : {"Ref":"InstIamRole"},
+            "IamInstanceProfile" : {"Ref":"InstProfile"},
             "ImageId" : "ami-3a674d5a",
             "InstanceType" : "t2.micro",
             "KeyName" : {"Ref":"Creator"},
-            "SecurityGroups" : [{"Ref":"SgSshMe"},{"Ref":"SgIcmpMe"}],
+            "SecurityGroupIds" : [{"Ref":"SgSshMe"},{"Ref":"SgIcmpMe"}],
             "SubnetId" : {"Ref":"SubnetExt1"},
             "Tags" : [{"Key":"Name","Value":{"Fn::Join":["",[{"Ref":"Creator"},"-bastion"]]}}],
             "Tenancy" : "default"

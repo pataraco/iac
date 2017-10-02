@@ -419,6 +419,7 @@
          "Properties" : {
             "ImageId" : {"Ref":"AmznLinuxAmi"},
             "InstanceType" : "t2.small",
+            "IamInstanceProfile" : {"Ref":"InstProfile"},
             "KeyName" : {"Ref":"Creator"},
             "SecurityGroups" : [
                {"Ref":"SgHttpElb"},
@@ -471,6 +472,35 @@
                "sudo chef-client -j $FIRST_BOOT\n"
             ]]}}
          }
-      }
+      },
+      "WebSrvrAutoScalingGrp" : {
+         "Type" : "AWS::AutoScaling::AutoScalingGroup",
+         "Properties" : {
+            "VPCZoneIdentifier" : [{"Ref":"SubnetInt1"},{"Ref":"SubnetInt2"}],
+            "HealthCheckGracePeriod" : 600,
+            "HealthCheckType" : "ELB",
+            "LaunchConfigurationName" : {"Ref":"WebSrvrLaunchConfig"},
+            "LoadBalancerNames" : [{"Ref":"ELB"}],
+            "MinSize" : "1",
+            "MaxSize" : "3",
+            "DesiredCapacity" : "1",
+            "Tags" : [{"Key":"Name","Value":{"Fn::Join":["",[{"Ref":"Creator"},"-web-server"]]},"PropagateAtLaunch":"true"}]
+         }
+      },
+      "WebSrvScaling": {
+        "Type": "AWS::AutoScaling::ScalingPolicy",
+        "Properties": {
+          "AdjustmentType": "ChangeInCapacity",
+          "AutoScalingGroupName": {"Ref":"WebSrvrAutoScalingGrp"},
+          "Cooldown": "300",
+          "PolicyType" : "TargetTrackingScaling",
+          "TargetTrackingConfiguration": {
+             "PredefinedMetricSpecification": {
+                "PredefinedMetricType": "ASGAverageCPUUtilization"
+             },
+             "TargetValue": "75"
+          }
+        }
+      }     
    }
 }

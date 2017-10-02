@@ -23,6 +23,7 @@ AWS_KEY_PAIR_NAME="$CREATOR_NAME"
 AWS_CF_STACK_NAME="$CREATOR_NAME"
 AWS_PRIVATE_KEY="$HOME/.ssh/${AWS_KEY_PAIR_NAME}.pem"
 CF_STACK_TEMPLATE="file://$REPOS_DIR/$REPO_NAME/exercises/$PROJECT/files/${CREATOR_NAME}_cf_template.json"
+KNIFERB="$REPOS_DIR/$REPO_NAME/exercises/$PROJECT/chef/.chef/knife.rb"
 
 # sanity checks
 [ -z "$AWS_CMD" ] && { echo "aws required to run this script"; exit 2; }

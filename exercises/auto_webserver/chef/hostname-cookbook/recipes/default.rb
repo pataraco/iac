@@ -28,6 +28,9 @@ template "/etc/hosts" do
   owner 'root'
   group 'root'
   mode 00644
+  # for some reason this didn't work, but it's been a while
+  # so i don't remember why.
+  # leaving in so i can figure it out and fix someday
   #notifies :restart, "service[hostname]"
   #notifies :restart, "service[networking]"
 end
@@ -37,6 +40,9 @@ file '/etc/hostname' do
   owner 'root'
   group 'root'
   mode 00644
+  # for some reason this didn't work, but it's been a while
+  # so i don't remember why.
+  # leaving in so i can figure it out and fix someday
   #notifies :restart, "service[hostname]"
   #notifies :restart, "service[networking]"
 end
@@ -45,7 +51,9 @@ execute "restart hostname service" do
   command "sudo service hostname restart"
 end
 
+# don't think this is needed, but it's been a while
+# so i don't remember why.
+# leaving in if I ever get the desire to fix
 #execute "restart networking service" do
 #  command "sudo service networking restart"
 #end
-

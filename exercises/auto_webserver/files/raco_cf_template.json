@@ -36,6 +36,32 @@
          "Description": "My public IP from 'curl http://ipecho.net/plain'",
          "Type" : "String",
          "Default" : "70.168.250.62"
+      },
+      "AmznLinuxAmi" : {
+         "Description": "Amazon Linux AMI (us-west-1)",
+         "Type" : "String",
+         "Default" : "ami-3a674d5a"
+      },
+      "ChefServerAMI" : {
+         "Description": "Chef Server AMI first 10 free nodes (us-west-1)",
+         "Type" : "String",
+         "Default" : "ami-c6aa82a6"
+      },
+      "ChefAdminPassword" : {
+         "Description": "Chef Management Console password for 'chefadmin' account",
+         "Type" : "String",
+         "Default" : "DoUevenChefRACO?",
+         "NoEcho": "True"
+      },
+      "ChefAdminEmail" : {
+         "Description": "Email address for Chef Admin",
+         "Type" : "String",
+         "Default" : "pataraco@gmail.com"
+      },
+      "ChefRemoteAdminIp" : {
+         "Description": "IP of Chef Remote Admin host",
+         "Type" : "String",
+         "Default" : "70.168.250.62"
       }
    },
    "Resources" : {
@@ -172,16 +198,39 @@
             "RouteTableId" : {"Ref":"RouteTableExt"}
          }
       },
+      "SgChefServer" : {
+         "Type" : "AWS::EC2::SecurityGroup",
+         "Properties" : {
+            "GroupName" : {"Fn::Join":["",[{"Ref":"Creator"},"-chef-server"]]},
+            "GroupDescription" : "Allow SSH from Chef Remote Admin and HTTPS access from ANY",
+            "SecurityGroupIngress" : [
+               {
+                  "IpProtocol" : "tcp",
+                  "FromPort" : "22",
+                  "ToPort" : "22",
+                  "CidrIp" : {"Fn::Join":["",[{"Ref":"ChefRemoteAdminIp"},"/32"]]}
+               },
+               {
+                   "IpProtocol": "tcp",
+                   "FromPort": "443",
+                   "ToPort": "443",
+                   "CidrIp": "0.0.0.0/0"
+               }
+            ],
+            "VpcId" : {"Ref":"VPC"},
+            "Tags" : [{"Key":"Name","Value":{"Fn::Join":["",[{"Ref":"Creator"},"-chef-server"]]}}]
+         }
+      },
       "SgHttpAny" : {
          "Type" : "AWS::EC2::SecurityGroup",
          "Properties" : {
             "GroupName" : {"Fn::Join":["",[{"Ref":"Creator"},"-http-from-any"]]},
             "GroupDescription" : "Allow HTTP from ANY",
-            "SecurityGroupIngress" : [ {
-                  "IpProtocol" : "tcp",
-                  "FromPort" : "80",
-                  "ToPort" : "80",
-                  "CidrIp" : "0.0.0.0/0"
+            "SecurityGroupIngress" : [{
+               "IpProtocol" : "tcp",
+               "FromPort" : "80",
+               "ToPort" : "80",
+               "CidrIp" : "0.0.0.0/0"
             }],
             "VpcId" : {"Ref":"VPC"},
             "Tags" : [{"Key":"Name","Value":{"Fn::Join":["",[{"Ref":"Creator"},"-http-from-any"]]}}]
@@ -192,14 +241,14 @@
          "Properties" : {
             "GroupName" : {"Fn::Join":["",[{"Ref":"Creator"},"-http-from-elb"]]},
             "GroupDescription" : "Allow HTTP from ELB - Uses Lambda to update CIDR",
-            "SecurityGroupIngress" : [ {
-                  "IpProtocol" : "tcp",
-                  "FromPort" : "80",
-                  "ToPort" : "80",
-                  "CidrIp" : "0.0.0.0/0"
+            "SecurityGroupIngress" : [{
+               "IpProtocol" : "tcp",
+               "FromPort" : "80",
+               "ToPort" : "80",
+               "CidrIp" : "0.0.0.0/0"
             }],
             "VpcId" : {"Ref":"VPC"},
-            "Tags" : [ {"Key":"Name","Value":{"Fn::Join":["",[{"Ref":"Creator"},"-http-from-elb"]]}}]
+            "Tags" : [{"Key":"Name","Value":{"Fn::Join":["",[{"Ref":"Creator"},"-http-from-elb"]]}}]
          }
       },
       "SgIcmpMe" : {
@@ -208,10 +257,10 @@
             "GroupName" : {"Fn::Join":["",[{"Ref":"Creator"},"-icmp-from-me"]]},
             "GroupDescription" : "Allow ICMP from ME",
             "SecurityGroupIngress" : [{
-                  "IpProtocol" : "icmp",
-                  "FromPort" : "-1",
-                  "ToPort" : "-1",
-                  "CidrIp" : {"Fn::Join":["",[{"Ref":"MyPubIp"},"/32"]]}
+               "IpProtocol" : "icmp",
+               "FromPort" : "-1",
+               "ToPort" : "-1",
+               "CidrIp" : {"Fn::Join":["",[{"Ref":"MyPubIp"},"/32"]]}
             }],
             "VpcId" : {"Ref":"VPC"},
             "Tags" : [{"Key":"Name","Value":{"Fn::Join":["",[{"Ref":"Creator"},"-icmp-from-me"]]}}]
@@ -223,10 +272,10 @@
             "GroupName" : {"Fn::Join":["",[{"Ref":"Creator"},"-icmp-from-int"]]},
             "GroupDescription" : "Allow ICMP from Internal Instance",
             "SecurityGroupIngress" : [{
-                  "IpProtocol" : "icmp",
-                  "FromPort" : "-1",
-                  "ToPort" : "-1",
-                  "CidrIp" : {"Ref":"VpcCidr"}
+               "IpProtocol" : "icmp",
+               "FromPort" : "-1",
+               "ToPort" : "-1",
+               "CidrIp" : {"Ref":"VpcCidr"}
             }],
             "VpcId" : {"Ref":"VPC"},
             "Tags" : [{"Key":"Name","Value":{"Fn::Join":["",[{"Ref":"Creator"},"-icmp-from-int"]]}}]
@@ -238,10 +287,10 @@
             "GroupName" : {"Fn::Join":["",[{"Ref":"Creator"},"-ssh-from-int"]]},
             "GroupDescription" : "Allow SSH from Internal Instance",
             "SecurityGroupIngress" : [{
-                  "IpProtocol" : "tcp",
-                  "FromPort" : "22",
-                  "ToPort" : "22",
-                  "CidrIp" : {"Ref":"VpcCidr"}
+               "IpProtocol" : "tcp",
+               "FromPort" : "22",
+               "ToPort" : "22",
+               "CidrIp" : {"Ref":"VpcCidr"}
             }],
             "VpcId" : {"Ref":"VPC"},
             "Tags" : [{"Key":"Name","Value":{"Fn::Join":["",[{"Ref":"Creator"},"-ssh-from-int"]]}}]
@@ -253,10 +302,10 @@
             "GroupName" : {"Fn::Join":["",[{"Ref":"Creator"},"-ssh-from-me"]]},
             "GroupDescription" : "Allow SSH from ME",
             "SecurityGroupIngress" : [{
-                  "IpProtocol" : "tcp",
-                  "FromPort" : "22",
-                  "ToPort" : "22",
-                  "CidrIp" : {"Fn::Join":["",[{"Ref":"MyPubIp"},"/32"]]}
+               "IpProtocol" : "tcp",
+               "FromPort" : "22",
+               "ToPort" : "22",
+               "CidrIp" : {"Fn::Join":["",[{"Ref":"MyPubIp"},"/32"]]}
             }],
             "VpcId" : {"Ref":"VPC"},
             "Tags" : [{"Key":"Name","Value":{"Fn::Join":["",[{"Ref":"Creator"},"-ssh-from-me"]]}}]
@@ -319,13 +368,52 @@
             "AvailabilityZone" : "us-west-1a",
             "DisableApiTermination" : "True",
             "IamInstanceProfile" : {"Ref":"InstProfile"},
-            "ImageId" : "ami-3a674d5a",
+            "ImageId" : {"Ref":"AmznLinuxAmi"},
             "InstanceType" : "t2.micro",
             "KeyName" : {"Ref":"Creator"},
             "SecurityGroupIds" : [{"Ref":"SgSshMe"},{"Ref":"SgIcmpMe"}],
             "SubnetId" : {"Ref":"SubnetExt1"},
             "Tags" : [{"Key":"Name","Value":{"Fn::Join":["",[{"Ref":"Creator"},"-bastion"]]}}],
             "Tenancy" : "default"
+         }
+      },
+      "WaitForChefServerInstall": {
+         "Type": "AWS::CloudFormation::WaitCondition",
+         "DependsOn": "ChefServer",
+         "Properties": {
+            "Handle": {"Ref":"WaitForChefServerWaitHandle"},
+            "Timeout": "2700"
+         }
+      },
+      "WaitForChefServerWaitHandle": {
+         "Type": "AWS::CloudFormation::WaitConditionHandle",
+         "Properties": {}
+      },
+      "ChefServer" : {
+         "Type" : "AWS::EC2::Instance",
+         "Properties" : {
+            "AvailabilityZone" : "us-west-1a",
+            "DisableApiTermination" : "True",
+            "IamInstanceProfile" : {"Ref":"InstProfile"},
+            "ImageId" : {"Ref":"ChefServerAMI"},
+            "InstanceType" : "t2.medium",
+            "KeyName" : {"Ref":"Creator"},
+            "SecurityGroupIds" : [{"Ref":"SgChefServer"},{"Ref":"SgSshMe"},{"Ref":"SgIcmpMe"}],
+            "SubnetId" : {"Ref":"SubnetExt1"},
+            "BlockDeviceMappings": [{"DeviceName":"/dev/sda1","Ebs":{"VolumeSize":"50","VolumeType":"gp2"}}],
+            "Tags" : [{"Key":"Name","Value":{"Fn::Join":["",[{"Ref":"Creator"},"-chef-server"]]}}],
+            "Tenancy" : "default",
+            "UserData": {
+               "Fn::Base64": {"Fn::Join":["",[
+                  "#!/bin/bash\n",
+                  "chef-server-ctl marketplace-setup -u chefadmin -f chefadmin -l p ",
+                  "-e ", {"Ref":"ChefAdminEmail"}, " -o aws ",
+                  "-p ", {"Ref":"ChefAdminPassword"}, " -y", "\n",
+                  "\n",
+                  "curl -X PUT -H 'Content-Type:' --data-binary '{\"Status\" : \"SUCCESS\",\"Reason\" : \"Configuration Complete\",\"UniqueId\" : \"ChefServer\", \"Data\" : \"Done\"}' \"",
+                  {"Ref":"WaitForChefServerWaitHandle"}, "\"", "\n"
+               ]]}
+            }
          }
       }
    }

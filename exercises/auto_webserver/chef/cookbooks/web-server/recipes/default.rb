@@ -14,7 +14,7 @@ execute "apt-get-update-periodic" do
 end
 
 # install/create the web page
-template '/var/www/index.html' do
+template '/var/www/html/index.html' do
   source 'index.html.erb'
   owner 'root'
   group 'root'

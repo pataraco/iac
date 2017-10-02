@@ -5,3 +5,12 @@ REPO_NAME="infrastructure-automation"
 PROJECT="auto_webserver"
 
 export KNIFERB="$REPOS_DIR/$REPO_NAME/exercises/$PROJECT/chef/.chef/knife.rb"
+
+function kf () {
+# `knife` command wrapper to use my dynamically set knife.rb file
+   if [ -z "$KNIFERB" ]; then
+      echo "KNIFERB environment variable NOT set"
+   else
+      eval knife '$*' -c $KNIFERB
+   fi
+}

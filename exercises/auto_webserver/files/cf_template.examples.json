@@ -595,26 +595,18 @@
                 "yum update -y aws-cfn-bootstrap\n",
                 "/opt/aws/bin/cfn-init -v ",
                 "         --stack ",
-                {
-                  "Ref": "AWS::StackId"
-                },
+                { "Ref": "AWS::StackId" },
                 "         --resource WebServerCustomVPC ",
                 "         --configsets full_install ",
                 "         --region ",
-                {
-                  "Ref": "AWS::Region"
-                },
+                { "Ref": "AWS::Region" },
                 "\n",
                 "/opt/aws/bin/cfn-signal -e $? ",
                 "         --stack ",
-                {
-                  "Ref": "AWS::StackId"
-                },
+                { "Ref": "AWS::StackId" },
                 "         --resource WebServerCustomVPC ",
                 "         --region ",
-                {
-                  "Ref": "AWS::Region"
-                },
+                { "Ref": "AWS::Region" },
                 "\n"
               ]
             ]
@@ -645,10 +637,7 @@
       "Type": "AWS::EC2::VPC",
       "Properties": {
         "Tags": [
-          {
-            "Key": "Name",
-            "Value": "CloudformwerVPC"
-          }
+          { "Key": "Name", "Value": "CloudformwerVPC" }
         ],
         "CidrBlock": "10.10.10.0/24",
         "EnableDnsSupport": "true",

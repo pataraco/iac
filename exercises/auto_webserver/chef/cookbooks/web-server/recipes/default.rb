@@ -3,14 +3,12 @@
 # Recipe:: default
 #
 
-# Update the server's repos apt package DB (if more than a day old)
-execute "apt-get-update-periodic" do
-  command "apt-get update"
-  ignore_failure true
-  only_if do
-    File.exists?('/var/lib/apt/periodic/update-success-stamp') &&
-    File.mtime('/var/lib/apt/periodic/update-success-stamp') < Time.now - 86400
-  end
+# create the parent directory for the website
+directory '/var/www/html' do
+  owner 'root'
+  group 'root'
+  mode '00755'
+  recursive true
 end
 
 # install/create the web page
@@ -34,6 +32,14 @@ service "nginx" do
   supports :restart => true
 end
 
+# create the parent directory for nginx
+directory '/etc/nginx/sites-available' do
+  owner 'root'
+  group 'root'
+  mode '00755'
+  recursive true
+end
+
 # create Nginx default server block and restart Nginx service
 #  configures Nginx to serve up a HTTP page
 template '/etc/nginx/sites-available/default' do
@@ -43,3 +49,14 @@ template '/etc/nginx/sites-available/default' do
   mode '00644'
   notifies :restart, "service[nginx]"
 end
+
+# install/create the web page
+#   going to "cheat" and install the index.html where
+#   nginx is configured to serve it from 
+template '/usr/share/nginx/html/index.html' do
+  source 'index.html.erb'
+  owner 'root'
+  group 'root'
+  mode '00644'
+end
+

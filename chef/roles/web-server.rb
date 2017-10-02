@@ -1,5 +1,5 @@
 name "web-server"
-description "create an Apache Web Server"
+description "create an nginx Web Server"
 
 run_list(
   "recipe[hostname]",

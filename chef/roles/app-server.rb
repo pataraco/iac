@@ -1,5 +1,5 @@
 name "app-server"
-description "create an Apache Web Server"
+description "create an Node.js Server"
 
 run_list(
   "recipe[hostname]",

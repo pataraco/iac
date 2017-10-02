@@ -403,17 +403,73 @@
             "BlockDeviceMappings": [{"DeviceName":"/dev/sda1","Ebs":{"VolumeSize":"50","VolumeType":"gp2"}}],
             "Tags" : [{"Key":"Name","Value":{"Fn::Join":["",[{"Ref":"Creator"},"-chef-server"]]}}],
             "Tenancy" : "default",
-            "UserData": {
-               "Fn::Base64": {"Fn::Join":["",[
-                  "#!/bin/bash\n",
-                  "chef-server-ctl marketplace-setup -u chefadmin -f chefadmin -l p ",
-                  "-e ", {"Ref":"ChefAdminEmail"}, " -o aws ",
-                  "-p ", {"Ref":"ChefAdminPassword"}, " -y", "\n",
-                  "\n",
-                  "curl -X PUT -H 'Content-Type:' --data-binary '{\"Status\" : \"SUCCESS\",\"Reason\" : \"Configuration Complete\",\"UniqueId\" : \"ChefServer\", \"Data\" : \"Done\"}' \"",
-                  {"Ref":"WaitForChefServerWaitHandle"}, "\"", "\n"
-               ]]}
-            }
+            "UserData": {"Fn::Base64":{"Fn::Join":["",[
+               "#!/bin/bash\n",
+               "chef-server-ctl marketplace-setup -u chefadmin -f chefadmin -l p ",
+               "-e ", {"Ref":"ChefAdminEmail"}, " -o aws ",
+               "-p ", {"Ref":"ChefAdminPassword"}, " -y", "\n",
+               "\n",
+               "curl -X PUT -H 'Content-Type:' --data-binary '{\"Status\" : \"SUCCESS\",\"Reason\" : \"Configuration Complete\",\"UniqueId\" : \"ChefServer\", \"Data\" : \"Done\"}' \"",
+               {"Ref":"WaitForChefServerWaitHandle"}, "\"", "\n"
+            ]]}}
+         }
+      },
+      "WebSrvrLaunchConfig" : {
+         "Type" : "AWS::AutoScaling::LaunchConfiguration",
+         "Properties" : {
+            "ImageId" : {"Ref":"AmznLinuxAmi"},
+            "InstanceType" : "t2.small",
+            "KeyName" : {"Ref":"Creator"},
+            "SecurityGroups" : [
+               {"Ref":"SgHttpElb"},
+               {"Ref":"SgIcmpInt"},
+               {"Ref":"SgSshInt"}
+            ],
+            "UserData": {"Fn::Base64":{"Fn::Join":["",[
+               "#!/bin/bash -xev\n",
+               "\n",
+               "# Do some chef pre-work\n",
+               "/bin/mkdir -p /etc/chef\n",
+               "/bin/mkdir -p /var/lib/chef\n",
+               "/bin/mkdir -p /var/log/chef\n",
+               "\n",
+               "# Setup hosts file correctly\n",
+               "cat >> \"/etc/hosts\" << EOF\n",
+               "54.193.50.33 chef-server chef-server.raco.int\n",
+               "EOF\n",
+               "\n",
+               "cd /etc/chef/\n",
+               "\n",
+               "# Install chef\n",
+               "curl -L https://omnitruck.chef.io/install.sh | bash || error_exit 'could not install chef'\n",
+               "\n",
+               "# Create first-boot.json\n",
+               "FIRST_BOOT=\"/etc/chef/first-boot.json\"\n",
+               "cat > \"$FIRST_BOOT\" << EOF\n",
+               "{\n",
+               "   \"run_list\" :[\n",
+               "      \"role[web-server]\"\n",
+               "   ]\n",
+               "}\n",
+               "EOF\n",
+               "\n",
+               "GUID=$(printf '%x\\n' $(date +%s))\n",
+               "NODE_TYPE=\"web-server\"\n",
+               "NODE_NAME=\"$NODE_TYPE-$GUID\"\n",
+               "\n",
+               "# Create client.rb\n",
+               "CLIENT_RB=\"/etc/chef/client.rb\"\n",
+               "/bin/echo 'log_location     STDOUT' >> $CLIENT_RB\n",
+               "/bin/echo -e \"chef_server_url  'https://ec2-54-193-50-33.us-west-1.compute.amazonaws.com/organizations/raco'\" >> $CLIENT_RB\n",
+               "/bin/echo -e \"validation_client_name 'raco-validator'\" >> $CLIENT_RB\n",
+               "/bin/echo -e \"node_name  '${NODE_NAME}'\" >> $CLIENT_RB\n",
+               "\n",
+               "# Get validation.pem (yeah, i know, this it totally not secure)\n",
+               "aws s3 cp s3://raco/chef/validation.pem /etc/chef/validation.pem\n",
+               "\n",
+               "# Run chef-client\n",
+               "sudo chef-client -j $FIRST_BOOT\n"
+            ]]}}
          }
       }
    }

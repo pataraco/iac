@@ -1,0 +1,7 @@
+# set up some chef/knife stuff
+
+REPOS_DIR="$HOME/repos"
+REPO_NAME="infrastructure-automation"
+PROJECT="auto_webserver"
+
+export KNIFERB="$REPOS_DIR/$REPO_NAME/exercises/$PROJECT/chef/.chef/knife.rb"

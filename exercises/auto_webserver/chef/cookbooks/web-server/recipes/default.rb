@@ -13,6 +13,14 @@ execute "apt-get-update-periodic" do
   end
 end
 
+# install/create the web page
+template '/var/www/index.html' do
+  source 'index.html.erb'
+  owner 'root'
+  group 'root'
+  mode '00644'
+end
+
 # Install Nginx
 # -------------
 # use an Nginx reverse proxy to allow external access.
@@ -20,6 +28,7 @@ package 'Install Nginx' do
   package_name 'nginx'
   action :install
 end
+
 # set up the service to allow restart
 service "nginx" do
   supports :restart => true

@@ -112,6 +112,6 @@ $AWS_CMD s3 rb s3://$CREATOR_ID --force
 # delete SNS topic to get notifications
 echo "deleting the SNS topic"
 NOTIFICATION_ARN=$($AWS_CMD sns list-topics | grep "all-${CREATOR_ID}-notifications" | cut -d '"' -f4)
-$AWS_CMD sns delete-topic $NOTIFICATION_ARN
+$AWS_CMD sns delete-topic --topic-arn $NOTIFICATION_ARN
 
 echo "website destruction complete: $website_url"

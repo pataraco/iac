@@ -90,7 +90,7 @@ fi
 # get the website URL about to destroy
 echo "getting website URL your about to delete"
 website_url=$($AWS_CMD elb describe-load-balancers --load-balancer-name ${CREATOR_ID}-website | jq -r .LoadBalancerDescriptions[].DNSName)
-read -p "Are you sure you want to delete this website ['yes' to confirm]?" ans
+read -p "Are you sure you want to delete this website ['yes' to confirm]? " ans
 [ "$ans" != "yes" ] && { echo "ok, not deleting the website"; exit; }
 
 # disable termination protection on bastion and chef-server hosts

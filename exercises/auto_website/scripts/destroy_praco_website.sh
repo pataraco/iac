@@ -114,4 +114,8 @@ echo "deleting the SNS topic"
 NOTIFICATION_ARN=$($AWS_CMD sns list-topics | grep "all-${CREATOR_ID}-notifications" | cut -d '"' -f4)
 $AWS_CMD sns delete-topic --topic-arn $NOTIFICATION_ARN
 
+# delete key pair
+echo "deleting the key pair"
+$AWS_CMD ec2 delete-key-pair --key-name $CREATOR_ID
+
 echo "website destruction complete: $website_url"

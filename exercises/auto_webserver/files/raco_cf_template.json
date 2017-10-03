@@ -346,7 +346,7 @@
             "ManagedPolicyArns": [
                "arn:aws:iam::aws:policy/AmazonRoute53DomainsReadOnlyAccess",
                "arn:aws:iam::aws:policy/AmazonS3FullAccess",
-               "arn:aws:iam::aws:policy/AmazonEC2ReadOnlyAccess",
+               "arn:aws:iam::aws:policy/AmazonEC2FullAccess",
                "arn:aws:iam::aws:policy/AmazonVPCReadOnlyAccess",
                "arn:aws:iam::aws:policy/AmazonRoute53ReadOnlyAccess",
                "arn:aws:iam::aws:policy/AWSCodeCommitReadOnly",
@@ -429,6 +429,18 @@
             "UserData": {"Fn::Base64":{"Fn::Join":["",[
                "#!/bin/bash -xev\n",
                "\n",
+               "AWS_BASE_URL=\"http://169.254.169.254/latest/meta-data\"\n",
+               "GUID=\"$(printf '%x\\n' $(date +%s))\"\n",
+               "NODE_TYPE=\"web-server\"\n",
+               "NODE_NAME=\"$NODE_TYPE-$GUID\"\n",
+               "INST_ID=\"$(wget -q -O - ${AWS_BASE_URL}/instance-id)\"\n",
+               "REGION=\"$(wget -q -O - ${AWS_BASE_URL}/placement/availability-zone|sed -e 's/.$//')\"\n",
+               "\n",
+               "# Setup hostname and update instance name tag\n",
+               "hostname $NODE_NAME\n",
+               "service rsyslog restart\n",
+               "aws ec2 create-tags --resources $INST_ID --tags Key=Name,Value=", {"Ref":"Creator"}, "-$NODE_NAME --region $REGION\n",
+               "\n",
                "# Do some chef pre-work\n",
                "/bin/mkdir -p /etc/chef\n",
                "/bin/mkdir -p /var/lib/chef\n",
@@ -454,10 +466,6 @@
                "}\n",
                "EOF\n",
                "\n",
-               "GUID=$(printf '%x\\n' $(date +%s))\n",
-               "NODE_TYPE=\"web-server\"\n",
-               "NODE_NAME=\"$NODE_TYPE-$GUID\"\n",
-               "\n",
                "# Create client.rb\n",
                "CLIENT_RB=\"/etc/chef/client.rb\"\n",
                "/bin/echo 'log_location     STDOUT' >> $CLIENT_RB\n",
@@ -467,6 +475,9 @@
                "\n",
                "# Get validation.pem (yeah, i know, this it totally not secure)\n",
                "aws s3 cp s3://raco/chef/validation.pem /etc/chef/validation.pem\n",
+               "\n",
+               "# Get Chef SSL cert\n",
+               "knife ssl fetch -c $CLIENT_RB\n",
                "\n",
                "# Run chef-client\n",
                "sudo chef-client -j $FIRST_BOOT\n"
@@ -481,9 +492,9 @@
             "HealthCheckType" : "ELB",
             "LaunchConfigurationName" : {"Ref":"WebSrvrLaunchConfig"},
             "LoadBalancerNames" : [{"Ref":"ELB"}],
-            "MinSize" : "1",
-            "MaxSize" : "3",
-            "DesiredCapacity" : "1",
+            "MinSize" : "2",
+            "MaxSize" : "6",
+            "DesiredCapacity" : "2",
             "Tags" : [{"Key":"Name","Value":{"Fn::Join":["",[{"Ref":"Creator"},"-web-server"]]},"PropagateAtLaunch":"true"}]
          }
       },
@@ -498,7 +509,7 @@
              "PredefinedMetricSpecification": {
                 "PredefinedMetricType": "ASGAverageCPUUtilization"
              },
-             "TargetValue": "75"
+             "TargetValue": "50"
           }
         }
       }     

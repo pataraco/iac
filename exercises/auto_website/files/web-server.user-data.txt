@@ -1,5 +1,17 @@
 #!/bin/bash -xev
 
+AWS_BASE_URL="http://169.254.169.254/latest/meta-data"
+GUID="$(printf '%x\n' $(date +%s))"
+NODE_TYPE="web-server"
+NODE_NAME="$NODE_TYPE-$GUID"
+INST_ID="$(wget -q -O - ${AWS_BASE_URL}/instance-id)"
+REGION="$(wget -q -O - ${AWS_BASE_URL}/placement/availability-zone|sed -e 's/.$//')"
+
+# Setup hostname and update instance name tag
+hostname $NODE_NAME
+service rsyslog restart
+aws ec2 create-tags --resources $INST_ID --tags Key=Name,Value=praco-$NODE_NAME --region $REGION
+
 # Do some chef pre-work
 /bin/mkdir -p /etc/chef
 /bin/mkdir -p /var/lib/chef
@@ -7,7 +19,7 @@
 
 # Setup hosts file correctly
 cat >> "/etc/hosts" << EOF
-54.193.50.33 chef-server chef-server.raco.int
+54.183.234.135 chef-server chef-server.praco.int
 EOF
 
 cd /etc/chef/
@@ -25,19 +37,18 @@ cat > "$FIRST_BOOT" << EOF
 }
 EOF
 
-GUID=$(printf '%x\n' $(date +%s))
-NODE_TYPE="web-server"
-NODE_NAME="$NODE_TYPE-$GUID"
-
 # Create client.rb
 CLIENT_RB="/etc/chef/client.rb"
 /bin/echo 'log_location     STDOUT' >> $CLIENT_RB
-/bin/echo -e "chef_server_url  'https://ec2-54-193-50-33.us-west-1.compute.amazonaws.com/organizations/raco'" >> $CLIENT_RB
-/bin/echo -e "validation_client_name 'raco-validator'" >> $CLIENT_RB
+/bin/echo -e "chef_server_url  'https://ec2-54-183-234-135.us-west-1.compute.amazonaws.com/organizations/praco'" >> $CLIENT_RB
+/bin/echo -e "validation_client_name 'praco-validator'" >> $CLIENT_RB
 /bin/echo -e "node_name  '${NODE_NAME}'" >> $CLIENT_RB
 
 # Get validation.pem (yeah, i know, this it totally not secure)
-aws s3 cp s3://raco/chef/validation.pem /etc/chef/validation.pem
+aws s3 cp s3://praco/chef/validation.pem /etc/chef/validation.pem
+
+# Get Chef SSL cert
+knife ssl fetch -c $CLIENT_RB
 
 # Run chef-client
 sudo chef-client -j $FIRST_BOOT

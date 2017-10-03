@@ -88,8 +88,8 @@ if [ -z "$AWS_DEFAULT_PROFILE" ]; then
 fi
 
 # get the website URL about to destroy
-echo "getting website URL your about to delete"
 website_url=$($AWS_CMD elb describe-load-balancers --load-balancer-name ${CREATOR_ID}-website | jq -r .LoadBalancerDescriptions[].DNSName)
+echo "URL of website you are about to delete: $website_url"
 read -p "Are you sure you want to delete this website ['yes' to confirm]? " ans
 [ "$ans" != "yes" ] && { echo "ok, not deleting the website"; exit; }
 

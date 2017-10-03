@@ -19,24 +19,9 @@ JQ_CMD=$(which jq)
 CREATOR_ID="praco"
 CREATOR_NAME="Patrick Raco"
 CREATOR_EMAIL="pataraco@gmail.com"
-REPOS_DIR="$HOME/repos"
-REPO_NAME="infrastructure-automation"
-PROJECT="auto_website"
-REGION="us-west-1"
-AWS_PUBLIC_DOMAIN_NAME="compute.amazonaws.com"
 AWS_KEY_PAIR_NAME="$CREATOR_ID"
-AWS_CF_STACK_NAME="$CREATOR_ID"
 AWS_WEBSITE_INFRA_CF_STACK_NAME="${CREATOR_ID}-website-infra"
 AWS_WEBSITE_CF_STACK_NAME="${CREATOR_ID}-website"
-AWS_PRIVATE_KEY="$HOME/.ssh/${AWS_KEY_PAIR_NAME}.pem"
-WEBSITE_INFRA_CF_STACK_TEMPLATE="/$REPOS_DIR/$REPO_NAME/exercises/$PROJECT/files/${CREATOR_ID}_website_infra_cf_template.json"
-WEBSITE_CF_STACK_TEMPLATE="/$REPOS_DIR/$REPO_NAME/exercises/$PROJECT/files/${CREATOR_ID}_website_cf_template.json"
-CHEF_REPO="$REPOS_DIR/$REPO_NAME/exercises/$PROJECT/chef"
-KNIFERB="$CHEF_REPO/.chef/knife.rb"
-CHEF_VALIDATOR_PEM_SRC="/tmp/${CREATOR_ID}-validator.pem"
-CHEF_USER_PEM_SRC="/tmp/${CREATOR_ID}.chef.pem"
-CHEF_VALIDATOR_PEM_DST="$CHEF_REPO/.chef/${CREATOR_ID}-validator.pem"
-CHEF_USER_PEM_DST="$CHEF_REPO/.chef/${CREATOR_ID}.chef.pem"
 
 # define functions
 
@@ -116,6 +101,6 @@ $AWS_CMD sns delete-topic --topic-arn $NOTIFICATION_ARN
 
 # delete key pair
 echo "deleting the key pair"
-$AWS_CMD ec2 delete-key-pair --key-name $CREATOR_ID
+$AWS_CMD ec2 delete-key-pair --key-name $AWS_KEY_PAIR_NAME
 
 echo "website destruction complete: $website_url"

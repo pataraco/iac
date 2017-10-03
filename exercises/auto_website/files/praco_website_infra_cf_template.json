@@ -417,43 +417,43 @@
                {"Ref":"WaitForChefServerWaitHandle"}, "\"", "\n"
             ]]}}
          }
+      }
+   },
+   "Outputs" : {
+      "InstProfile" : {
+         "Description" : "Instance Profile",
+         "Value" : {"Ref":"InstProfile"},
+         "Export" : {"Name":{"Fn::Join":["",[{"Ref":"Creator"},"InstProfile"]]}}
       },
-      "Outputs" : {
-         "InstProfile" : {
-            "Description" : "Instance Profile",
-            "Value" : {"Ref":"InstProfile"},
-            "Export" : {"Name":{"Fn::Join":["",[{"Ref":"Creator"},"InstProfile"]]}}
-         },
-         "SgHttpElb" : {
-            "Description" : "Security Group HTTP from ELB",
-            "Value" : {"Ref":"SgHttpElb"},
-            "Export" : {"Name":{"Fn::Join":["",[{"Ref":"Creator"},"SgHttpElb"]]}}
-         },
-         "SgIcmpInt" : {
-            "Description" : "Security Group ICMP from internal",
-            "Value" : {"Ref":"SgIcmpInt"},
-            "Export" : {"Name":{"Fn::Join":["",[{"Ref":"Creator"},"SgIcmpInt"]]}}
-         },
-         "SgSshInt" : {
-            "Description" : "Security Group SSH from internal",
-            "Value" : {"Ref":"SgSshInt"},
-            "Export" : {"Name":{"Fn::Join":["",[{"Ref":"Creator"},"SgSshInt"]]}}
-         },
-         "SubnetInt1" : {
-            "Description" : "Internal Subnet 1",
-            "Value" : {"Ref":"SubnetInt1"},
-            "Export" : {"Name":{"Fn::Join":["",[{"Ref":"Creator"},"SubnetInt1"]]}}
-         },
-         "SubnetInt2" : {
-            "Description" : "Internal Subnet 2",
-            "Value" : {"Ref":"SubnetInt2"},
-            "Export" : {"Name":{"Fn::Join":["",[{"Ref":"Creator"},"SubnetInt2"]]}}
-         },
-         "ELB" : {
-            "Description" : "ELB",
-            "Value" : {"Ref":"ELB"},
-            "Export" : {"Name":{"Fn::Join":["",[{"Ref":"Creator"},"ELB"]]}}
-         }
+      "SgHttpElb" : {
+         "Description" : "Security Group HTTP from ELB",
+         "Value" : {"Ref":"SgHttpElb"},
+         "Export" : {"Name":{"Fn::Join":["",[{"Ref":"Creator"},"SgHttpElb"]]}}
+      },
+      "SgIcmpInt" : {
+         "Description" : "Security Group ICMP from internal",
+         "Value" : {"Ref":"SgIcmpInt"},
+         "Export" : {"Name":{"Fn::Join":["",[{"Ref":"Creator"},"SgIcmpInt"]]}}
+      },
+      "SgSshInt" : {
+         "Description" : "Security Group SSH from internal",
+         "Value" : {"Ref":"SgSshInt"},
+         "Export" : {"Name":{"Fn::Join":["",[{"Ref":"Creator"},"SgSshInt"]]}}
+      },
+      "SubnetInt1" : {
+         "Description" : "Internal Subnet 1",
+         "Value" : {"Ref":"SubnetInt1"},
+         "Export" : {"Name":{"Fn::Join":["",[{"Ref":"Creator"},"SubnetInt1"]]}}
+      },
+      "SubnetInt2" : {
+         "Description" : "Internal Subnet 2",
+         "Value" : {"Ref":"SubnetInt2"},
+         "Export" : {"Name":{"Fn::Join":["",[{"Ref":"Creator"},"SubnetInt2"]]}}
+      },
+      "ELB" : {
+         "Description" : "ELB",
+         "Value" : {"Ref":"ELB"},
+         "Export" : {"Name":{"Fn::Join":["",[{"Ref":"Creator"},"ELB"]]}}
       }
    }
 }

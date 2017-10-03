@@ -1,0 +1,507 @@
+{
+   "AWSTemplateFormatVersion" : "2010-09-09",
+   "Description" : "Create infrastructure for Auto Web Server exercise",
+   "Parameters" : {
+      "Creator" : {
+         "Description": "Name of person creating the infrastructure",
+         "Type" : "String",
+         "Default" : "raco"
+      },
+      "VpcCidr" : {
+         "Description": "CIDR for VPC",
+         "Type" : "String",
+         "Default" : "8.12.0.0/16"
+      },
+      "SubnetIntCidr1" : {
+         "Description": "CIDR for VPC",
+         "Type" : "String",
+         "Default" : "8.12.1.0/24"
+      },
+      "SubnetExtCidr1" : {
+         "Description": "CIDR for VPC",
+         "Type" : "String",
+         "Default" : "8.12.2.0/24"
+      },
+      "SubnetIntCidr2" : {
+         "Description": "CIDR for VPC",
+         "Type" : "String",
+         "Default" : "8.12.3.0/24"
+      },
+      "SubnetExtCidr2" : {
+         "Description": "CIDR for VPC",
+         "Type" : "String",
+         "Default" : "8.12.4.0/24"
+      },
+      "MyPubIp" : {
+         "Description": "My public IP from 'curl http://ipecho.net/plain'",
+         "Type" : "String",
+         "Default" : "70.168.250.62"
+      },
+      "AmznLinuxAmi" : {
+         "Description": "Amazon Linux AMI (us-west-1)",
+         "Type" : "String",
+         "Default" : "ami-3a674d5a"
+      },
+      "ChefServerAMI" : {
+         "Description": "Chef Server AMI first 10 free nodes (us-west-1)",
+         "Type" : "String",
+         "Default" : "ami-c6aa82a6"
+      },
+      "ChefAdminPassword" : {
+         "Description": "Chef Management Console password for 'chefadmin' account",
+         "Type" : "String",
+         "Default" : "DoUevenChefRACO?",
+         "NoEcho": "True"
+      },
+      "ChefAdminEmail" : {
+         "Description": "Email address for Chef Admin",
+         "Type" : "String",
+         "Default" : "pataraco@gmail.com"
+      },
+      "ChefRemoteAdminIp" : {
+         "Description": "IP of Chef Remote Admin host",
+         "Type" : "String",
+         "Default" : "70.168.250.62"
+      }
+   },
+   "Resources" : {
+      "SubnetInt1" : {
+         "Type" : "AWS::EC2::Subnet",
+         "Properties" : {
+            "VpcId" : {"Ref":"VPC"},
+            "CidrBlock" : {"Ref":"SubnetIntCidr1"},
+            "AvailabilityZone" : "us-west-1a",
+            "Tags" : [{"Key":"Name","Value":{"Fn::Join":["",[{"Ref":"Creator"},"-int-usw-1a"]]}}]
+         }
+      },
+      "SubnetInt2" : {
+         "Type" : "AWS::EC2::Subnet",
+         "Properties" : {
+            "VpcId" : {"Ref":"VPC"},
+            "CidrBlock" : {"Ref":"SubnetIntCidr2"},
+            "AvailabilityZone" : "us-west-1b",
+            "Tags" : [{"Key":"Name","Value":{"Fn::Join":["",[{"Ref":"Creator"},"-int-usw-1b"]]}}]
+         }
+      },
+      "SubnetExt1" : {
+         "Type" : "AWS::EC2::Subnet",
+         "Properties" : {
+            "VpcId" : {"Ref":"VPC"},
+            "CidrBlock" : {"Ref":"SubnetExtCidr1"},
+            "MapPublicIpOnLaunch": "true",
+            "AvailabilityZone" : "us-west-1a",
+            "Tags" : [{"Key":"Name","Value":{"Fn::Join":["",[{"Ref":"Creator"},"-ext-usw-1a"]]}}]
+         }
+      },
+      "SubnetExt2" : {
+         "Type" : "AWS::EC2::Subnet",
+         "Properties" : {
+            "VpcId" : {"Ref":"VPC"},
+            "CidrBlock" : {"Ref":"SubnetExtCidr2"},
+            "MapPublicIpOnLaunch": "true",
+            "AvailabilityZone" : "us-west-1b",
+            "Tags" : [{"Key":"Name","Value":{"Fn::Join":["",[{"Ref":"Creator"},"-ext-usw-1b"]]}}]
+         }
+      },
+      "IGW" : {
+         "Type" : "AWS::EC2::InternetGateway",
+         "Properties" : {
+            "Tags" : [{"Key":"Name","Value":{"Fn::Join":["",[{"Ref":"Creator"},"-igw"]]}}]
+         }
+      },
+      "AttachIGW" : {
+         "Type" : "AWS::EC2::VPCGatewayAttachment",
+         "Properties" : {
+            "VpcId" : {"Ref":"VPC"},
+            "InternetGatewayId" : {"Ref":"IGW"}
+         }
+      },
+      "NGW" : {
+         "Type" : "AWS::EC2::NatGateway",
+         "Properties" : {
+            "AllocationId" : {"Fn::GetAtt":["NGWEIP","AllocationId"]},
+            "SubnetId" : {"Ref":"SubnetExt1"},
+            "Tags" : [{"Key":"Name","Value":{"Fn::Join":["",[{"Ref":"Creator"},"-ngw"]]}}]
+         }
+      },
+      "NGWEIP" : {
+         "Type" : "AWS::EC2::EIP",
+         "Properties" : {
+            "Domain" : "vpc"
+         }
+      },
+      "RouteTableInt" : {
+         "Type" : "AWS::EC2::RouteTable",
+         "Properties" : {
+            "VpcId" : {"Ref":"VPC"},
+            "Tags" : [{"Key":"Name","Value":{"Fn::Join":["",[{"Ref":"Creator"},"-rtbl-int"]]}}]
+         }
+      },
+      "RouteTableExt" : {
+         "Type" : "AWS::EC2::RouteTable",
+         "Properties" : {
+            "VpcId" : {"Ref":"VPC"},
+            "Tags" : [{"Key":"Name","Value":{"Fn::Join":["",[{"Ref":"Creator"},"-rtbl-ext"]]}}]
+         }
+      },
+      "RouteIntOut" : {
+         "Type" : "AWS::EC2::Route",
+         "Properties" : {
+           "DestinationCidrBlock" : "0.0.0.0/0",
+           "NatGatewayId" : {"Ref":"NGW"},
+           "RouteTableId" : {"Ref":"RouteTableInt"}
+         }
+      },
+      "RouteExtOut" : {
+         "Type" : "AWS::EC2::Route",
+         "Properties" : {
+           "DestinationCidrBlock" : "0.0.0.0/0",
+           "GatewayId" : {"Ref":"IGW"},
+           "RouteTableId" : {"Ref":"RouteTableExt"}
+         }
+      },
+      "SubnetRouteTableAssociationInt1" : {
+         "Type" : "AWS::EC2::SubnetRouteTableAssociation",
+         "Properties" : {
+            "SubnetId" : {"Ref":"SubnetInt1"},
+            "RouteTableId" : {"Ref":"RouteTableInt"}
+         }
+      },
+      "SubnetRouteTableAssociationInt2" : {
+         "Type" : "AWS::EC2::SubnetRouteTableAssociation",
+         "Properties" : {
+            "SubnetId" : {"Ref":"SubnetInt2"},
+            "RouteTableId" : {"Ref":"RouteTableInt"}
+         }
+      },
+      "SubnetRouteTableAssociationExt1" : {
+         "Type" : "AWS::EC2::SubnetRouteTableAssociation",
+         "Properties" : {
+            "SubnetId" : {"Ref":"SubnetExt1"},
+            "RouteTableId" : {"Ref":"RouteTableExt"}
+         }
+      },
+      "SubnetRouteTableAssociationExt2" : {
+         "Type" : "AWS::EC2::SubnetRouteTableAssociation",
+         "Properties" : {
+            "SubnetId" : {"Ref":"SubnetExt2"},
+            "RouteTableId" : {"Ref":"RouteTableExt"}
+         }
+      },
+      "SgChefServer" : {
+         "Type" : "AWS::EC2::SecurityGroup",
+         "Properties" : {
+            "GroupName" : {"Fn::Join":["",[{"Ref":"Creator"},"-chef-server"]]},
+            "GroupDescription" : "Allow SSH from Chef Remote Admin and HTTPS access from ANY",
+            "SecurityGroupIngress" : [
+               {
+                  "IpProtocol" : "tcp",
+                  "FromPort" : "22",
+                  "ToPort" : "22",
+                  "CidrIp" : {"Fn::Join":["",[{"Ref":"ChefRemoteAdminIp"},"/32"]]}
+               },
+               {
+                   "IpProtocol": "tcp",
+                   "FromPort": "443",
+                   "ToPort": "443",
+                   "CidrIp": "0.0.0.0/0"
+               }
+            ],
+            "VpcId" : {"Ref":"VPC"},
+            "Tags" : [{"Key":"Name","Value":{"Fn::Join":["",[{"Ref":"Creator"},"-chef-server"]]}}]
+         }
+      },
+      "SgHttpAny" : {
+         "Type" : "AWS::EC2::SecurityGroup",
+         "Properties" : {
+            "GroupName" : {"Fn::Join":["",[{"Ref":"Creator"},"-http-from-any"]]},
+            "GroupDescription" : "Allow HTTP from ANY",
+            "SecurityGroupIngress" : [{
+               "IpProtocol" : "tcp",
+               "FromPort" : "80",
+               "ToPort" : "80",
+               "CidrIp" : "0.0.0.0/0"
+            }],
+            "VpcId" : {"Ref":"VPC"},
+            "Tags" : [{"Key":"Name","Value":{"Fn::Join":["",[{"Ref":"Creator"},"-http-from-any"]]}}]
+         }
+      },
+      "SgHttpElb" : {
+         "Type" : "AWS::EC2::SecurityGroup",
+         "Properties" : {
+            "GroupName" : {"Fn::Join":["",[{"Ref":"Creator"},"-http-from-elb"]]},
+            "GroupDescription" : "Allow HTTP from ELB - Uses Lambda to update CIDR",
+            "SecurityGroupIngress" : [{
+               "IpProtocol" : "tcp",
+               "FromPort" : "80",
+               "ToPort" : "80",
+               "CidrIp" : "0.0.0.0/0"
+            }],
+            "VpcId" : {"Ref":"VPC"},
+            "Tags" : [{"Key":"Name","Value":{"Fn::Join":["",[{"Ref":"Creator"},"-http-from-elb"]]}}]
+         }
+      },
+      "SgIcmpMe" : {
+         "Type" : "AWS::EC2::SecurityGroup",
+         "Properties" : {
+            "GroupName" : {"Fn::Join":["",[{"Ref":"Creator"},"-icmp-from-me"]]},
+            "GroupDescription" : "Allow ICMP from ME",
+            "SecurityGroupIngress" : [{
+               "IpProtocol" : "icmp",
+               "FromPort" : "-1",
+               "ToPort" : "-1",
+               "CidrIp" : {"Fn::Join":["",[{"Ref":"MyPubIp"},"/32"]]}
+            }],
+            "VpcId" : {"Ref":"VPC"},
+            "Tags" : [{"Key":"Name","Value":{"Fn::Join":["",[{"Ref":"Creator"},"-icmp-from-me"]]}}]
+         }
+      },
+      "SgIcmpInt" : {
+         "Type" : "AWS::EC2::SecurityGroup",
+         "Properties" : {
+            "GroupName" : {"Fn::Join":["",[{"Ref":"Creator"},"-icmp-from-int"]]},
+            "GroupDescription" : "Allow ICMP from Internal Instance",
+            "SecurityGroupIngress" : [{
+               "IpProtocol" : "icmp",
+               "FromPort" : "-1",
+               "ToPort" : "-1",
+               "CidrIp" : {"Ref":"VpcCidr"}
+            }],
+            "VpcId" : {"Ref":"VPC"},
+            "Tags" : [{"Key":"Name","Value":{"Fn::Join":["",[{"Ref":"Creator"},"-icmp-from-int"]]}}]
+         }
+      },
+      "SgSshInt" : {
+         "Type" : "AWS::EC2::SecurityGroup",
+         "Properties" : {
+            "GroupName" : {"Fn::Join":["",[{"Ref":"Creator"},"-ssh-from-int"]]},
+            "GroupDescription" : "Allow SSH from Internal Instance",
+            "SecurityGroupIngress" : [{
+               "IpProtocol" : "tcp",
+               "FromPort" : "22",
+               "ToPort" : "22",
+               "CidrIp" : {"Ref":"VpcCidr"}
+            }],
+            "VpcId" : {"Ref":"VPC"},
+            "Tags" : [{"Key":"Name","Value":{"Fn::Join":["",[{"Ref":"Creator"},"-ssh-from-int"]]}}]
+         }
+      },
+      "SgSshMe" : {
+         "Type" : "AWS::EC2::SecurityGroup",
+         "Properties" : {
+            "GroupName" : {"Fn::Join":["",[{"Ref":"Creator"},"-ssh-from-me"]]},
+            "GroupDescription" : "Allow SSH from ME",
+            "SecurityGroupIngress" : [{
+               "IpProtocol" : "tcp",
+               "FromPort" : "22",
+               "ToPort" : "22",
+               "CidrIp" : {"Fn::Join":["",[{"Ref":"MyPubIp"},"/32"]]}
+            }],
+            "VpcId" : {"Ref":"VPC"},
+            "Tags" : [{"Key":"Name","Value":{"Fn::Join":["",[{"Ref":"Creator"},"-ssh-from-me"]]}}]
+         }
+      },
+      "ELB" : {
+         "Type" : "AWS::ElasticLoadBalancing::LoadBalancer",
+         "Properties" : {
+            "LoadBalancerName" : {"Fn::Join":["",[{"Ref":"Creator"},"-website"]]},
+            "HealthCheck" : {
+               "Target" : "HTTP:80/index.html",
+               "HealthyThreshold" : "3",
+               "UnhealthyThreshold" : "5",
+               "Interval" : "15",
+               "Timeout" : "5"
+            },
+            "Listeners" : [{
+               "LoadBalancerPort" : "80",
+               "InstancePort" : "80",
+               "Protocol" : "HTTP"
+            }],
+            "SecurityGroups" : [{"Ref":"SgHttpAny"}],
+            "Subnets" : [{"Ref":"SubnetExt1"},{"Ref":"SubnetExt2"}],
+            "Tags" : [{"Key":"Name","Value":{"Fn::Join":["",[{"Ref":"Creator"},"-website"]]}}]
+         }
+      },
+      "InstIamRole" : {
+         "Type": "AWS::IAM::Role",
+         "Properties": {
+            "AssumeRolePolicyDocument": {
+               "Version" : "2012-10-17",
+               "Statement": [{
+                  "Action": "sts:AssumeRole",
+                  "Effect": "Allow",
+                  "Principal": {"Service":["ec2.amazonaws.com"]}
+               }]
+            },
+            "ManagedPolicyArns": [
+               "arn:aws:iam::aws:policy/AmazonRoute53DomainsReadOnlyAccess",
+               "arn:aws:iam::aws:policy/AmazonS3FullAccess",
+               "arn:aws:iam::aws:policy/AmazonEC2FullAccess",
+               "arn:aws:iam::aws:policy/AmazonVPCReadOnlyAccess",
+               "arn:aws:iam::aws:policy/AmazonRoute53ReadOnlyAccess",
+               "arn:aws:iam::aws:policy/AWSCodeCommitReadOnly",
+               "arn:aws:iam::aws:policy/AmazonSNSFullAccess"
+            ],
+            "RoleName" : {"Fn::Join":["",[{"Ref":"Creator"},"-ec2-restricted"]]}
+         }
+      },
+      "InstProfile" : {
+         "Type": "AWS::IAM::InstanceProfile",
+         "Properties": {
+            "Roles" : [{"Ref":"InstIamRole"}],
+            "InstanceProfileName" : {"Fn::Join":["",[{"Ref":"Creator"},"-ec2-restricted"]]}
+         }
+      },
+      "BastionHost" : {
+         "Type" : "AWS::EC2::Instance",
+         "Properties" : {
+            "AvailabilityZone" : "us-west-1a",
+            "DisableApiTermination" : "True",
+            "IamInstanceProfile" : {"Ref":"InstProfile"},
+            "ImageId" : {"Ref":"AmznLinuxAmi"},
+            "InstanceType" : "t2.micro",
+            "KeyName" : {"Ref":"Creator"},
+            "SecurityGroupIds" : [{"Ref":"SgSshMe"},{"Ref":"SgIcmpMe"}],
+            "SubnetId" : {"Ref":"SubnetExt1"},
+            "Tags" : [{"Key":"Name","Value":{"Fn::Join":["",[{"Ref":"Creator"},"-bastion"]]}}],
+            "Tenancy" : "default"
+         }
+      },
+      "WaitForChefServerInstall": {
+         "Type": "AWS::CloudFormation::WaitCondition",
+         "DependsOn": "ChefServer",
+         "Properties": {
+            "Handle": {"Ref":"WaitForChefServerWaitHandle"},
+            "Timeout": "2700"
+         }
+      },
+      "WaitForChefServerWaitHandle": {
+         "Type": "AWS::CloudFormation::WaitConditionHandle",
+         "Properties": {}
+      },
+      "ChefServer" : {
+         "Type" : "AWS::EC2::Instance",
+         "Properties" : {
+            "AvailabilityZone" : "us-west-1a",
+            "DisableApiTermination" : "True",
+            "IamInstanceProfile" : {"Ref":"InstProfile"},
+            "ImageId" : {"Ref":"ChefServerAMI"},
+            "InstanceType" : "t2.medium",
+            "KeyName" : {"Ref":"Creator"},
+            "SecurityGroupIds" : [{"Ref":"SgChefServer"},{"Ref":"SgSshMe"},{"Ref":"SgIcmpMe"}],
+            "SubnetId" : {"Ref":"SubnetExt1"},
+            "BlockDeviceMappings": [{"DeviceName":"/dev/sda1","Ebs":{"VolumeSize":"50","VolumeType":"gp2"}}],
+            "Tags" : [{"Key":"Name","Value":{"Fn::Join":["",[{"Ref":"Creator"},"-chef-server"]]}}],
+            "Tenancy" : "default",
+            "UserData": {"Fn::Base64":{"Fn::Join":["",[
+               "#!/bin/bash\n",
+               "chef-server-ctl marketplace-setup -u chefadmin -f chefadmin -l p ",
+               "-e ", {"Ref":"ChefAdminEmail"}, " -o aws ",
+               "-p ", {"Ref":"ChefAdminPassword"}, " -y", "\n",
+               "\n",
+               "curl -X PUT -H 'Content-Type:' --data-binary '{\"Status\" : \"SUCCESS\",\"Reason\" : \"Configuration Complete\",\"UniqueId\" : \"ChefServer\", \"Data\" : \"Done\"}' \"",
+               {"Ref":"WaitForChefServerWaitHandle"}, "\"", "\n"
+            ]]}}
+         }
+      },
+      "WebSrvrLaunchConfig" : {
+         "Type" : "AWS::AutoScaling::LaunchConfiguration",
+         "Properties" : {
+            "ImageId" : {"Ref":"AmznLinuxAmi"},
+            "InstanceType" : "t2.small",
+            "IamInstanceProfile" : {"Ref":"InstProfile"},
+            "KeyName" : {"Ref":"Creator"},
+            "SecurityGroups" : [
+               {"Ref":"SgHttpElb"},
+               {"Ref":"SgIcmpInt"},
+               {"Ref":"SgSshInt"}
+            ],
+            "UserData": {"Fn::Base64":{"Fn::Join":["",[
+               "#!/bin/bash -xev\n",
+               "\n",
+               "AWS_BASE_URL=\"http://169.254.169.254/latest/meta-data\"\n",
+               "GUID=\"$(printf '%x\\n' $(date +%s))\"\n",
+               "NODE_TYPE=\"web-server\"\n",
+               "NODE_NAME=\"$NODE_TYPE-$GUID\"\n",
+               "INST_ID=\"$(wget -q -O - ${AWS_BASE_URL}/instance-id)\"\n",
+               "REGION=\"$(wget -q -O - ${AWS_BASE_URL}/placement/availability-zone|sed -e 's/.$//')\"\n",
+               "\n",
+               "# Setup hostname and update instance name tag\n",
+               "hostname $NODE_NAME\n",
+               "service rsyslog restart\n",
+               "aws ec2 create-tags --resources $INST_ID --tags Key=Name,Value=", {"Ref":"Creator"}, "-$NODE_NAME --region $REGION\n",
+               "\n",
+               "# Do some chef pre-work\n",
+               "/bin/mkdir -p /etc/chef\n",
+               "/bin/mkdir -p /var/lib/chef\n",
+               "/bin/mkdir -p /var/log/chef\n",
+               "\n",
+               "# Setup hosts file correctly\n",
+               "cat >> \"/etc/hosts\" << EOF\n",
+               "54.193.50.33 chef-server chef-server.raco.int\n",
+               "EOF\n",
+               "\n",
+               "cd /etc/chef/\n",
+               "\n",
+               "# Install chef\n",
+               "curl -L https://omnitruck.chef.io/install.sh | bash || error_exit 'could not install chef'\n",
+               "\n",
+               "# Create first-boot.json\n",
+               "FIRST_BOOT=\"/etc/chef/first-boot.json\"\n",
+               "cat > \"$FIRST_BOOT\" << EOF\n",
+               "{\n",
+               "   \"run_list\" :[\n",
+               "      \"role[web-server]\"\n",
+               "   ]\n",
+               "}\n",
+               "EOF\n",
+               "\n",
+               "# Create client.rb\n",
+               "CLIENT_RB=\"/etc/chef/client.rb\"\n",
+               "/bin/echo 'log_location     STDOUT' >> $CLIENT_RB\n",
+               "/bin/echo -e \"chef_server_url  'https://ec2-54-193-50-33.us-west-1.compute.amazonaws.com/organizations/raco'\" >> $CLIENT_RB\n",
+               "/bin/echo -e \"validation_client_name 'raco-validator'\" >> $CLIENT_RB\n",
+               "/bin/echo -e \"node_name  '${NODE_NAME}'\" >> $CLIENT_RB\n",
+               "\n",
+               "# Get validation.pem (yeah, i know, this it totally not secure)\n",
+               "aws s3 cp s3://raco/chef/validation.pem /etc/chef/validation.pem\n",
+               "\n",
+               "# Get Chef SSL cert\n",
+               "knife ssl fetch -c $CLIENT_RB\n",
+               "\n",
+               "# Run chef-client\n",
+               "sudo chef-client -j $FIRST_BOOT\n"
+            ]]}}
+         }
+      },
+      "WebSrvrAutoScalingGrp" : {
+         "Type" : "AWS::AutoScaling::AutoScalingGroup",
+         "Properties" : {
+            "VPCZoneIdentifier" : [{"Ref":"SubnetInt1"},{"Ref":"SubnetInt2"}],
+            "HealthCheckGracePeriod" : 600,
+            "HealthCheckType" : "ELB",
+            "LaunchConfigurationName" : {"Ref":"WebSrvrLaunchConfig"},
+            "LoadBalancerNames" : [{"Ref":"ELB"}],
+            "MinSize" : "2",
+            "MaxSize" : "6",
+            "DesiredCapacity" : "2",
+            "Tags" : [{"Key":"Name","Value":{"Fn::Join":["",[{"Ref":"Creator"},"-web-server"]]},"PropagateAtLaunch":"true"}]
+         }
+      },
+      "WebSrvScaling": {
+        "Type": "AWS::AutoScaling::ScalingPolicy",
+        "Properties": {
+          "AdjustmentType": "ChangeInCapacity",
+          "AutoScalingGroupName": {"Ref":"WebSrvrAutoScalingGrp"},
+          "Cooldown": "300",
+          "PolicyType" : "TargetTrackingScaling",
+          "TargetTrackingConfiguration": {
+             "PredefinedMetricSpecification": {
+                "PredefinedMetricType": "ASGAverageCPUUtilization"
+             },
+             "TargetValue": "50"
+          }
+        }
+      }     
+   }
+}

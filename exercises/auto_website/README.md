@@ -54,6 +54,8 @@ A website displaying “hello world” served up by a Auto Scaled EC2 instances 
    - health checks: stopped nginx service on a web server and verified auto scaler replaced it
    - scaling out/in: increased loads on web servers (via `stress`) and verified
      autoscaler scaled up and down accordingly
+- Tested destroy script to remove all
+- Tested create script from scracth again after destroying
 
 # To-Do
 1. Add Chef config/creation steps in create_webserver.sh script that will automatically:

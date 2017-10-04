@@ -34,18 +34,19 @@ A website displaying “hello world” served up by a Auto Scaled EC2 instances 
 
 # Steps Performed to Create
 1. Generate AWS keys and set up AWS environment
-2. Create CloudFormation web server infrastructure template (files/raco_web_srvr_infra_cf_template.json) which:
-   a. Creates all the infrastructure to run the web servers in
-3. Create CloudFormation web servers template (files/raco_web_srvrs_cf_template.json) which:
+2. Create CloudFormation website infrastructure template (files/raco_website_infra_cf_template.json) which:
+   a. Creates all the infrastructure to run the website in
+3. Create CloudFormation web servers template (files/raco_website_cf_template.json.template) which:
    a. Creates the AWS Lauch Configuration and AutoScaling Group to create the web-servers
-4. Create/run script (scripts/create_webserver_infra.sh) which:
+      (this is a template to create the actual CF template after `sed` replaces Chef server info)
+4. Create/run script (scripts/create_raco_website.sh) which:
    a. Creates AWS key pair and saves the private key
    b. Creates/Updates CloudFormation web server infra stack from the template
-5. Set up Chef Workstation (install ChefDK, configure knife.rb, and 'install' pem files and SSL
-6. Set up the Chef Server (org, admin user) and grab pem files
-7. Upload Chef cookbooks and roles
-8. Create/run script (scripts/create_webservers.sh) which:
-   a. Creates/Updates CloudFormation web server stack from the template
+   c. Sets up Chef Workstation (install ChefDK, configure knife.rb, and 'install' pem files and SSL
+   d. Set up the Chef Server (org, admin user) and grab pem files
+   e. Upload Chef cookbooks and roles
+   f. Creates the website CF template by update Chef Server info
+   g. Creates/Updates CloudFormation website stack from the template using CloudFormation
 
 # Testing Performed
 - Ran all the scripts and verified that all the infrastructure and web servers got created

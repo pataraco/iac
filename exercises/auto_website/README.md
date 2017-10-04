@@ -59,14 +59,9 @@ A website displaying “hello world” served up by a Auto Scaled EC2 instances 
 - Tested create script from scracth again after destroying
 
 # To-Do
-1. Add Chef config/creation steps in create_webserver.sh script that will automatically:
-   a. Create the Chef Server organization and grab the validator.pem
-   b. Create the Chef Server admin user and grab the user's pem file
-   c. Create the knife.rb file and place the pem files in the .chef directory
-   d. Run `knife ssh fetch`
-2. Create a AWS Lambda function to automatically update the CIDR in the security group
+1. Create a AWS Lambda function to automatically update the CIDR in the security group
    that the web servers use to only allow HTTP traffic from the ELB
    (currently it's set to '0.0.0.0/0')
-3. Create a AWS Lambda function to automatically remove Chef nodes/clients from the 
+2. Create a AWS Lambda function to automatically remove Chef nodes/clients from the 
    Chef Server once their state becomes 'terminated'
 

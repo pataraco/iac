@@ -64,4 +64,9 @@ A website displaying “hello world” served up by a Auto Scaled EC2 instances 
    (currently it's set to '0.0.0.0/0')
 2. Create a AWS Lambda function to automatically remove Chef nodes/clients from the 
    Chef Server once their state becomes 'terminated'
+3. Use AWS KMS to store/retrieve the Chef Server validator.pem
+4. Create a web servers via Ansible
+   a. set up codecommit repo to push/pull ansible code
+   b. use KMS for codecommit credentials
+5. Use a template for the infrastructure CF stack template too to set CREATOR parameter (also utilize this in other template too)
 

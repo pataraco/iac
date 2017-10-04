@@ -17,7 +17,7 @@
 AWS_CMD=$(which aws)
 JQ_CMD=$(which jq)
 KNIFE_CMD=$(which knife)
-CREATOR_ID="praco"
+CREATOR_ID="raco"
 CREATOR_NAME="Patrick Raco"
 CREATOR_EMAIL="pataraco@gmail.com"
 REPOS_DIR="$HOME/repos"

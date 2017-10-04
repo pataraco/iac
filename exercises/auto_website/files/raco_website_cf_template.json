@@ -5,7 +5,7 @@
       "Creator" : {
          "Description": "Name of person creating the infrastructure",
          "Type" : "String",
-         "Default" : "praco"
+         "Default" : "raco"
       },
       "AmznLinuxAmi" : {
          "Description": "Amazon Linux AMI (us-west-1)",
@@ -48,7 +48,7 @@
                "\n",
                "# Setup hosts file correctly\n",
                "cat >> \"/etc/hosts\" << EOF\n",
-               "__CHEF_SERVER_IP__ chef-server chef-server.", {"Ref":"Creator"}, ".int\n",
+               "54.67.44.183 chef-server chef-server.", {"Ref":"Creator"}, ".int\n",
                "EOF\n",
                "\n",
                "cd /etc/chef/\n",
@@ -69,7 +69,7 @@
                "# Create client.rb\n",
                "CLIENT_RB=\"/etc/chef/client.rb\"\n",
                "/bin/echo 'log_location     STDOUT' >> $CLIENT_RB\n",
-               "/bin/echo -e \"chef_server_url  '__CHEF_SERVER_URL__'\" >> $CLIENT_RB\n",
+               "/bin/echo -e \"chef_server_url  'https://ec2-54-67-44-183.us-west-1.compute.amazonaws.com/organizations/raco'\" >> $CLIENT_RB\n",
                "/bin/echo -e \"validation_client_name '", {"Ref":"Creator"}, "-validator'\" >> $CLIENT_RB\n",
                "/bin/echo -e \"node_name  '${NODE_NAME}'\" >> $CLIENT_RB\n",
                "\n",

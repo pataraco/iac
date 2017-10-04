@@ -16,7 +16,7 @@
 
 AWS_CMD=$(which aws)
 JQ_CMD=$(which jq)
-CREATOR_ID="praco"
+CREATOR_ID="raco"
 CREATOR_NAME="Patrick Raco"
 CREATOR_EMAIL="pataraco@gmail.com"
 AWS_KEY_PAIR_NAME="$CREATOR_ID"

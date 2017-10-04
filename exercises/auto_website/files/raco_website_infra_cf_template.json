@@ -5,7 +5,7 @@
       "Creator" : {
          "Description": "Name of person creating the infrastructure",
          "Type" : "String",
-         "Default" : "praco"
+         "Default" : "raco"
       },
       "VpcCidr" : {
          "Description": "CIDR for VPC",

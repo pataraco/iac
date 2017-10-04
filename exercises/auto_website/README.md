@@ -69,4 +69,4 @@ A website displaying “hello world” served up by a Auto Scaled EC2 instances 
    a. set up codecommit repo to push/pull ansible code
    b. use KMS for codecommit credentials
 5. Use a template for the infrastructure CF stack template too to set CREATOR parameter (also utilize this in other template too)
-
+6. Remove user.pem from Chef Server after retrieving it

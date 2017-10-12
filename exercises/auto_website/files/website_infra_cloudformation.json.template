@@ -221,26 +221,20 @@
             "Tags" : [{"Key":"Name","Value":{"Fn::Join":["",[{"Ref":"Creator"},"-chef-server"]]}}]
          }
       },
-      "SgHttpAny" : {
+      "SgWebSvr" : {
          "Type" : "AWS::EC2::SecurityGroup",
          "Properties" : {
-            "GroupName" : {"Fn::Join":["",[{"Ref":"Creator"},"-http-from-any"]]},
-            "GroupDescription" : "Allow HTTP from ANY",
-            "SecurityGroupIngress" : [{
-               "IpProtocol" : "tcp",
-               "FromPort" : "80",
-               "ToPort" : "80",
-               "CidrIp" : "0.0.0.0/0"
-            }],
+            "GroupName" : {"Fn::Join":["",[{"Ref":"Creator"},"-ingress-from-elb"]]},
+            "GroupDescription" : "Allow traffic from ELB via security group",
             "VpcId" : {"Ref":"VPC"},
-            "Tags" : [{"Key":"Name","Value":{"Fn::Join":["",[{"Ref":"Creator"},"-http-from-any"]]}}]
+            "Tags" : [{"Key":"Name","Value":{"Fn::Join":["",[{"Ref":"Creator"},"-ingress-from-elb"]]}}]
          }
       },
-      "SgHttpElb" : {
+      "SgELB" : {
          "Type" : "AWS::EC2::SecurityGroup",
          "Properties" : {
-            "GroupName" : {"Fn::Join":["",[{"Ref":"Creator"},"-http-from-elb"]]},
-            "GroupDescription" : "Allow HTTP from ELB - Uses Lambda to update CIDR",
+            "GroupName" : {"Fn::Join":["",[{"Ref":"Creator"},"-http-from-any-to-websvr"]]},
+            "GroupDescription" : "Allow HTTP from ANY and out to Web Server",
             "SecurityGroupIngress" : [{
                "IpProtocol" : "tcp",
                "FromPort" : "80",
@@ -248,11 +242,27 @@
                "CidrIp" : "0.0.0.0/0"
             }],
             "VpcId" : {"Ref":"VPC"},
-            "Tags" : [
-               {"Key":"Name","Value":{"Fn::Join":["",[{"Ref":"Creator"},"-http-from-elb"]]}},
-               {"Key":"AutoUpdate","Value":"true"},
-               {"Key":"Protocol","Value":"http"}
-            ]
+            "Tags" : [{"Key":"Name","Value":{"Fn::Join":["",[{"Ref":"Creator"},"-http-from-any-to-websvr"]]}}]
+         }
+      },
+      "SgELBEgress" : {
+         "Type" : "AWS::EC2::SecurityGroupEgress",
+         "Properties" : {
+            "DestinationSecurityGroupId" : {"Fn::GetAtt":["SgWebSvr","GroupId"]},
+            "GroupId" : {"Fn::GetAtt":["SgELB","GroupId"]},
+            "IpProtocol" : "tcp",
+            "FromPort" : 80,
+            "ToPort" : 80
+         }
+      },
+      "SgWebSvrIngress" : {
+         "Type" : "AWS::EC2::SecurityGroupIngress",
+         "Properties" : {
+            "GroupId" : {"Fn::GetAtt":["SgWebSvr","GroupId"]},
+            "IpProtocol" : "tcp",
+            "SourceSecurityGroupId" : {"Fn::GetAtt":["SgELB","GroupId"]},
+            "FromPort" : 80,
+            "ToPort" : 80
          }
       },
       "SgIcmpMe" : {
@@ -331,7 +341,7 @@
                "InstancePort" : "80",
                "Protocol" : "HTTP"
             }],
-            "SecurityGroups" : [{"Ref":"SgHttpAny"}],
+            "SecurityGroups" : [{"Ref":"SgELB"}],
             "Subnets" : [{"Ref":"SubnetExt1"},{"Ref":"SubnetExt2"}],
             "Tags" : [{"Key":"Name","Value":{"Fn::Join":["",[{"Ref":"Creator"},"-website"]]}}]
          }
@@ -425,10 +435,10 @@
          "Value" : {"Ref":"InstProfile"},
          "Export" : {"Name":{"Fn::Join":["",[{"Ref":"Creator"},"InstProfile"]]}}
       },
-      "SgHttpElb" : {
+      "SgWebSvr" : {
          "Description" : "Security Group HTTP from ELB",
-         "Value" : {"Ref":"SgHttpElb"},
-         "Export" : {"Name":{"Fn::Join":["",[{"Ref":"Creator"},"SgHttpElb"]]}}
+         "Value" : {"Ref":"SgWebSvr"},
+         "Export" : {"Name":{"Fn::Join":["",[{"Ref":"Creator"},"SgWebSvr"]]}}
       },
       "SgIcmpInt" : {
          "Description" : "Security Group ICMP from internal",

@@ -22,7 +22,7 @@
             "IamInstanceProfile" : {"Fn::ImportValue":{"Fn::Join":["",[{"Ref":"Creator"},"InstProfile"]]}},
             "KeyName" : {"Ref":"Creator"},
             "SecurityGroups" : [
-               {"Fn::ImportValue":{"Fn::Join":["",[{"Ref":"Creator"},"SgHttpElb"]]}},
+               {"Fn::ImportValue":{"Fn::Join":["",[{"Ref":"Creator"},"SgWebSvr"]]}},
                {"Fn::ImportValue":{"Fn::Join":["",[{"Ref":"Creator"},"SgIcmpInt"]]}},
                {"Fn::ImportValue":{"Fn::Join":["",[{"Ref":"Creator"},"SgSshInt"]]}}
             ],

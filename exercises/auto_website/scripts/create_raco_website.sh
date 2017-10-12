@@ -175,13 +175,16 @@ ssh -i $AWS_PRIVATE_KEY ec2-user@$chef_server_public_ip "sudo chef-server-ctl or
 echo "configuring the knife.rb file"
 sed "s^__CREATOR__^$CREATOR_ID^g;s^__CHEF_SERVER_URL__^$chef_server_url^g" $KNIFERB.template > $KNIFERB
 
-# get & install Chef client and validator pems
+# get & install Chef client and validator pems and remove from Chef server
 echo "installing/uploading pem files"
 scp -i $AWS_PRIVATE_KEY ec2-user@$chef_server_public_ip:$CHEF_VALIDATOR_PEM_SRC $CHEF_VALIDATOR_PEM_DST
 scp -i $AWS_PRIVATE_KEY ec2-user@$chef_server_public_ip:$CHEF_USER_PEM_SRC $CHEF_USER_PEM_DST
 # upload validator pem to S3 bucket
 $AWS_CMD s3 mb s3://$CREATOR_ID
 $AWS_CMD s3 cp $CHEF_VALIDATOR_PEM_DST s3://$CREATOR_ID/chef/validation.pem
+# remove pem files from the chef server
+echo "removing pem files from the chef server"
+ssh -i $AWS_PRIVATE_KEY ec2-user@$chef_server_public_ip "sudo rm -f $CHEF_USER_PEM_SRC; sudo rm -f $CHEF_VALIDATOR_PEM_SRC"
 
 # install Chef SSL certs
 echo "fetching Chef SSL cert"

@@ -10,27 +10,27 @@
       "VpcCidr" : {
          "Description": "CIDR for VPC",
          "Type" : "String",
-         "Default" : "8.12.0.0/16"
-      },
-      "SubnetIntCidr1" : {
-         "Description": "CIDR for VPC",
-         "Type" : "String",
-         "Default" : "8.12.1.0/24"
+         "Default" : "10.0.0.0/16"
       },
       "SubnetExtCidr1" : {
          "Description": "CIDR for VPC",
          "Type" : "String",
-         "Default" : "8.12.2.0/24"
+         "Default" : "10.0.0.0/24"
       },
-      "SubnetIntCidr2" : {
+      "SubnetIntCidr1" : {
          "Description": "CIDR for VPC",
          "Type" : "String",
-         "Default" : "8.12.3.0/24"
+         "Default" : "10.0.1.0/24"
       },
       "SubnetExtCidr2" : {
          "Description": "CIDR for VPC",
          "Type" : "String",
-         "Default" : "8.12.4.0/24"
+         "Default" : "10.0.2.0/24"
+      },
+      "SubnetIntCidr2" : {
+         "Description": "CIDR for VPC",
+         "Type" : "String",
+         "Default" : "10.0.3.0/24"
       },
       "MyPubIp" : {
          "Description": "My public IP from 'curl http://ipecho.net/plain'",

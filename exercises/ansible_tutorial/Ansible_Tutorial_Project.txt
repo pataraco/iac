@@ -1,0 +1,169 @@
+ANSIBLE Tutorial Project
+------------------------
+
+
+Requirements:
+
+Must be fully automated via Ansible, including
+	- Entire infrastructure build out
+	- All system bootstraps and configurations
+	- Complete application configurations
+Ansible
+	- Create one or more playbooks as needed
+	- Create a new role named YOUR-INITIALS_sample_project
+	- Leverage ansible-pull
+Infrastructure
+	- ELB listening port 80
+	- Correctly defined security groups
+	- Correctly tagging all resources with necessary tags per AWS Tagging Requirements.
+	- Deployed in the Mordor VPC
+	- Utilize internal (private) and external (public) subnets
+	- Two (2) Instances need to be deployed into different availability zones
+Software Requirements on the instance:
+	- Web server listening on port 80
+	- Deploy a dummy website ( static index.html )
+	- URL for testing SHALL be:
+		http://YOUR-INITIALS_sample-proj.nimaws.com
+Extra credit:
+	- Ansible playbook(s) to cleanly take down any AWS resources created by this project
+
+---------------------------------------------------
+
+TODO:
+
+IP  - create a key
+	- CloudWatch Metrics
+IP	- Web Servers
+	- Figure out how to save the private key
+	
+INSTANCES (WEB SERVERS)
+	- need to install some AWS keys
+	- yum install -y wget git
+	-------- begin install pip -------
+	-------- A -------
+>	- rpm -ivh http://dl.fedoraproject.org/pub/epel/6/x86_64/epel-release-6-8.noarch.rpm
+>>	- rpm -iUvh http://dl.fedoraproject.org/pub/epel/7/x86_64/e/epel-release-7-6.noarch.rpm
+	- yum -y update
+	- yum install -y python-pip
+	-------- B -------
+	- curl "https://bootstrap.pypa.io/get-pip.py" -o "get-pip.py"
+    - python get-pip.py 
+	-------- end install pip -------
+	- pip install --upgrade pip awscli
+	- set the hostname
+	
+ 
+QUESTIONS
+	
+	- I put my hosts in manually - how to do dynamically?
+	- tag the volumes that are attached to instances?
+	- create/tag network ACL?
+	- tag the ELB?
+
+Infrastructure
+	- Deployed in the Mordor VPC (vpc-Mordor - vpc-4fbf102a - 10.100.0.0/16)
+	- Correctly tagging all resources with necessary tags per AWS Tagging Requirements.
+		Name (varies):				raco's Ansible tutorial project	# Description
+		Cluster (cluster):			blue							# blue/green/shared1/shared2
+		ChargeCode (charge_code):	INT03 - IT/Operations			# get from planview
+		Project (project):			praco?????						# used to path Ansible varables (valid Linux path)
+		Env (env):					dev								# dev, qa, cs, prod, staging
+		MachineRole:				raco-user-data					# used by user-data scripts for AS instance creation
+		VPCName:													# $ANSIBLE_HOME/inventory/$Project/$VPCName
+	# do NOT create new - just use existing
+	##- Utilize internal (private) and external (public) subnets 	(AWS > VPC > Subnets)
+	##	Internal:		raco-int-us-west-2a | 10.100.12.0/24  | rtb-3f47ed5a (rtbl-internal) | acl-456fc120 | us-west-2a
+	##	External:		raco-ext-us-west-2b | 10.100.112.0/24 | rtb-0847ed6d (rtbl-external) | acl-456fc120 | us-west-2a
+	- Correctly defined security groups 						(AWS > VPC|EC2 > Security Groups)
+		raco-http-sec-grp | Outbound: ALL, ALL, 0.0.0.0/0 | Inbound: HTTP (80), TCP, 80, 10.100.0.0/16 | sg-????????
+		raco-http-sec-grp | Outbound: ALL, ALL, 0.0.0.0/0 | Inbound: HTTP (80), TCP, 80, 172.18.0.0/16 | sg-????????
+		raco-ssh-sec-grp  | Outbound: ALL, ALL, 0.0.0.0/0 | Inbound: SSH  (22), TCP, 22, 172.18.0.0/16 | sg-????????
+		- http://docs.ansible.com/ansible/ec2_group_module.html
+	- ELB listening port 80										(AWS > EC2 > Load Balancers)
+		raco-elb | vpc-4fbf102a | external | listen: 80 -> Inst (80) | raco-int-us-west-2a | sg-????????
+		- http://docs.ansible.com/ansible/ec2_elb_lb_module.html
+	- Route 53
+		- http://docs.ansible.com/ansible/route53_module.html
+	- Autoscaling group
+		- http://docs.ansible.com/ansible/ec2_asg_module.html
+Software Requirements on the instance:
+	- Two (2) Instances need to be deployed into different availability zones
+	- Web server listening on port 80
+	- Deploy a dummy website ( static index.html )
+	- URL for testing SHALL be:
+		http://YOUR-INITIALS_sample-proj.nimaws.com
+Extra credit:
+	- Ansible playbook(s) to cleanly take down any AWS resources created by this project
+
+QUESTIONS:
+	- how to get my (our) ssh keys installed?
+	- which project/charge names/codes to use?
+	- how to run multiple tasks in a loop using vars?
+	
+DONE:
+
+- created/switched-to a new branch of "cloud-automation" (praco_tutorial)
+- reserved CIDR for new VPC: N:\Shared\OPS\Network\NIMNetworks.xlsx
+
+
+Raco-AWS
+tholcomb
+Access Key ID:
+AKIAIQ4V2EMOMU4NO2KA
+Secret Access Key:
+qrsZo8ittyiZcN8Te8EOdzzEyJVAsIszA0/XZQsA
+passwd: 
+
+TODO: 
+	playbooks/raco/create_raco_inf.yml
+	
+-----------------------------------------------
+# TODO: remove this stuff
+#   pre_tasks:
+#     - name: print out value of aws_elb_specs
+#       debug: var=aws_elb_specs
+#     - name: print out value of region
+#       debug: var=region
+
+  roles:
+    # Create new ELB and Route 53 CNAME
+    - aws_elb
+    # role "aws_elb" creates the following:
+    #   - ELB                   # module: ec2_elb_elb
+    #   - Route 53 CNAME        # module: route53
+
+    # Create Auto Scaling shtuff
+    - aws_lc   # launch config
+    - aws_asg  # autoscaling group
+
+  tasks:
+# TODO: remove this stuff
+#     - name: print out value of elbs_created
+#       debug: var=elbs_created
+
+#     # Create Route 53
+#     - name: "create Route 53 entry (CNAME for {{ proj_url }})"
+#       route53:
+#         command: create
+#         # hmmm - this may be dangerous
+#         overwrite: yes
+#         record: "{{ proj_url }}"
+#         ttl: 300        # seconds
+#         type: CNAME
+#         value: "{{ elb_created.elb.dns_name }}"
+#         zone: "{{ dns_zone }}"
+#         # maybe add health_check
+#         #health_check: ????
+
+#     # Create a key pair
+#     - name: create a key pair
+#       ec2_key:
+#         name: "{{ instance.key_name }}"
+#         region: "{{ region }}"
+#         state: present
+#       register: key_created                     # key_created.key.private_key
+#     - name: print out value of key_created
+#       debug: var=key_created
+#       # TODO: learn how to save the private key returned to a local file
+# TODO: <HERE>
+---------------------------------------------

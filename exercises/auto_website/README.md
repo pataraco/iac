@@ -68,6 +68,49 @@ A website displaying “hello world” served up by a Auto Scaled EC2 instances 
 
 # Creation Example Run (output of 'create_website' script)
 ```
+$ ./scripts/create_raco_website.sh
+performing sanity checks
+public key doesn't exist in AWS, creating key pair: raco
+private key saved to: /home/praco/.ssh/raco.pem
+configuring the website infrastructure CloudFormation stack template
+creating website infrastructure via CloudFormation
+CloudFormation stack does not exist - creating: raco-website-infra
+{ "StackId": "arn:aws:cloudformation:us-west-1:783506417684:stack/raco-website-infra/b3b8b620-af79-11e7-9c52-500c5967ce56" }
+waiting for CloudFormation stack creation to complete: raco-website-infra
+getting the chef server public ip and forming it's URL
+configuring the chef server
+The authenticity of host '52.5.16.17 (52.5.16.17)' can't be established.
+RSA key fingerprint is b:1:9:a:5:4:5:6:a:5:c:2:7:4:b:1.
+Are you sure you want to continue connecting (yes/no)? yes
+Warning: Permanently added '52.5.16.17' (RSA) to the list of known hosts.
+User raco already associated with organization raco
+User raco is added to admins and billing-admins group
+configuring the knife.rb file
+installing/uploading pem files
+raco-validator.pem                                                                      100% 1678     1.6KB/s   00:00
+raco.chef.pem                                                                           100% 1678     1.6KB/s   00:00
+make_bucket: s3://raco/
+upload: ../../../../../../../../home/praco/repos/infrastructure-automation/exercises/auto_website/chef/.chef/raco-validator.pem to s3://raco/chef/validation.pem
+removing pem files from the chef server
+fetching Chef SSL cert
+WARNING: Certificates from ec2-52-5-16-17.us-west-1.compute.amazonaws.com will be fetched and placed in your trusted_cert
+directory (/home/praco/repos/infrastructure-automation/exercises/auto_website/chef/.chef/trusted_certs).
+Knife has no means to verify these are the correct certificates. You should
+verify the authenticity of these certificates after downloading.
+Adding certificate for ec2-52-5-16-17_us-west-1_compute_amazonaws_com in /home/praco/repos/infrastructure-automation/exercises/auto_website/chef/.chef/trusted_certs/ec2-52-5-16-17_us-west-1_compute_amazonaws_com.crt
+uploading roles and cookbooks
+Updated Role web-server
+Uploading hostname     [0.0.2]
+Uploaded 1 cookbook.
+Uploading web-server     [0.0.1]
+Uploaded 1 cookbook.
+configuring the website CloudFormation stack template
+creating website servers via CloudFormation
+CloudFormation stack does not exist - creating: raco-website
+{ "StackId": "arn:aws:cloudformation:us-west-1:783506417684:stack/raco-website/1118b6c0-af7b-11e7-b37a-500c21fb2c29" }
+waiting for CloudFormation stack creation to complete: raco-website
+getting website URL
+website creation complete: raco-website-151649.us-west-1.elb.amazonaws.com
 ```
 
 
@@ -75,7 +118,7 @@ A website displaying “hello world” served up by a Auto Scaled EC2 instances 
 ```
 $ ./scripts/destroy_raco_website.sh
 performing sanity checks
-URL of website you are about to delete: raco-website-872774493.us-west-1.elb.amazonaws.com
+URL of website you are about to delete: raco-website-872493.us-west-1.elb.amazonaws.com
 Are you sure you want to delete this website ['yes' to confirm]? yes
 disabling termination protection for instance: raco-bastion
 disabling termination protection for instance: raco-chef-server
@@ -90,5 +133,5 @@ delete: s3://raco/chef/validation.pem
 remove_bucket: s3://raco/
 deleting the SNS topic
 deleting the key pair
-website destruction complete: raco-website-872774493.us-west-1.elb.amazonaws.com
+website destruction complete: raco-website-872493.us-west-1.elb.amazonaws.com
 ```

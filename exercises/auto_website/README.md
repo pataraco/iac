@@ -59,14 +59,9 @@ A website displaying “hello world” served up by a Auto Scaled EC2 instances 
 - Tested create script from scracth again after destroying
 
 # To-Do
-1. Create a AWS Lambda function to automatically update the CIDR in the security group
-   that the web servers use to only allow HTTP traffic from the ELB
-   (currently it's set to '0.0.0.0/0')
-2. Create a AWS Lambda function to automatically remove Chef nodes/clients from the 
+1. Create a AWS Lambda function to automatically remove Chef nodes/clients from the
    Chef Server once their state becomes 'terminated'
-3. Use AWS KMS to store/retrieve the Chef Server validator.pem
-4. Create a web servers via Ansible
+2. Use AWS KMS & Parameter Store to store/retrieve the Chef Server validator.pem
+3. Create a web servers via Ansible
    a. set up codecommit repo to push/pull ansible code
    b. use KMS for codecommit credentials
-5. Use a template for the infrastructure CF stack template too to set CREATOR parameter (also utilize this in other template too)
-6. Remove user.pem from Chef Server after retrieving it

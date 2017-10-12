@@ -388,7 +388,12 @@
             "SecurityGroupIds" : [{"Ref":"SgSshMe"},{"Ref":"SgIcmpMe"}],
             "SubnetId" : {"Ref":"SubnetExt1"},
             "Tags" : [{"Key":"Name","Value":{"Fn::Join":["",[{"Ref":"Creator"},"-bastion"]]}}],
-            "Tenancy" : "default"
+            "Tenancy" : "default",
+            "UserData": {"Fn::Base64":{"Fn::Join":["",[
+               "#!/bin/bash\n",
+               "/bin/hostname ", {"Ref":"Creator"}, "-bastion\n",
+               "/sbin/service rsyslog restart\n"
+            ]]}}
          }
       },
       "WaitForChefServerInstall": {
@@ -419,11 +424,13 @@
             "Tenancy" : "default",
             "UserData": {"Fn::Base64":{"Fn::Join":["",[
                "#!/bin/bash\n",
-               "chef-server-ctl marketplace-setup -u chefadmin -f chefadmin -l p ",
+               "/bin/hostname ", {"Ref":"Creator"}, "-chef-server\n",
+               "/sbin/service rsyslog restart\n"
+               "/usr/bin/chef-server-ctl marketplace-setup -u chefadmin -f chefadmin -l p ",
                "-e ", {"Ref":"ChefAdminEmail"}, " -o aws ",
                "-p ", {"Ref":"ChefAdminPassword"}, " -y", "\n",
                "\n",
-               "curl -X PUT -H 'Content-Type:' --data-binary '{\"Status\" : \"SUCCESS\",\"Reason\" : \"Configuration Complete\",\"UniqueId\" : \"ChefServer\", \"Data\" : \"Done\"}' \"",
+               "/usr/bin/curl -X PUT -H 'Content-Type:' --data-binary '{\"Status\" : \"SUCCESS\",\"Reason\" : \"Configuration Complete\",\"UniqueId\" : \"ChefServer\", \"Data\" : \"Done\"}' \"",
                {"Ref":"WaitForChefServerWaitHandle"}, "\"", "\n"
             ]]}}
          }

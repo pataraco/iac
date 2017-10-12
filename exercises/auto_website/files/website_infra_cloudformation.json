@@ -425,7 +425,7 @@
             "UserData": {"Fn::Base64":{"Fn::Join":["",[
                "#!/bin/bash\n",
                "/bin/hostname ", {"Ref":"Creator"}, "-chef-server\n",
-               "/sbin/service rsyslog restart\n"
+               "/sbin/service rsyslog restart\n",
                "/usr/bin/chef-server-ctl marketplace-setup -u chefadmin -f chefadmin -l p ",
                "-e ", {"Ref":"ChefAdminEmail"}, " -o aws ",
                "-p ", {"Ref":"ChefAdminPassword"}, " -y", "\n",

@@ -32,7 +32,7 @@ disable_instance_termination_protection() {
 
    # get the instance ID
    echo "disabling termination protection for instance: $_instance_name"
-   local _instance_id=$($AWS_CMD ec2 describe-instances --filters Name=tag:Name,Values=$_instance_name | jq -r .Reservations[].Instances[].InstanceId)
+   local _instance_id=$($AWS_CMD ec2 describe-instances --filters Name=tag:Name,Values=$_instance_name Name=instance-state-name,Values=running | jq -r .Reservations[].Instances[].InstanceId)
    $AWS_CMD ec2 modify-instance-attribute --instance-id $_instance_id --no-disable-api-termination
 }
 

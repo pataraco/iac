@@ -65,3 +65,30 @@ A website displaying “hello world” served up by a Auto Scaled EC2 instances 
 3. Create a web servers via Ansible
    a. set up codecommit repo to push/pull ansible code
    b. use KMS for codecommit credentials
+
+# Creation Example Run (output of 'create_website' script)
+```
+```
+
+
+# Destruction Example Run (output of 'destroy_website' script)
+```
+$ ./scripts/destroy_raco_website.sh
+performing sanity checks
+URL of website you are about to delete: raco-website-872774493.us-west-1.elb.amazonaws.com
+Are you sure you want to delete this website ['yes' to confirm]? yes
+disabling termination protection for instance: raco-bastion
+disabling termination protection for instance: raco-chef-server
+deleting website via CloudFormation
+deleting CloudFormation stack: raco-website
+waiting for CloudFormation stack delete to complete: raco-website
+deleting website infrastructure via CloudFormation
+deleting CloudFormation stack: raco-website-infra
+waiting for CloudFormation stack delete to complete: raco-website-infra
+deleting s3 bucket and files
+delete: s3://raco/chef/validation.pem
+remove_bucket: s3://raco/
+deleting the SNS topic
+deleting the key pair
+website destruction complete: raco-website-872774493.us-west-1.elb.amazonaws.com
+```

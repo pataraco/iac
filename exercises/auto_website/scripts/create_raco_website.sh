@@ -162,7 +162,7 @@ create_update_cf_stack $AWS_WEBSITE_INFRA_CF_STACK_NAME $WEBSITE_INFRA_CF_STACK_
 
 # get the Chef server public IP address
 echo "getting the chef server public ip and forming it's URL"
-chef_server_public_ip=$($AWS_CMD ec2 describe-instances --filters Name=tag:Name,Values=${CREATOR_ID}-chef-server | jq -r .Reservations[].Instances[].PublicIpAddress)
+chef_server_public_ip=$($AWS_CMD ec2 describe-instances --filters Name=tag:Name,Values=${CREATOR_ID}-chef-server Name=instance-state-name,Values=running | jq -r .Reservations[].Instances[].PublicIpAddress)
 chef_server_url="https://ec2-${chef_server_public_ip//./-}.$REGION.$AWS_PUBLIC_DOMAIN_NAME/organizations/$CREATOR_ID"
 
 # configure the chef server

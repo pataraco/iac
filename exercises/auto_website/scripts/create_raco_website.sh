@@ -30,8 +30,8 @@ AWS_CF_STACK_NAME="$CREATOR_ID"
 AWS_WEBSITE_INFRA_CF_STACK_NAME="${CREATOR_ID}-website-infra"
 AWS_WEBSITE_CF_STACK_NAME="${CREATOR_ID}-website"
 AWS_PRIVATE_KEY="$HOME/.ssh/${AWS_KEY_PAIR_NAME}.pem"
-WEBSITE_INFRA_CF_STACK_TEMPLATE="/$REPOS_DIR/$REPO_NAME/exercises/$PROJECT/files/${CREATOR_ID}_website_infra_cf_template.json"
-WEBSITE_CF_STACK_TEMPLATE="/$REPOS_DIR/$REPO_NAME/exercises/$PROJECT/files/${CREATOR_ID}_website_cf_template.json"
+WEBSITE_INFRA_CF_STACK_TEMPLATE="/$REPOS_DIR/$REPO_NAME/exercises/$PROJECT/files/website_infra_cloudformation.json"
+WEBSITE_CF_STACK_TEMPLATE="/$REPOS_DIR/$REPO_NAME/exercises/$PROJECT/files/website_cloudformation.json"
 CHEF_REPO="$REPOS_DIR/$REPO_NAME/exercises/$PROJECT/chef"
 KNIFERB="$CHEF_REPO/.chef/knife.rb"
 CHEF_VALIDATOR_PEM_SRC="/tmp/${CREATOR_ID}-validator.pem"
@@ -123,6 +123,10 @@ NOTIFICATION_ARN=$($AWS_CMD sns create-topic --name "all-${CREATOR_ID}-notificat
 #     - create a Chef server AWS instance (t2.medium)
 #   2. use AWS cloudformation CLI to create the infrastructure using the json file
 
+# create website infrastructure CloudFormation stack template from another template ;-p
+echo "configuring the website infrastructure CloudFormation stack template"
+sed "s^__CREATOR__^$CREATOR_ID^g;s^__CREATOR_EMAIL__^$CREATOR_EMAIL^g" $WEBSITE_INFRA_CF_STACK_TEMPLATE.template > $WEBSITE_INFRA_CF_STACK_TEMPLATE
+
 # create the website infrastructure using CloudFormation
 echo "creating website infrastructure via CloudFormation"
 create_update_cf_stack $AWS_WEBSITE_INFRA_CF_STACK_NAME $WEBSITE_INFRA_CF_STACK_TEMPLATE
@@ -191,7 +195,7 @@ $KNIFE_CMD cookbook upload web-server -c $KNIFERB
 
 # create website CloudFormation stack template from another template ;-p
 echo "configuring the website CloudFormation stack template"
-sed "s^__CHEF_SERVER_IP__^$chef_server_public_ip^g;s^__CHEF_SERVER_URL__^$chef_server_url^g" $WEBSITE_CF_STACK_TEMPLATE.template > $WEBSITE_CF_STACK_TEMPLATE
+sed "s^__CREATOR__^$CREATOR_ID^g;s^__CHEF_SERVER_IP__^$chef_server_public_ip^g;s^__CHEF_SERVER_URL__^$chef_server_url^g" $WEBSITE_CF_STACK_TEMPLATE.template > $WEBSITE_CF_STACK_TEMPLATE
 
 # create the website infrastructure using CloudFormation
 echo "creating website servers via CloudFormation"

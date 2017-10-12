@@ -5,7 +5,7 @@
       "Creator" : {
          "Description": "Name of person creating the infrastructure",
          "Type" : "String",
-         "Default" : "raco"
+         "Default" : "__CREATOR__"
       },
       "AmznLinuxAmi" : {
          "Description": "Amazon Linux AMI (us-west-1)",

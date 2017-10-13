@@ -1,0 +1,24 @@
+{
+  "Version" : "2012-10-17",
+  "Id" : "__CREATOR_ID__-key-default",
+  "Statement" : [ {
+    "Sid" : "Enable Admin Permissions",
+    "Effect" : "Allow",
+    "Principal" : {
+      "AWS" : [
+         "arn:aws:iam::__AWS_ACCT_ID__:root",
+         "arn:aws:iam::__AWS_ACCT_ID__:user/__CREATOR_ID__"
+      ]
+    },
+    "Action" : "kms:*",
+    "Resource" : "*"
+  }, {
+    "Sid" : "Enable User Permissions",
+    "Effect" : "Allow",
+    "Principal" : {
+      "AWS" : "arn:aws:iam::__AWS_ACCT_ID__:role/__AWS_EC2_IAM_ROLE__"
+    },
+    "Action" : "kms:Decrypt",
+    "Resource" : "*"
+  } ]
+}

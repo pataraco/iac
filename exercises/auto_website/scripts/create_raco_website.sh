@@ -27,18 +27,24 @@ FILES_DIR="/$REPOS_DIR/$REPO_NAME/exercises/$PROJECT/files"
 REGION="us-west-1"
 AWS_PUBLIC_DOMAIN_NAME="compute.amazonaws.com"
 AWS_KEY_PAIR_NAME="$CREATOR_ID"
+AWS_EC2_IAM_ROLE="${CREATOR_ID}-ec2-restricted"
 AWS_CF_STACK_NAME="$CREATOR_ID"
 AWS_WEBSITE_INFRA_CF_STACK_NAME="${CREATOR_ID}-website-infra"
 AWS_WEBSITE_CF_STACK_NAME="${CREATOR_ID}-website"
 AWS_PRIVATE_KEY="$HOME/.ssh/${AWS_KEY_PAIR_NAME}.pem"
 WEBSITE_INFRA_CF_STACK_JSON_NAME="website_infra_cloudformation.json"
-WEBSITE_INFRA_CF_STACK_TEMPLATE="$FILES_DIR/$WEBSITE_INFRA_CF_STACK_JSON_NAME.template"
+WEBSITE_INFRA_CF_STACK_TEMPLATE="$FILES_DIR/${WEBSITE_INFRA_CF_STACK_JSON_NAME}.template"
 WEBSITE_INFRA_CF_STACK_FILE="/tmp/$WEBSITE_INFRA_CF_STACK_JSON_NAME"
 WEBSITE_CF_STACK_JSON_NAME="website_cloudformation.json"
-WEBSITE_CF_STACK_TEMPLATE="$FILES_DIR/$WEBSITE_CF_STACK_JSON_NAME.template"
+WEBSITE_CF_STACK_TEMPLATE="$FILES_DIR/${WEBSITE_CF_STACK_JSON_NAME}.template"
 WEBSITE_CF_STACK_FILE="/tmp/$WEBSITE_CF_STACK_JSON_NAME"
+KMS_MASTER_KEY_POLICY_JSON_NAME="kms_master_key_policy.json"
+KMS_MASTER_KEY_POLICY_TEMPLATE="$FILES_DIR/${KMS_MASTER_KEY_POLICY_JSON_NAME}.template"
+KMS_MASTER_KEY_POLICY_FILE="/tmp/$KMS_MASTER_KEY_POLICY_JSON_NAME"
 CHEF_REPO="$REPOS_DIR/$REPO_NAME/exercises/$PROJECT/chef"
-KNIFERB="$CHEF_REPO/.chef/knife.rb"
+KNIFERB_NAME="knife.rb"
+KNIFERB_TEMPLATE="$FILES_DIR/${KNIFERB_NAME}.template"
+KNIFERB_FILE="$CHEF_REPO/.chef/$KNIFERB_NAME"
 CHEF_VALIDATOR_PEM_SRC="/tmp/${CREATOR_ID}-validator.pem"
 CHEF_USER_PEM_SRC="/tmp/${CREATOR_ID}.chef.pem"
 CHEF_VALIDATOR_PEM_DST="$CHEF_REPO/.chef/${CREATOR_ID}-validator.pem"
@@ -98,23 +104,60 @@ if [ -z "$AWS_DEFAULT_PROFILE" ]; then
 fi
 
 # create a key pair via CLI (if it doesn't exist) to use for the instances
+echo "creating a public AWS key for EC2 instance access"
 $AWS_CMD ec2 describe-key-pairs --key-name $AWS_KEY_PAIR_NAME &> /dev/null
 if [ $? -ne 0 ]; then
-   echo "public key doesn't exist in AWS, creating key pair: $AWS_KEY_PAIR_NAME"
+   echo "  public key doesn't exist in AWS, creating key pair: $AWS_KEY_PAIR_NAME"
    $AWS_CMD ec2 create-key-pair --key-name $AWS_KEY_PAIR_NAME | $JQ_CMD -r .KeyMaterial > $AWS_PRIVATE_KEY
-   echo "private key saved to: $AWS_PRIVATE_KEY"
+   echo "  private key saved to: $AWS_PRIVATE_KEY"
    chmod 600 $AWS_PRIVATE_KEY
 elif [ ! -f $AWS_PRIVATE_KEY ]; then
-   echo "the public key exists in AWS: $AWS_KEY_PAIR_NAME"
-   echo "but you don't seem to have access to the private key: $AWS_PRIVATE_KEY"
+   echo "  the public key exists in AWS: $AWS_KEY_PAIR_NAME"
+   echo "  but you don't seem to have access to the private key: $AWS_PRIVATE_KEY"
 else
-   echo "the public key already exists in AWS: $AWS_KEY_PAIR_NAME"
-   echo "private key located here: $AWS_PRIVATE_KEY"
+   echo "  the public key already exists in AWS: $AWS_KEY_PAIR_NAME"
+   echo "  private key located here: $AWS_PRIVATE_KEY"
    chmod 600 $AWS_PRIVATE_KEY
 fi
 
 # create a SNS topic to get notifications
+echo "creating an AWS SNS topic for notifications"
 NOTIFICATION_ARN=$($AWS_CMD sns create-topic --name "all-${CREATOR_ID}-notifications" | $JQ_CMD -r .TopicArn)
+
+# create KMS CMK and Data Key
+echo "creating an AWS KMS master and data key for data encryption"
+# check if the key already exists
+master_key_id=$(aws kms list-aliases | jq -r '.Aliases[] | select(.AliasName=="'"alias/$CREATOR_ID"'").TargetKeyId')
+if [ -n "$master_key_id" ]; then
+   echo "  master key exists - checking state"
+   # get key state to make sure it's not disabled or scheduled for deletion
+   master_key_state=$(aws kms describe-key --key-id $master_key_id | jq -r '.KeyMetadata.KeyState')
+   case $master_key_state" in
+       Enabled)
+          echo "  key is enabled" ;;
+       PendingDeletion)
+          echo "  key is pending deletion - canceling and enabling"
+          aws kms cancel-key-deletion --key-id $master_key_id
+          aws kms enable-key --key-id $master_key_id
+          ;;
+       Disabled)
+          echo "  key is disabled - enabling"
+          aws kms enable-key --key-id $master_key_id
+          ;;
+       *)
+          echo "  key in unknown state - exiting"; exit 2 ;;
+   esac
+else
+   echo "  master key does not exist - creating"
+   # create the key
+   master_key_id=$(aws kms create-key --description "${CREATOR_ID}'s key to store secrets" | jq -r .KeyMetadata.KeyId)
+   # alias it
+   aws kms create-alias --alias-name "alias/$CREATOR_ID" --target-key-id $master_key_id
+   # set the policy
+   aws_acct_id=$(aws kms describe-key --key-id $master_key_id | jq .KeyMetadata.Arn | cut -d':' -f5)
+   sed "s^__AWS_ACCT_ID__^$aws_acct_id^g;s^__CREATOR_ID__^$CREATOR_ID^g;s^__AWS_EC2_IAM_ROLE__^$AWS_EC2_IAM_ROLE^g" $KMS_MASTER_KEY_POLICY_TEMPLATE > $KMS_MASTER_KEY_POLICY_FILE
+   aws kms put-key-policy --key-id $master_key_id --policy-name default --policy file://$KMS_MASTER_KEY_POLICY_FILE
+fi
 
 # I. Create the infrastructure in AWS via AWS CLI and CloudFormation (CF)
 #   1. create a json file for CF that does the following:
@@ -130,7 +173,7 @@ NOTIFICATION_ARN=$($AWS_CMD sns create-topic --name "all-${CREATOR_ID}-notificat
 
 # create website infrastructure CloudFormation stack template from another template ;-p
 echo "configuring the website infrastructure CloudFormation stack template"
-sed "s^__CREATOR__^$CREATOR_ID^g;s^__CREATOR_EMAIL__^$CREATOR_EMAIL^g" $WEBSITE_INFRA_CF_STACK_TEMPLATE > $WEBSITE_INFRA_CF_STACK_FILE
+sed "s^__CREATOR_ID__^$CREATOR_ID^g;s^__CREATOR_EMAIL__^$CREATOR_EMAIL^g;s^__AWS_EC2_IAM_ROLE__^$AWS_EC2_IAM_ROLE^g" $WEBSITE_INFRA_CF_STACK_TEMPLATE > $WEBSITE_INFRA_CF_STACK_FILE
 
 # create the website infrastructure using CloudFormation
 echo "creating website infrastructure via CloudFormation"
@@ -178,7 +221,7 @@ ssh -i $AWS_PRIVATE_KEY ec2-user@$chef_server_public_ip "sudo chef-server-ctl or
 
 # configure knife file from a template
 echo "configuring the knife.rb file"
-sed "s^__CREATOR__^$CREATOR_ID^g;s^__CHEF_SERVER_URL__^$chef_server_url^g" $KNIFERB.template > $KNIFERB
+sed "s^__CREATOR_ID__^$CREATOR_ID^g;s^__CHEF_SERVER_URL__^$chef_server_url^g" $KNIFERB_TEMPLATE > $KNIFERB_FILE
 
 # get & install Chef client and validator pems and remove from Chef server
 echo "installing/uploading pem files"
@@ -193,17 +236,17 @@ ssh -i $AWS_PRIVATE_KEY ec2-user@$chef_server_public_ip "sudo rm -f $CHEF_USER_P
 
 # install Chef SSL certs
 echo "fetching Chef SSL cert"
-$KNIFE_CMD ssl fetch -c $KNIFERB
+$KNIFE_CMD ssl fetch -c $KNIFERB_FILE
 
 # upload Chef roles/cookbooks to Chef server
 echo "uploading roles and cookbooks"
-$KNIFE_CMD role from file $CHEF_REPO/roles/web-server.rb -c $KNIFERB
-$KNIFE_CMD cookbook upload hostname -c $KNIFERB
-$KNIFE_CMD cookbook upload web-server -c $KNIFERB
+$KNIFE_CMD role from file $CHEF_REPO/roles/web-server.rb -c $KNIFERB_FILE
+$KNIFE_CMD cookbook upload hostname -c $KNIFERB_FILE
+$KNIFE_CMD cookbook upload web-server -c $KNIFERB_FILE
 
 # create website CloudFormation stack template from another template ;-p
 echo "configuring the website CloudFormation stack template"
-sed "s^__CREATOR__^$CREATOR_ID^g;s^__CHEF_SERVER_IP__^$chef_server_public_ip^g;s^__CHEF_SERVER_URL__^$chef_server_url^g" $WEBSITE_CF_STACK_TEMPLATE > $WEBSITE_CF_STACK_FILE
+sed "s^__CREATOR_ID__^$CREATOR_ID^g;s^__CHEF_SERVER_PUBLIC_IP__^$chef_server_public_ip^g;s^__CHEF_SERVER_URL__^$chef_server_url^g" $WEBSITE_CF_STACK_TEMPLATE > $WEBSITE_CF_STACK_FILE
 
 # create the website infrastructure using CloudFormation
 echo "creating website servers via CloudFormation"

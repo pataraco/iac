@@ -23,6 +23,7 @@ CREATOR_EMAIL="pataraco@gmail.com"
 REPOS_DIR="$HOME/repos"
 REPO_NAME="infrastructure-automation"
 PROJECT="auto_website"
+FILES_DIR="/$REPOS_DIR/$REPO_NAME/exercises/$PROJECT/files"
 REGION="us-west-1"
 AWS_PUBLIC_DOMAIN_NAME="compute.amazonaws.com"
 AWS_KEY_PAIR_NAME="$CREATOR_ID"
@@ -30,8 +31,12 @@ AWS_CF_STACK_NAME="$CREATOR_ID"
 AWS_WEBSITE_INFRA_CF_STACK_NAME="${CREATOR_ID}-website-infra"
 AWS_WEBSITE_CF_STACK_NAME="${CREATOR_ID}-website"
 AWS_PRIVATE_KEY="$HOME/.ssh/${AWS_KEY_PAIR_NAME}.pem"
-WEBSITE_INFRA_CF_STACK_TEMPLATE="/$REPOS_DIR/$REPO_NAME/exercises/$PROJECT/files/website_infra_cloudformation.json"
-WEBSITE_CF_STACK_TEMPLATE="/$REPOS_DIR/$REPO_NAME/exercises/$PROJECT/files/website_cloudformation.json"
+WEBSITE_INFRA_CF_STACK_JSON_NAME="website_infra_cloudformation.json"
+WEBSITE_INFRA_CF_STACK_TEMPLATE="$FILES_DIR/$WEBSITE_INFRA_CF_STACK_JSON_NAME.template"
+WEBSITE_INFRA_CF_STACK_FILE="/tmp/$WEBSITE_INFRA_CF_STACK_JSON_NAME"
+WEBSITE_CF_STACK_JSON_NAME="website_cloudformation.json"
+WEBSITE_CF_STACK_TEMPLATE="$FILES_DIR/$WEBSITE_CF_STACK_JSON_NAME.template"
+WEBSITE_CF_STACK_FILE="/tmp/$WEBSITE_CF_STACK_JSON_NAME"
 CHEF_REPO="$REPOS_DIR/$REPO_NAME/exercises/$PROJECT/chef"
 KNIFERB="$CHEF_REPO/.chef/knife.rb"
 CHEF_VALIDATOR_PEM_SRC="/tmp/${CREATOR_ID}-validator.pem"
@@ -125,11 +130,11 @@ NOTIFICATION_ARN=$($AWS_CMD sns create-topic --name "all-${CREATOR_ID}-notificat
 
 # create website infrastructure CloudFormation stack template from another template ;-p
 echo "configuring the website infrastructure CloudFormation stack template"
-sed "s^__CREATOR__^$CREATOR_ID^g;s^__CREATOR_EMAIL__^$CREATOR_EMAIL^g" $WEBSITE_INFRA_CF_STACK_TEMPLATE.template > $WEBSITE_INFRA_CF_STACK_TEMPLATE
+sed "s^__CREATOR__^$CREATOR_ID^g;s^__CREATOR_EMAIL__^$CREATOR_EMAIL^g" $WEBSITE_INFRA_CF_STACK_TEMPLATE > $WEBSITE_INFRA_CF_STACK_FILE
 
 # create the website infrastructure using CloudFormation
 echo "creating website infrastructure via CloudFormation"
-create_update_cf_stack $AWS_WEBSITE_INFRA_CF_STACK_NAME $WEBSITE_INFRA_CF_STACK_TEMPLATE
+create_update_cf_stack $AWS_WEBSITE_INFRA_CF_STACK_NAME $WEBSITE_INFRA_CF_STACK_FILE
 
 # II. Create Web Servers via Clouidformation and Chef
 #   - Bash: Configure the Chef server
@@ -198,11 +203,11 @@ $KNIFE_CMD cookbook upload web-server -c $KNIFERB
 
 # create website CloudFormation stack template from another template ;-p
 echo "configuring the website CloudFormation stack template"
-sed "s^__CREATOR__^$CREATOR_ID^g;s^__CHEF_SERVER_IP__^$chef_server_public_ip^g;s^__CHEF_SERVER_URL__^$chef_server_url^g" $WEBSITE_CF_STACK_TEMPLATE.template > $WEBSITE_CF_STACK_TEMPLATE
+sed "s^__CREATOR__^$CREATOR_ID^g;s^__CHEF_SERVER_IP__^$chef_server_public_ip^g;s^__CHEF_SERVER_URL__^$chef_server_url^g" $WEBSITE_CF_STACK_TEMPLATE > $WEBSITE_CF_STACK_FILE
 
 # create the website infrastructure using CloudFormation
 echo "creating website servers via CloudFormation"
-create_update_cf_stack $AWS_WEBSITE_CF_STACK_NAME $WEBSITE_CF_STACK_TEMPLATE
+create_update_cf_stack $AWS_WEBSITE_CF_STACK_NAME $WEBSITE_CF_STACK_FILE
 
 # TODO later
 # III. create a Web Server via Ansible

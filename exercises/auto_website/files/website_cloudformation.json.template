@@ -5,7 +5,7 @@
       "Creator" : {
          "Description": "Name of person creating the infrastructure",
          "Type" : "String",
-         "Default" : "__CREATOR__"
+         "Default" : "__CREATOR_ID__"
       },
       "AmznLinuxAmi" : {
          "Description": "Amazon Linux AMI (us-west-1)",
@@ -48,7 +48,7 @@
                "\n",
                "# Setup hosts file correctly\n",
                "/bin/cat >> \"/etc/hosts\" << EOF\n",
-               "__CHEF_SERVER_IP__ chef-server chef-server.", {"Ref":"Creator"}, ".int\n",
+               "__CHEF_SERVER_PUBLIC_IP__ chef-server chef-server.", {"Ref":"Creator"}, ".int\n",
                "EOF\n",
                "\n",
                "cd /etc/chef/\n",

@@ -5,7 +5,7 @@
       "Creator" : {
          "Description": "Name of person creating the infrastructure",
          "Type" : "String",
-         "Default" : "__CREATOR__"
+         "Default" : "__CREATOR_ID__"
       },
       "VpcCidr" : {
          "Description": "CIDR for VPC",
@@ -366,14 +366,14 @@
                "arn:aws:iam::aws:policy/AWSCodeCommitReadOnly",
                "arn:aws:iam::aws:policy/AmazonSNSFullAccess"
             ],
-            "RoleName" : {"Fn::Join":["",[{"Ref":"Creator"},"-ec2-restricted"]]}
+            "RoleName" : "__AWS_EC2_IAM_ROLE__"
          }
       },
       "InstProfile" : {
          "Type": "AWS::IAM::InstanceProfile",
          "Properties": {
             "Roles" : [{"Ref":"InstIamRole"}],
-            "InstanceProfileName" : {"Fn::Join":["",[{"Ref":"Creator"},"-ec2-restricted"]]}
+            "InstanceProfileName" : "__AWS_EC2_IAM_ROLE__"
          }
       },
       "BastionHost" : {

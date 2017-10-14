@@ -135,7 +135,7 @@ if [ -n "$master_key_id" ]; then
    echo "  master key exists - checking state"
    # get key state to make sure it's not disabled or scheduled for deletion
    master_key_state=$($AWS_CMD kms describe-key --key-id $master_key_id | jq -r '.KeyMetadata.KeyState')
-   case $master_key_state" in
+   case $master_key_state in
        Enabled)
           echo "  key is enabled" ;;
        PendingDeletion)

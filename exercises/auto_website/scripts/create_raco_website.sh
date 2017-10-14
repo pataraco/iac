@@ -73,7 +73,7 @@ create_update_cf_stack() {
    $AWS_CMD cloudformation describe-stacks --stack-name $_cf_stack_name &> /dev/null
    if [ $? -eq 0 ]; then
       echo "CloudFormation stack exists - checking if update needed: $_cf_stack_name"
-      $AWS_CMD cloudformation update-stack --stack-name $_cf_stack_name --capabilities CAPABILITY_NAMED_IAM --template-body file:/$_cf_stack_template &> /dev/null
+      $AWS_CMD cloudformation update-stack --stack-name $_cf_stack_name --capabilities CAPABILITY_NAMED_IAM --template-body file://$_cf_stack_template &> /dev/null
       if [ $? -eq 0 ]; then
          echo "Update needed: updating CloudFormation stack: $_cf_stack_name"
          # wait for the stack update to complete
@@ -85,7 +85,7 @@ create_update_cf_stack() {
       fi
    else
       echo "CloudFormation stack does not exist - creating: $_cf_stack_name"
-      $AWS_CMD cloudformation create-stack --stack-name $_cf_stack_name --capabilities CAPABILITY_NAMED_IAM --template-body file:/$_cf_stack_template --disable-rollback --notification-arns $NOTIFICATION_ARN --tags Key=Name,Value=$_cf_stack_name
+      $AWS_CMD cloudformation create-stack --stack-name $_cf_stack_name --capabilities CAPABILITY_NAMED_IAM --template-body file://$_cf_stack_template --disable-rollback --notification-arns $NOTIFICATION_ARN --tags Key=Name,Value=$_cf_stack_name
       if [ $? -eq 0 ]; then
          # wait for the stack creation to complete
          echo "waiting for CloudFormation stack creation to complete: $_cf_stack_name"

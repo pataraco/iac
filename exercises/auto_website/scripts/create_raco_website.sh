@@ -49,6 +49,9 @@ CHEF_VALIDATOR_PEM_SRC="/tmp/${CREATOR_ID}-validator.pem"
 CHEF_USER_PEM_SRC="/tmp/${CREATOR_ID}.chef.pem"
 CHEF_VALIDATOR_PEM_DST="$CHEF_REPO/.chef/${CREATOR_ID}-validator.pem"
 CHEF_USER_PEM_DST="$CHEF_REPO/.chef/${CREATOR_ID}.chef.pem"
+DATA_KEY_JSON_TMP="/tmp/data_key.json"
+DATA_KEY_NAME="data_key.enc"
+DATA_KEY_ENCRYPTED="/tmp/$DATA_KEY_NAME"
 
 # define functions
 
@@ -96,8 +99,8 @@ create_update_cf_stack() {
 #    - required commands are available/installed
 #    - AWS environment is set
 echo "performing sanity checks"
-[ -z "$AWS_CMD" ] && { echo "aws required to run this script"; exit 2; }
-[ -z "$JQ_CMD" ] && { echo "jq required to run this script"; exit 2; }
+[ -z "$AWS_CMD" ] && { echo "'aws' required to run this script"; exit 2; }
+[ -z "$JQ_CMD" ] && { echo "'jq' required to run this script"; exit 2; }
 [ -z "$KNIFE_CMD" ] && { echo "ChefDK (knife) required to run this script"; exit 2; }
 if [ -z "$AWS_DEFAULT_PROFILE" ]; then
    [ -z "$AWS_ACCESS_KEY_ID" -a -z "$AWS_SECRET_ACCESS_KEY" -a -z "$AWS_DEFAULT_REGION" ] && { echo "AWS environment not set"; exit 2; }
@@ -124,25 +127,25 @@ fi
 echo "creating an AWS SNS topic for notifications"
 NOTIFICATION_ARN=$($AWS_CMD sns create-topic --name "all-${CREATOR_ID}-notifications" | $JQ_CMD -r .TopicArn)
 
-# create KMS CMK and Data Key
-echo "creating an AWS KMS master and data key for data encryption"
+# create KMS master key
+echo "creating an AWS KMS master key for data encryption"
 # check if the key already exists
-master_key_id=$(aws kms list-aliases | jq -r '.Aliases[] | select(.AliasName=="'"alias/$CREATOR_ID"'").TargetKeyId')
+master_key_id=$($AWS_CMD kms list-aliases | jq -r '.Aliases[] | select(.AliasName=="'"alias/$CREATOR_ID"'").TargetKeyId')
 if [ -n "$master_key_id" ]; then
    echo "  master key exists - checking state"
    # get key state to make sure it's not disabled or scheduled for deletion
-   master_key_state=$(aws kms describe-key --key-id $master_key_id | jq -r '.KeyMetadata.KeyState')
+   master_key_state=$($AWS_CMD kms describe-key --key-id $master_key_id | jq -r '.KeyMetadata.KeyState')
    case $master_key_state" in
        Enabled)
           echo "  key is enabled" ;;
        PendingDeletion)
           echo "  key is pending deletion - canceling and enabling"
-          aws kms cancel-key-deletion --key-id $master_key_id
-          aws kms enable-key --key-id $master_key_id
+          $AWS_CMD kms cancel-key-deletion --key-id $master_key_id
+          $AWS_CMD kms enable-key --key-id $master_key_id
           ;;
        Disabled)
           echo "  key is disabled - enabling"
-          aws kms enable-key --key-id $master_key_id
+          $AWS_CMD kms enable-key --key-id $master_key_id
           ;;
        *)
           echo "  key in unknown state - exiting"; exit 2 ;;
@@ -150,13 +153,13 @@ if [ -n "$master_key_id" ]; then
 else
    echo "  master key does not exist - creating"
    # create the key
-   master_key_id=$(aws kms create-key --description "${CREATOR_ID}'s key to store secrets" | jq -r .KeyMetadata.KeyId)
+   master_key_id=$($AWS_CMD kms create-key --description "${CREATOR_ID}'s key to store secrets" | jq -r .KeyMetadata.KeyId)
    # alias it
-   aws kms create-alias --alias-name "alias/$CREATOR_ID" --target-key-id $master_key_id
+   $AWS_CMD kms create-alias --alias-name "alias/$CREATOR_ID" --target-key-id $master_key_id
    # set the policy
-   aws_acct_id=$(aws kms describe-key --key-id $master_key_id | jq .KeyMetadata.Arn | cut -d':' -f5)
+   aws_acct_id=$($AWS_CMD kms describe-key --key-id $master_key_id | jq .KeyMetadata.Arn | cut -d':' -f5)
    sed "s^__AWS_ACCT_ID__^$aws_acct_id^g;s^__CREATOR_ID__^$CREATOR_ID^g;s^__AWS_EC2_IAM_ROLE__^$AWS_EC2_IAM_ROLE^g" $KMS_MASTER_KEY_POLICY_TEMPLATE > $KMS_MASTER_KEY_POLICY_FILE
-   aws kms put-key-policy --key-id $master_key_id --policy-name default --policy file://$KMS_MASTER_KEY_POLICY_FILE
+   $AWS_CMD kms put-key-policy --key-id $master_key_id --policy-name default --policy file://$KMS_MASTER_KEY_POLICY_FILE
 fi
 
 # I. Create the infrastructure in AWS via AWS CLI and CloudFormation (CF)
@@ -227,9 +230,19 @@ sed "s^__CREATOR_ID__^$CREATOR_ID^g;s^__CHEF_SERVER_URL__^$chef_server_url^g" $K
 echo "installing/uploading pem files"
 scp -i $AWS_PRIVATE_KEY ec2-user@$chef_server_public_ip:$CHEF_VALIDATOR_PEM_SRC $CHEF_VALIDATOR_PEM_DST
 scp -i $AWS_PRIVATE_KEY ec2-user@$chef_server_public_ip:$CHEF_USER_PEM_SRC $CHEF_USER_PEM_DST
-# upload validator pem to S3 bucket
+# encrypt the validator pem
+echo "encrypting the Chef validator pem"
+# get a data key from AWS KMS
+$AWS_CMD kms generate-data-key --key-id $keyid --key-spec AES_256 > $DATA_KEY_JSON_TMP
+data_key=$(jq -r .Plaintext $DATA_KEY_JSON_TMP)
+jq -r .CiphertextBlob $DATA_KEY_JSON_TMP | base64 --decode > $DATA_KEY_ENCRYPTED
+rm $DATA_KEY_JSON_TMP
+openssl enc -e -in $CHEF_VALIDATOR_PEM_DST -out ${CHEF_VALIDATOR_PEM_DST}.enc -pass pass:$data_key -aes-256-cbc
+# upload encrypted data key and validator pem to S3 bucket
+echo "uploading encrypted files to AWS S3"
 $AWS_CMD s3 mb s3://$CREATOR_ID
-$AWS_CMD s3 cp $CHEF_VALIDATOR_PEM_DST s3://$CREATOR_ID/chef/validation.pem
+$AWS_CMD s3 cp $DATA_KEY_ENCRYPTED s3://$CREATOR_ID/chef/$DATA_KEY_NAME
+$AWS_CMD s3 cp ${CHEF_VALIDATOR_PEM_DST}.enc s3://$CREATOR_ID/chef/validation.pem.enc
 # remove pem files from the chef server
 echo "removing pem files from the chef server"
 ssh -i $AWS_PRIVATE_KEY ec2-user@$chef_server_public_ip "sudo rm -f $CHEF_USER_PEM_SRC; sudo rm -f $CHEF_VALIDATOR_PEM_SRC"

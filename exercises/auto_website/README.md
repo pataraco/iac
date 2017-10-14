@@ -61,8 +61,7 @@ A website displaying “hello world” served up by a Auto Scaled EC2 instances 
 # To-Do
 1. Create a AWS Lambda function to automatically remove Chef nodes/clients from the
    Chef Server once their state becomes 'terminated'
-2. Use AWS KMS & Parameter Store to store/retrieve the Chef Server validator.pem
-3. Create a web servers via Ansible
+2. Create a web servers via Ansible
    a. set up codecommit repo to push/pull ansible code
    b. use KMS for codecommit credentials
 
@@ -87,8 +86,8 @@ User raco already associated with organization raco
 User raco is added to admins and billing-admins group
 configuring the knife.rb file
 installing/uploading pem files
-raco-validator.pem                                                                      100% 1678     1.6KB/s   00:00
-raco.chef.pem                                                                           100% 1678     1.6KB/s   00:00
+raco-validator.pem                                                      100% 1678     1.6KB/s   00:00
+raco.chef.pem                                                           100% 1678     1.6KB/s   00:00
 make_bucket: s3://raco/
 upload: ../../../../../../../../home/praco/repos/infrastructure-automation/exercises/auto_website/chef/.chef/raco-validator.pem to s3://raco/chef/validation.pem
 removing pem files from the chef server

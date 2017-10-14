@@ -177,11 +177,11 @@ else
    master_key_id=$($AWS_CMD kms create-key --description "${CREATOR_ID}'s key to store secrets" | jq -r .KeyMetadata.KeyId)
    # alias it
    $AWS_CMD kms create-alias --alias-name "alias/$CREATOR_ID" --target-key-id $master_key_id
-   # set the policy
-   aws_acct_id=$($AWS_CMD kms describe-key --key-id $master_key_id | jq .KeyMetadata.Arn | cut -d':' -f5)
-   sed "s^__AWS_ACCT_USERNAME__^$AWS_ACCT_USERNAME^g;s^__AWS_ACCT_ID__^$aws_acct_id^g;s^__CREATOR_ID__^$CREATOR_ID^g;s^__AWS_EC2_IAM_ROLE__^$AWS_EC2_IAM_ROLE^g" $KMS_MASTER_KEY_POLICY_TEMPLATE > $KMS_MASTER_KEY_POLICY_FILE
-   $AWS_CMD kms put-key-policy --key-id $master_key_id --policy-name default --policy file://$KMS_MASTER_KEY_POLICY_FILE
 fi
+# set the key policy
+aws_acct_id=$($AWS_CMD kms describe-key --key-id $master_key_id | jq .KeyMetadata.Arn | cut -d':' -f5)
+sed "s^__AWS_ACCT_USERNAME__^$AWS_ACCT_USERNAME^g;s^__AWS_ACCT_ID__^$aws_acct_id^g;s^__CREATOR_ID__^$CREATOR_ID^g;s^__AWS_EC2_IAM_ROLE__^$AWS_EC2_IAM_ROLE^g" $KMS_MASTER_KEY_POLICY_TEMPLATE > $KMS_MASTER_KEY_POLICY_FILE
+$AWS_CMD kms put-key-policy --key-id $master_key_id --policy-name default --policy file://$KMS_MASTER_KEY_POLICY_FILE
 
 # II. Create Web Servers via Clouidformation and Chef
 #   - Bash: Configure the Chef server

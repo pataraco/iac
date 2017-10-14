@@ -7,7 +7,7 @@
     "Principal" : {
       "AWS" : [
          "arn:aws:iam::__AWS_ACCT_ID__:root",
-         "arn:aws:iam::__AWS_ACCT_ID__:user/__CREATOR_ID__"
+         "arn:aws:iam::__AWS_ACCT_ID__:user/__AWS_ACCT_USERNAME__"
       ]
     },
     "Action" : "kms:*",

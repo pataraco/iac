@@ -25,6 +25,7 @@ REPO_NAME="infrastructure-automation"
 PROJECT="auto_website"
 FILES_DIR="/$REPOS_DIR/$REPO_NAME/exercises/$PROJECT/files"
 REGION="us-west-1"
+AWS_ACCT_USERNAME="PATRICK"
 AWS_PUBLIC_DOMAIN_NAME="compute.amazonaws.com"
 AWS_KEY_PAIR_NAME="$CREATOR_ID"
 AWS_EC2_IAM_ROLE="${CREATOR_ID}-ec2-restricted"
@@ -127,7 +128,27 @@ fi
 echo "creating an AWS SNS topic for notifications"
 NOTIFICATION_ARN=$($AWS_CMD sns create-topic --name "all-${CREATOR_ID}-notifications" | $JQ_CMD -r .TopicArn)
 
-# create KMS master key
+# I. Create the infrastructure in AWS via AWS CLI and CloudFormation (CF)
+#   1. create a json file for CF that does the following:
+#     - create the Netorking: VPC, Subnet(s), GW'S, SG's
+#     - create the ELB with health check (should be possible with CF)
+#        - health check, SG's, etc...
+#     - create lamda function to update the SG for the ELB (not sure if possible with CF)
+#     - (if using ansible): set up codecommit to push ansible code to and pull from
+#        - set up policy for the instance to be able to pull the code
+#     - create a bastion host to jump to internal web server instances
+#     - create a Chef server AWS instance (t2.medium)
+#   2. use AWS cloudformation CLI to create the infrastructure using the json file
+
+# create website infrastructure CloudFormation stack template from another template ;-p
+echo "configuring the website infrastructure CloudFormation stack template"
+sed "s^__CREATOR_ID__^$CREATOR_ID^g;s^__CREATOR_EMAIL__^$CREATOR_EMAIL^g;s^__AWS_EC2_IAM_ROLE__^$AWS_EC2_IAM_ROLE^g" $WEBSITE_INFRA_CF_STACK_TEMPLATE > $WEBSITE_INFRA_CF_STACK_FILE
+
+# create the website infrastructure using CloudFormation
+echo "creating website infrastructure via CloudFormation"
+create_update_cf_stack $AWS_WEBSITE_INFRA_CF_STACK_NAME $WEBSITE_INFRA_CF_STACK_FILE
+
+# create a KMS master key
 echo "creating an AWS KMS master key for data encryption"
 # check if the key already exists
 master_key_id=$($AWS_CMD kms list-aliases | jq -r '.Aliases[] | select(.AliasName=="'"alias/$CREATOR_ID"'").TargetKeyId')
@@ -158,29 +179,9 @@ else
    $AWS_CMD kms create-alias --alias-name "alias/$CREATOR_ID" --target-key-id $master_key_id
    # set the policy
    aws_acct_id=$($AWS_CMD kms describe-key --key-id $master_key_id | jq .KeyMetadata.Arn | cut -d':' -f5)
-   sed "s^__AWS_ACCT_ID__^$aws_acct_id^g;s^__CREATOR_ID__^$CREATOR_ID^g;s^__AWS_EC2_IAM_ROLE__^$AWS_EC2_IAM_ROLE^g" $KMS_MASTER_KEY_POLICY_TEMPLATE > $KMS_MASTER_KEY_POLICY_FILE
+   sed "s^__AWS_ACCT_USERNAME__^$AWS_ACCT_USERNAME^g;s^__AWS_ACCT_ID__^$aws_acct_id^g;s^__CREATOR_ID__^$CREATOR_ID^g;s^__AWS_EC2_IAM_ROLE__^$AWS_EC2_IAM_ROLE^g" $KMS_MASTER_KEY_POLICY_TEMPLATE > $KMS_MASTER_KEY_POLICY_FILE
    $AWS_CMD kms put-key-policy --key-id $master_key_id --policy-name default --policy file://$KMS_MASTER_KEY_POLICY_FILE
 fi
-
-# I. Create the infrastructure in AWS via AWS CLI and CloudFormation (CF)
-#   1. create a json file for CF that does the following:
-#     - create the Netorking: VPC, Subnet(s), GW'S, SG's
-#     - create the ELB with health check (should be possible with CF)
-#        - health check, SG's, etc...
-#     - create lamda function to update the SG for the ELB (not sure if possible with CF)
-#     - (if using ansible): set up codecommit to push ansible code to and pull from
-#        - set up policy for the instance to be able to pull the code
-#     - create a bastion host to jump to internal web server instances
-#     - create a Chef server AWS instance (t2.medium)
-#   2. use AWS cloudformation CLI to create the infrastructure using the json file
-
-# create website infrastructure CloudFormation stack template from another template ;-p
-echo "configuring the website infrastructure CloudFormation stack template"
-sed "s^__CREATOR_ID__^$CREATOR_ID^g;s^__CREATOR_EMAIL__^$CREATOR_EMAIL^g;s^__AWS_EC2_IAM_ROLE__^$AWS_EC2_IAM_ROLE^g" $WEBSITE_INFRA_CF_STACK_TEMPLATE > $WEBSITE_INFRA_CF_STACK_FILE
-
-# create the website infrastructure using CloudFormation
-echo "creating website infrastructure via CloudFormation"
-create_update_cf_stack $AWS_WEBSITE_INFRA_CF_STACK_NAME $WEBSITE_INFRA_CF_STACK_FILE
 
 # II. Create Web Servers via Clouidformation and Chef
 #   - Bash: Configure the Chef server

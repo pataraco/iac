@@ -134,9 +134,7 @@ remove_bucket: s3://raco/
 deleting the SNS topic
 deleting the key pair
 scheduling the deletion of the KMS master key
-{
-    "KeyId": "arn:aws:kms:us-west-1:783506417684:key/6ae97dd8-879d-44e8-9143-1c462561c2d3",
-    "DeletionDate": 1510617600.0
-}
+  "KeyId": "arn:aws:kms:us-west-1:783506417684:key/7dd8-879d-44e8-9143-c2d3"
+  "DeletionDate": 1510617600.0
 website destruction complete: raco-website-35912.us-west-1.elb.amazonaws.com
 ```

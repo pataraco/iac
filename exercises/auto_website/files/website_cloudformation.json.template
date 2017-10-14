@@ -56,6 +56,8 @@
                "\n",
                "cd /etc/chef/\n",
                "\n",
+               "# Install jq\n",
+               "/usr/bin/yum install jq -y\n",
                "# Install chef\n",
                "/usr/bin/curl -L https://omnitruck.chef.io/install.sh | bash || error_exit 'could not install chef'\n",
                "\n",

@@ -234,7 +234,7 @@ scp -i $AWS_PRIVATE_KEY ec2-user@$chef_server_public_ip:$CHEF_USER_PEM_SRC $CHEF
 # encrypt the validator pem
 echo "encrypting the Chef validator pem"
 # get a data key from AWS KMS
-$AWS_CMD kms generate-data-key --key-id $keyid --key-spec AES_256 > $DATA_KEY_JSON_TMP
+$AWS_CMD kms generate-data-key --key-id $master_key_id --key-spec AES_256 > $DATA_KEY_JSON_TMP
 data_key=$(jq -r .Plaintext $DATA_KEY_JSON_TMP)
 jq -r .CiphertextBlob $DATA_KEY_JSON_TMP | base64 --decode > $DATA_KEY_ENCRYPTED
 rm $DATA_KEY_JSON_TMP

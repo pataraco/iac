@@ -103,4 +103,11 @@ $AWS_CMD sns delete-topic --topic-arn $NOTIFICATION_ARN
 echo "deleting the key pair"
 $AWS_CMD ec2 delete-key-pair --key-name $AWS_KEY_PAIR_NAME
 
+# schedule KMS master key for deletion
+master_key_id=$($AWS_CMD kms list-aliases | jq -r '.Aliases[] | select(.AliasName=="'"alias/$CREATOR_ID"'").TargetKeyId')
+if [ -n "$master_key_id" ]; then
+   echo "scheduling the deletion of the KMS master key"
+   $AWS_CMD kms schedule-key-deletion --key-id $master_key_id
+fi
+
 echo "website destruction complete: $website_url"

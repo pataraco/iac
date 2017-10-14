@@ -117,7 +117,7 @@ website creation complete: raco-website-151649.us-west-1.elb.amazonaws.com
 ```
 $ ./scripts/destroy_raco_website.sh
 performing sanity checks
-URL of website you are about to delete: raco-website-872493.us-west-1.elb.amazonaws.com
+URL of website you are about to delete: raco-website-35912.us-west-1.elb.amazonaws.com
 Are you sure you want to delete this website ['yes' to confirm]? yes
 disabling termination protection for instance: raco-bastion
 disabling termination protection for instance: raco-chef-server
@@ -128,9 +128,15 @@ deleting website infrastructure via CloudFormation
 deleting CloudFormation stack: raco-website-infra
 waiting for CloudFormation stack delete to complete: raco-website-infra
 deleting s3 bucket and files
-delete: s3://raco/chef/validation.pem
+delete: s3://raco/chef/data_key.enc
+delete: s3://raco/chef/validation.pem.enc
 remove_bucket: s3://raco/
 deleting the SNS topic
 deleting the key pair
-website destruction complete: raco-website-872493.us-west-1.elb.amazonaws.com
+scheduling the deletion of the KMS master key
+{
+    "KeyId": "arn:aws:kms:us-west-1:783506417684:key/6ae97dd8-879d-44e8-9143-1c462561c2d3",
+    "DeletionDate": 1510617600.0
+}
+website destruction complete: raco-website-35912.us-west-1.elb.amazonaws.com
 ```

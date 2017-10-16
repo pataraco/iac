@@ -42,6 +42,11 @@
          "Type" : "String",
          "Default" : "ami-3a674d5a"
       },
+      "UbuntuLinuxAmi" : {
+         "Description": "Amazon Linux AMI (us-west-1)",
+         "Type" : "String",
+         "Default" : "ami-09d2fb69"
+      },
       "ChefServerAMI" : {
          "Description": "Chef Server AMI first 10 free nodes (us-west-1)",
          "Type" : "String",
@@ -346,6 +351,19 @@
             "Tags" : [{"Key":"Name","Value":{"Fn::Join":["",[{"Ref":"Creator"},"-website"]]}}]
          }
       },
+      "DNS" : {
+         "Type" : "AWS::Route53::RecordSet",
+         "Properties" : {
+            "AliasTarget" : {
+               "HostedZoneId" : {"Fn::GetAtt":["ELB","CanonicalHostedZoneNameID"]},
+               "DNSName" : {"Fn::GetAtt":["ELB","DNSName"]}
+            },
+            "Comment" : "DNS entry for webiste",
+            "HostedZoneId" : "Z14A5PWFI2Z0S0",
+            "Name" : "praco.inter.study.cloud.",
+            "Type" : "A"
+         }
+      },
       "InstIamRole" : {
          "Type": "AWS::IAM::Role",
          "Properties": {
@@ -414,7 +432,7 @@
             "AvailabilityZone" : "us-west-1a",
             "DisableApiTermination" : "True",
             "IamInstanceProfile" : {"Ref":"InstProfile"},
-            "ImageId" : {"Ref":"ChefServerAMI"},
+            "ImageId" : {"Ref":"UbuntuLinuxAmi"},
             "InstanceType" : "t2.medium",
             "KeyName" : {"Ref":"Creator"},
             "SecurityGroupIds" : [{"Ref":"SgChefServer"},{"Ref":"SgSshMe"},{"Ref":"SgIcmpMe"}],
@@ -424,14 +442,29 @@
             "Tenancy" : "default",
             "UserData": {"Fn::Base64":{"Fn::Join":["",[
                "#!/bin/bash\n",
-               "/bin/hostname ", {"Ref":"Creator"}, "-chef-server\n",
-               "/sbin/service rsyslog restart\n",
-               "/usr/bin/chef-server-ctl marketplace-setup -u chefadmin -f chefadmin -l p ",
-               "-e ", {"Ref":"ChefAdminEmail"}, " -o aws ",
-               "-p ", {"Ref":"ChefAdminPassword"}, " -y", "\n",
                "\n",
-               "/usr/bin/curl -X PUT -H 'Content-Type:' --data-binary '{\"Status\" : \"SUCCESS\",\"Reason\" : \"Configuration Complete\",\"UniqueId\" : \"ChefServer\", \"Data\" : \"Done\"}' \"",
-               {"Ref":"WaitForChefServerWaitHandle"}, "\"", "\n"
+               "# update and install necessary package(s)\n",
+               "apt-get update\n",
+               "apt-get -y install curl\n",
+               "\n",
+               "## set the hostname\n",
+               "#echo ", {"Ref":"Creator"}, "-chef-server > /etc/hostname\n",
+               "#sed -i 's/^127.0.0.1.*/127.0.0.1\t", {"Ref":"Creator"}, "-chef-server localhost/g' /etc/hosts\n",
+               "#hostnamectl set-hostname ", {"Ref":"Creator"}, "-chef-server\n",
+               "# set the hostname to the public AWS hostname\n",
+               "hostname $(curl -s http://169.254.169.254/latest/meta-data/public-hostname)\n",
+               "\n",
+               "# make sure download directory exists\n",
+               "[ ! -d /downloads ] && mkdir /downloads\n",
+               "\n",
+               "# download and install Chef server package\n",
+               "wget -nv -P /downloads https://packages.chef.io/files/stable/chef-server/12.16.2/ubuntu/16.04/chef-server-core_12.16.2-1_amd64.deb\n",
+               "dpkg -i /downloads/chef-server-core_12.16.2-1_amd64.deb\n",
+               "chef-server-ctl reconfigure\n",
+               "\n",
+               "# wait for services to be up/running\n",
+               "until (curl -D - http://localhost:8000/_status) | grep \"200 OK\"; do sleep 15s; done\n",
+               "while (curl http://localhost:8000/_status) | grep \"fail\"; do sleep 15s; done\n"
             ]]}}
          }
       }

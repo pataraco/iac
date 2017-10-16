@@ -219,9 +219,9 @@ chef_server_url="https://ec2-${chef_server_public_ip//./-}.$REGION.$AWS_PUBLIC_D
 
 # configure the chef server
 echo "configuring the chef server"
-ssh -i $AWS_PRIVATE_KEY ec2-user@$chef_server_public_ip "sudo chef-server-ctl user-create $CREATOR_ID $CREATOR_NAME $CREATOR_EMAIL DUMMY_PASSWORD --filename $CHEF_USER_PEM_SRC"
-ssh -i $AWS_PRIVATE_KEY ec2-user@$chef_server_public_ip "sudo chef-server-ctl org-create $CREATOR_ID 'test org' --association_user $CREATOR_ID --filename $CHEF_VALIDATOR_PEM_SRC"
-ssh -i $AWS_PRIVATE_KEY ec2-user@$chef_server_public_ip "sudo chef-server-ctl org-user-add $CREATOR_ID $CREATOR_ID --admin"
+ssh -i $AWS_PRIVATE_KEY ubuntu@$chef_server_public_ip "sudo chef-server-ctl user-create $CREATOR_ID $CREATOR_NAME $CREATOR_EMAIL DUMMY_PASSWORD --filename $CHEF_USER_PEM_SRC"
+ssh -i $AWS_PRIVATE_KEY ubuntu@$chef_server_public_ip "sudo chef-server-ctl org-create $CREATOR_ID 'Exercise Org' --association_user $CREATOR_ID --filename $CHEF_VALIDATOR_PEM_SRC"
+#ssh -i $AWS_PRIVATE_KEY ec2-user@$chef_server_public_ip "sudo chef-server-ctl org-user-add $CREATOR_ID $CREATOR_ID --admin"
 
 # configure knife file from a template
 echo "configuring the knife.rb file"
@@ -229,8 +229,8 @@ sed "s^__CREATOR_ID__^$CREATOR_ID^g;s^__CHEF_SERVER_URL__^$chef_server_url^g" $K
 
 # get & install Chef client and validator pems and remove from Chef server
 echo "installing/uploading pem files"
-scp -i $AWS_PRIVATE_KEY ec2-user@$chef_server_public_ip:$CHEF_VALIDATOR_PEM_SRC $CHEF_VALIDATOR_PEM_DST
-scp -i $AWS_PRIVATE_KEY ec2-user@$chef_server_public_ip:$CHEF_USER_PEM_SRC $CHEF_USER_PEM_DST
+scp -i $AWS_PRIVATE_KEY ubuntu@$chef_server_public_ip:$CHEF_VALIDATOR_PEM_SRC $CHEF_VALIDATOR_PEM_DST
+scp -i $AWS_PRIVATE_KEY ubuntu@$chef_server_public_ip:$CHEF_USER_PEM_SRC $CHEF_USER_PEM_DST
 # encrypt the validator pem
 echo "encrypting the Chef validator pem"
 # get a data key from AWS KMS
@@ -246,7 +246,7 @@ $AWS_CMD s3 cp $DATA_KEY_ENCRYPTED s3://$CREATOR_ID/chef/$DATA_KEY_NAME
 $AWS_CMD s3 cp ${CHEF_VALIDATOR_PEM_DST}.enc s3://$CREATOR_ID/chef/validation.pem.enc
 # remove pem files from the chef server
 echo "removing pem files from the chef server"
-ssh -i $AWS_PRIVATE_KEY ec2-user@$chef_server_public_ip "sudo rm -f $CHEF_USER_PEM_SRC; sudo rm -f $CHEF_VALIDATOR_PEM_SRC"
+ssh -i $AWS_PRIVATE_KEY ubuntu@$chef_server_public_ip "sudo rm -f $CHEF_USER_PEM_SRC; sudo rm -f $CHEF_VALIDATOR_PEM_SRC"
 
 # install Chef SSL certs
 echo "fetching Chef SSL cert"

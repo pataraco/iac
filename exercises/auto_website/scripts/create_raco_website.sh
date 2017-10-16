@@ -142,7 +142,7 @@ NOTIFICATION_ARN=$($AWS_CMD sns create-topic --name "all-${CREATOR_ID}-notificat
 
 # create website infrastructure CloudFormation stack template from another template ;-p
 echo "configuring the website infrastructure CloudFormation stack template"
-sed "s^__CREATOR_ID__^$CREATOR_ID^g;s^__CREATOR_EMAIL__^$CREATOR_EMAIL^g;s^__AWS_EC2_IAM_ROLE__^$AWS_EC2_IAM_ROLE^g" $WEBSITE_INFRA_CF_STACK_TEMPLATE > $WEBSITE_INFRA_CF_STACK_FILE
+sed "s^__AWS_ACCT_USERNAME__^$AWS_ACCT_USERNAME^g;s^__CREATOR_ID__^$CREATOR_ID^g;s^__CREATOR_EMAIL__^$CREATOR_EMAIL^g;s^__AWS_EC2_IAM_ROLE__^$AWS_EC2_IAM_ROLE^g" $WEBSITE_INFRA_CF_STACK_TEMPLATE > $WEBSITE_INFRA_CF_STACK_FILE
 
 # create the website infrastructure using CloudFormation
 echo "creating website infrastructure via CloudFormation"

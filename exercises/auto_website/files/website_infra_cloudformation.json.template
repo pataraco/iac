@@ -359,8 +359,8 @@
                "DNSName" : {"Fn::GetAtt":["ELB","DNSName"]}
             },
             "Comment" : "DNS entry for webiste",
-            "HostedZoneId" : "Z14A5PWFI2Z0S0",
-            "Name" : "praco.inter.study.cloud.",
+            "HostedZoneId" : "ZLQKI0V31370R",
+            "Name" : "__AWS_ACCT_USERNAME__.interview.sturdy.cloud.",
             "Type" : "A"
          }
       },

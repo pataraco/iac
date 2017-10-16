@@ -464,7 +464,9 @@
                "\n",
                "# wait for services to be up/running\n",
                "until (curl -D - http://localhost:8000/_status) | grep \"200 OK\"; do sleep 15s; done\n",
-               "while (curl http://localhost:8000/_status) | grep \"fail\"; do sleep 15s; done\n"
+               "while (curl http://localhost:8000/_status) | grep \"fail\"; do sleep 15s; done\n",
+               "# send completed status for WaitForChefServerHandle in AWS CloudFormation\n",
+               "/usr/bin/curl -X PUT -H 'Content-Type:' --data-binary '{\"Status\" : \"SUCCESS\",\"Reason\" : \"Configuration Complete\",\"UniqueId\" : \"ChefServer\", \"Data\" : \"Done\"}' \"", {"Ref":"WaitForChefServerWaitHandle"}, "\"\n"
             ]]}}
          }
       }

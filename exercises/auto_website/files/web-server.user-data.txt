@@ -6,11 +6,14 @@ NODE_TYPE="web-server"
 NODE_NAME="$NODE_TYPE-$GUID"
 INST_ID="$(wget -q -O - ${AWS_BASE_URL}/instance-id)"
 REGION="$(wget -q -O - ${AWS_BASE_URL}/placement/availability-zone|sed -e 's/.$//')"
+DATA_KEY_ENCRYPTED="data_key.enc"
+VALIDATION_PEM_NAME="validation.pem"
+VALIDATION_PEM="/etc/chef/$VALIDATION_PEM_NAME"
 
 # Setup hostname and update instance name tag
-hostname $NODE_NAME
-service rsyslog restart
-aws ec2 create-tags --resources $INST_ID --tags Key=Name,Value=praco-$NODE_NAME --region $REGION
+/bin/hostname $NODE_NAME
+/sbin/service rsyslog restart
+/usr/bin/aws ec2 create-tags --resources $INST_ID --tags Key=Name,Value=raco-$NODE_NAME --region $REGION
 
 # Do some chef pre-work
 /bin/mkdir -p /etc/chef
@@ -18,18 +21,20 @@ aws ec2 create-tags --resources $INST_ID --tags Key=Name,Value=praco-$NODE_NAME 
 /bin/mkdir -p /var/log/chef
 
 # Setup hosts file correctly
-cat >> "/etc/hosts" << EOF
-54.183.234.135 chef-server chef-server.praco.int
+/bin/cat >> "/etc/hosts" << EOF
+54.83.34.15 chef-server chef-server.raco.int
 EOF
 
 cd /etc/chef/
 
+# Install jq
+/usr/bin/yum install jq -y
 # Install chef
-curl -L https://omnitruck.chef.io/install.sh | bash || error_exit 'could not install chef'
+/usr/bin/curl -L https://omnitruck.chef.io/install.sh | bash || error_exit 'could not install chef'
 
 # Create first-boot.json
 FIRST_BOOT="/etc/chef/first-boot.json"
-cat > "$FIRST_BOOT" << EOF
+/bin/cat > "$FIRST_BOOT" << EOF
 {
    "run_list" :[
       "role[web-server]"
@@ -40,15 +45,22 @@ EOF
 # Create client.rb
 CLIENT_RB="/etc/chef/client.rb"
 /bin/echo 'log_location     STDOUT' >> $CLIENT_RB
-/bin/echo -e "chef_server_url  'https://ec2-54-183-234-135.us-west-1.compute.amazonaws.com/organizations/praco'" >> $CLIENT_RB
-/bin/echo -e "validation_client_name 'praco-validator'" >> $CLIENT_RB
+/bin/echo -e "chef_server_url  'https://ec2-54-83-34-15.us-west-1.compute.amazonaws.com/organizations/raco'" >> $CLIENT_RB
+/bin/echo -e "validation_client_name 'raco-validator'" >> $CLIENT_RB
 /bin/echo -e "node_name  '${NODE_NAME}'" >> $CLIENT_RB
 
-# Get validation.pem (yeah, i know, this it totally not secure)
-aws s3 cp s3://praco/chef/validation.pem /etc/chef/validation.pem
+# Get encrypted files (data key & validation.pem) and decrypt the pem\n",
+/usr/bin/aws s3 cp s3://raco/chef/$DATA_KEY_ENCRYPTED /tmp/$DATA_KEY_ENCRYPTED
+/usr/bin/aws s3 cp s3://raco/chef/${VALIDATION_PEM_NAME}.enc ${VALIDATION_PEM}.enc
+data_key=$(/usr/bin/aws kms decrypt --ciphertext-blob fileb:///tmp/$DATA_KEY_ENCRYPTED --region $REGION | jq -r .Plaintext)
+/usr/bin/openssl enc -d -in ${VALIDATION_PEM}.enc -out $VALIDATION_PEM -pass pass:$data_key -aes-256-cbc
+data_key=""
 
 # Get Chef SSL cert
-knife ssl fetch -c $CLIENT_RB
+/usr/bin/knife ssl fetch -c $CLIENT_RB
 
 # Run chef-client
-sudo chef-client -j $FIRST_BOOT
+/usr/bin/sudo chef-client -j $FIRST_BOOT
+
+# Update instance name tag
+/usr/bin/aws ec2 create-tags --resources $INST_ID --tags Key=Name,Value=raco-$NODE_NAME --region $REGION

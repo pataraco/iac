@@ -17,15 +17,19 @@
 # usage:
 #   destroy_website.sh WEBSITE
 
+# parse command line options and verify usage
+USAGE="usage: $(basename $0) WEBSITE"
+WEBSITE=$1
+[ -z "$WEBSITE" ] && { echo "$USAGE"; exit 1; }
+
 AWS_CMD=$(which aws)
 JQ_CMD=$(which jq)
 CREATOR_ID="raco"
 CREATOR_NAME="Patrick Raco"
 CREATOR_EMAIL="pataraco@gmail.com"
 AWS_KEY_PAIR_NAME="$CREATOR_ID"
-AWS_WEBSITE_INFRA_CF_STACK_NAME="${CREATOR_ID}-website-infra"
-AWS_WEBSITE_CF_STACK_NAME="${CREATOR_ID}-website"
-USAGE="usage: $(basename $0) WEBSITE"
+AWS_WEBSITE_INFRA_CF_STACK_NAME="${WEBSITE}-website-infra"
+AWS_WEBSITE_CF_STACK_NAME="${WEBSITE}-website"
 
 # define functions
 
@@ -64,10 +68,6 @@ delete_cf_stack() {
       echo "CloudFormation stack does not exist - can't delete: $_cf_stack_name"
    fi
 }
-
-# parse command line options
-WEBSITE=$1
-[ -z "$WEBSITE" ] && { echo "$USAGE"; exit 1; }
 
 # sanity checks
 # makes sure:

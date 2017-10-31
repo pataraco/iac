@@ -7,6 +7,16 @@
          "Type" : "String",
          "Default" : "__CREATOR_ID__"
       },
+      "ChefServerPublicIp" : {
+         "Description": "Public IP of the Chef Server",
+         "Type" : "String",
+         "Default" : "__CHEF_SERVER_PUBLIC_IP__"
+      },
+      "ChefServerUrl" : {
+         "Description": "URL of the Chef Server",
+         "Type" : "String",
+         "Default" : "__CHEF_SERVER_URL__"
+      },
       "AmznLinuxAmi" : {
          "Description": "Amazon Linux AMI (us-west-1)",
          "Type" : "String",
@@ -51,7 +61,7 @@
                "\n",
                "# Setup hosts file correctly\n",
                "/bin/cat >> \"/etc/hosts\" << EOF\n",
-               "__CHEF_SERVER_PUBLIC_IP__ chef-server chef-server.", {"Ref":"Creator"}, ".int\n",
+               {"Ref":"ChefServerPublicIp"}, " chef-server chef-server.", {"Ref":"Creator"}, ".int\n",
                "EOF\n",
                "\n",
                "cd /etc/chef/\n",
@@ -74,7 +84,7 @@
                "# Create client.rb\n",
                "CLIENT_RB=\"/etc/chef/client.rb\"\n",
                "/bin/echo 'log_location     STDOUT' >> $CLIENT_RB\n",
-               "/bin/echo -e \"chef_server_url  '__CHEF_SERVER_URL__'\" >> $CLIENT_RB\n",
+               "/bin/echo -e \"chef_server_url  '", {"Ref":"ChefServerUrl"}, "'\" >> $CLIENT_RB\n",
                "/bin/echo -e \"validation_client_name '", {"Ref":"Creator"}, "-validator'\" >> $CLIENT_RB\n",
                "/bin/echo -e \"node_name  '${NODE_NAME}'\" >> $CLIENT_RB\n",
                "\n",

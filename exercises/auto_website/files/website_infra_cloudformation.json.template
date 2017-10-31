@@ -358,9 +358,9 @@
                "HostedZoneId" : {"Fn::GetAtt":["ELB","CanonicalHostedZoneNameID"]},
                "DNSName" : {"Fn::GetAtt":["ELB","DNSName"]}
             },
-            "Comment" : "DNS entry for webiste",
-            "HostedZoneId" : "ZLQKI0V31370R",
-            "Name" : "__AWS_ACCT_USERNAME__.interview.sturdy.cloud.",
+            "Comment" : "DNS entry for website",
+            "HostedZoneId" : "__HOSTED_ZONE_ID__",
+            "Name" : "__WEBSITE__.",
             "Type" : "A"
          }
       },

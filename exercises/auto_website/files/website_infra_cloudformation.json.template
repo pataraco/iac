@@ -87,6 +87,21 @@
          "Description": "IP of Chef Remote Admin host",
          "Type" : "String",
          "Default" : "70.168.250.62"
+      },
+      "AwsEc2IamRole" : {
+         "Description": "EC2 IAM Role to use for Instances",
+         "Type" : "String",
+         "Default" : "__AWS_EC2_IAM_ROLE__"
+      },
+      "WebSite" : {
+         "Description": "Website being created",
+         "Type" : "String",
+         "Default" : "__WEBSITE__."
+      },
+      "HostedZoneId" : {
+         "Description": "Hosted zone ID of the website's domain",
+         "Type" : "String",
+         "Default" : "__HOSTED_ZONE_ID__"
       }
    },
    "Resources" : {
@@ -379,8 +394,8 @@
                "DNSName" : {"Fn::GetAtt":["ELB","DNSName"]}
             },
             "Comment" : "DNS entry for website",
-            "HostedZoneId" : "__HOSTED_ZONE_ID__",
-            "Name" : "__WEBSITE__.",
+            "HostedZoneId" : {"Ref":"HostedZoneId"},
+            "Name" : {"Ref":"WebSite"},
             "Type" : "A"
          }
       },
@@ -404,14 +419,14 @@
                "arn:aws:iam::aws:policy/AWSCodeCommitReadOnly",
                "arn:aws:iam::aws:policy/AmazonSNSFullAccess"
             ],
-            "RoleName" : "__AWS_EC2_IAM_ROLE__"
+            "RoleName" : {"Ref":"AwsEc2IamRole"}
          }
       },
       "InstProfile" : {
          "Type": "AWS::IAM::InstanceProfile",
          "Properties": {
             "Roles" : [{"Ref":"InstIamRole"}],
-            "InstanceProfileName" : "__AWS_EC2_IAM_ROLE__"
+            "InstanceProfileName" : {"Ref":"AwsEc2IamRole"}
          }
       },
       "BastionHost" : {

@@ -13,6 +13,9 @@
 #      AWS_DEFAULT_REGION
 #   - jq installed
 #   - ChefDK installed
+#
+# usage:
+#   create_website.sh WEBSITE
 
 AWS_CMD=$(which aws)
 JQ_CMD=$(which jq)
@@ -53,6 +56,7 @@ CHEF_USER_PEM_DST="$CHEF_REPO/.chef/${CREATOR_ID}.chef.pem"
 DATA_KEY_JSON_TMP="/tmp/data_key.json"
 DATA_KEY_NAME="data_key.enc"
 DATA_KEY_ENCRYPTED="/tmp/$DATA_KEY_NAME"
+USAGE="usage: $(basename $0) WEBSITE"
 
 # define functions
 
@@ -94,6 +98,10 @@ create_update_cf_stack() {
       fi
    fi
 }
+
+# parse command line options
+WEBSITE=$1
+[ -z "$WEBSITE" ] && { echo "$USAGE"; exit 1; }
 
 # sanity checks
 # makes sure:

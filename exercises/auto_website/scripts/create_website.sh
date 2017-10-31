@@ -39,8 +39,8 @@ AWS_PUBLIC_DOMAIN_NAME="compute.amazonaws.com"
 AWS_KEY_PAIR_NAME="$CREATOR_ID"
 AWS_EC2_IAM_ROLE="${CREATOR_ID}-ec2-restricted"
 AWS_CF_STACK_NAME="$CREATOR_ID"
-AWS_WEBSITE_INFRA_CF_STACK_NAME="${WEBSITE}-website-infra"
-AWS_WEBSITE_CF_STACK_NAME="${WEBSITE}-website"
+AWS_WEBSITE_INFRA_CF_STACK_NAME="${WEBSITE//./-}-website-infra"
+AWS_WEBSITE_CF_STACK_NAME="${WEBSITE//./-}-website"
 AWS_PRIVATE_KEY="$HOME/.ssh/${AWS_KEY_PAIR_NAME}.pem"
 WEBSITE_INFRA_CF_STACK_JSON_NAME="website_infra_cloudformation.json"
 WEBSITE_INFRA_CF_STACK_TEMPLATE="$FILES_DIR/${WEBSITE_INFRA_CF_STACK_JSON_NAME}.template"
@@ -300,7 +300,8 @@ create_update_cf_stack $AWS_WEBSITE_CF_STACK_NAME $WEBSITE_CF_STACK_FILE
 #            created by: Ansible
 #      - installs/configures/runs nginx
 
-# output the website URL (ELB publice DNS entry)
-echo "getting website URL"
-website_url=$($AWS_CMD elb describe-load-balancers --load-balancer-name ${CREATOR_ID}-website | jq -r .LoadBalancerDescriptions[].DNSName)
-echo "website creation complete: $website_url"
+# get the ELB public URL
+echo "getting public ELB URL"
+elb_public_url=$($AWS_CMD elb describe-load-balancers --load-balancer-name ${CREATOR_ID}-website | jq -r .LoadBalancerDescriptions[].DNSName)
+# output the website URL
+echo "website creation complete: $WEBSITE"

@@ -17,6 +17,12 @@
 # usage:
 #   create_website.sh WEBSITE
 
+# parse command line options, verify usage and get necessary info
+USAGE="usage: $(basename $0) WEBSITE"
+WEBSITE=$1
+[ -z "$WEBSITE" ] && { echo "$USAGE"; exit 1; }
+WEBSITE_DOMAIN=${WEBSITE#*.}
+
 AWS_CMD=$(which aws)
 JQ_CMD=$(which jq)
 KNIFE_CMD=$(which knife)
@@ -33,8 +39,8 @@ AWS_PUBLIC_DOMAIN_NAME="compute.amazonaws.com"
 AWS_KEY_PAIR_NAME="$CREATOR_ID"
 AWS_EC2_IAM_ROLE="${CREATOR_ID}-ec2-restricted"
 AWS_CF_STACK_NAME="$CREATOR_ID"
-AWS_WEBSITE_INFRA_CF_STACK_NAME="${CREATOR_ID}-website-infra"
-AWS_WEBSITE_CF_STACK_NAME="${CREATOR_ID}-website"
+AWS_WEBSITE_INFRA_CF_STACK_NAME="${WEBSITE}-website-infra"
+AWS_WEBSITE_CF_STACK_NAME="${WEBSITE}-website"
 AWS_PRIVATE_KEY="$HOME/.ssh/${AWS_KEY_PAIR_NAME}.pem"
 WEBSITE_INFRA_CF_STACK_JSON_NAME="website_infra_cloudformation.json"
 WEBSITE_INFRA_CF_STACK_TEMPLATE="$FILES_DIR/${WEBSITE_INFRA_CF_STACK_JSON_NAME}.template"
@@ -56,7 +62,6 @@ CHEF_USER_PEM_DST="$CHEF_REPO/.chef/${CREATOR_ID}.chef.pem"
 DATA_KEY_JSON_TMP="/tmp/data_key.json"
 DATA_KEY_NAME="data_key.enc"
 DATA_KEY_ENCRYPTED="/tmp/$DATA_KEY_NAME"
-USAGE="usage: $(basename $0) WEBSITE"
 
 # define functions
 
@@ -98,11 +103,6 @@ create_update_cf_stack() {
       fi
    fi
 }
-
-# parse command line options, verify usage and get necessary info
-WEBSITE=$1
-[ -z "$WEBSITE" ] && { echo "$USAGE"; exit 1; }
-WEBSITE_DOMAIN=${WEBSITE#*.}
 
 # sanity checks
 # makes sure:

@@ -7,6 +7,16 @@
          "Type" : "String",
          "Default" : "__CREATOR_ID__"
       },
+      "AZ1" : {
+         "Description": "Availability Zone 1",
+         "Type" : "String",
+         "Default" : "us-west-2a"
+      },
+      "AZ2" : {
+         "Description": "Availability Zone 2",
+         "Type" : "String",
+         "Default" : "us-west-2b"
+      },
       "VpcCidr" : {
          "Description": "CIDR for VPC",
          "Type" : "String",
@@ -38,11 +48,21 @@
          "Default" : "70.168.250.62"
       },
       "AmznLinuxAmi" : {
+         "Description": "Amazon Linux AMI (us-west-2)",
+         "Type" : "String",
+         "Default" : "ami-e689729e"
+      },
+      "AmznLinuxAmiUW1" : {
          "Description": "Amazon Linux AMI (us-west-1)",
          "Type" : "String",
          "Default" : "ami-3a674d5a"
       },
       "UbuntuLinuxAmi" : {
+         "Description": "Amazon Linux AMI (us-west-2)",
+         "Type" : "String",
+         "Default" : "ami-6e1a0117"
+      },
+      "UbuntuLinuxAmiUW1" : {
          "Description": "Amazon Linux AMI (us-west-1)",
          "Type" : "String",
          "Default" : "ami-09d2fb69"
@@ -85,7 +105,7 @@
          "Properties" : {
             "VpcId" : {"Ref":"VPC"},
             "CidrBlock" : {"Ref":"SubnetIntCidr1"},
-            "AvailabilityZone" : "us-west-1a",
+            "AvailabilityZone" : {"Ref":"AZ1"},
             "Tags" : [{"Key":"Name","Value":{"Fn::Join":["",[{"Ref":"Creator"},"-int-usw-1a"]]}}]
          }
       },
@@ -94,7 +114,7 @@
          "Properties" : {
             "VpcId" : {"Ref":"VPC"},
             "CidrBlock" : {"Ref":"SubnetIntCidr2"},
-            "AvailabilityZone" : "us-west-1b",
+            "AvailabilityZone" : {"Ref":"AZ2"},
             "Tags" : [{"Key":"Name","Value":{"Fn::Join":["",[{"Ref":"Creator"},"-int-usw-1b"]]}}]
          }
       },
@@ -104,7 +124,7 @@
             "VpcId" : {"Ref":"VPC"},
             "CidrBlock" : {"Ref":"SubnetExtCidr1"},
             "MapPublicIpOnLaunch": "true",
-            "AvailabilityZone" : "us-west-1a",
+            "AvailabilityZone" : {"Ref":"AZ1"},
             "Tags" : [{"Key":"Name","Value":{"Fn::Join":["",[{"Ref":"Creator"},"-ext-usw-1a"]]}}]
          }
       },
@@ -114,7 +134,7 @@
             "VpcId" : {"Ref":"VPC"},
             "CidrBlock" : {"Ref":"SubnetExtCidr2"},
             "MapPublicIpOnLaunch": "true",
-            "AvailabilityZone" : "us-west-1b",
+            "AvailabilityZone" : {"Ref":"AZ2"},
             "Tags" : [{"Key":"Name","Value":{"Fn::Join":["",[{"Ref":"Creator"},"-ext-usw-1b"]]}}]
          }
       },
@@ -397,7 +417,7 @@
       "BastionHost" : {
          "Type" : "AWS::EC2::Instance",
          "Properties" : {
-            "AvailabilityZone" : "us-west-1a",
+            "AvailabilityZone" : {"Ref":"AZ1"},
             "DisableApiTermination" : "True",
             "IamInstanceProfile" : {"Ref":"InstProfile"},
             "ImageId" : {"Ref":"AmznLinuxAmi"},
@@ -429,7 +449,7 @@
       "ChefServer" : {
          "Type" : "AWS::EC2::Instance",
          "Properties" : {
-            "AvailabilityZone" : "us-west-1a",
+            "AvailabilityZone" : {"Ref":"AZ1"},
             "DisableApiTermination" : "True",
             "IamInstanceProfile" : {"Ref":"InstProfile"},
             "ImageId" : {"Ref":"UbuntuLinuxAmi"},

@@ -18,6 +18,11 @@
          "Default" : "__CHEF_SERVER_URL__"
       },
       "AmznLinuxAmi" : {
+         "Description": "Amazon Linux AMI (us-west-2)",
+         "Type" : "String",
+         "Default" : "ami-e689729e"
+      },
+      "AmznLinuxAmiUW1" : {
          "Description": "Amazon Linux AMI (us-west-1)",
          "Type" : "String",
          "Default" : "ami-3a674d5a"

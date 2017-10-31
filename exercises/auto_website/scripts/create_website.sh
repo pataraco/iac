@@ -99,9 +99,10 @@ create_update_cf_stack() {
    fi
 }
 
-# parse command line options
+# parse command line options, verify usage and get necessary info
 WEBSITE=$1
 [ -z "$WEBSITE" ] && { echo "$USAGE"; exit 1; }
+WEBSITE_DOMAIN=${WEBSITE#*.}
 
 # sanity checks
 # makes sure:
@@ -114,6 +115,10 @@ echo "performing sanity checks"
 if [ -z "$AWS_DEFAULT_PROFILE" ]; then
    [ -z "$AWS_ACCESS_KEY_ID" -a -z "$AWS_SECRET_ACCESS_KEY" -a -z "$AWS_DEFAULT_REGION" ] && { echo "AWS environment not set"; exit 2; }
 fi
+
+# get the hosted zone ID of the website
+HOSTED_ZONE_ID=$(basename $($AWS_CMD route53 list-hosted-zones | $JQ_CMD -r '.HostedZones[] | select(.Name=="'"${WEBSITE_DOMAIN}."'").Id'))
+[ -z "$HOSTED_ZONE_ID" ] && { echo "error: can't get the hosted zone ID of the website's domain: $WEBSITE_DOMAIN"; exit 3; }
 
 # create a key pair via CLI (if it doesn't exist) to use for the instances
 echo "creating a public AWS key for EC2 instance access"
@@ -150,7 +155,7 @@ NOTIFICATION_ARN=$($AWS_CMD sns create-topic --name "all-${CREATOR_ID}-notificat
 
 # create website infrastructure CloudFormation stack template from another template ;-p
 echo "configuring the website infrastructure CloudFormation stack template"
-sed "s^__AWS_ACCT_USERNAME__^$AWS_ACCT_USERNAME^g;s^__CREATOR_ID__^$CREATOR_ID^g;s^__CREATOR_EMAIL__^$CREATOR_EMAIL^g;s^__AWS_EC2_IAM_ROLE__^$AWS_EC2_IAM_ROLE^g" $WEBSITE_INFRA_CF_STACK_TEMPLATE > $WEBSITE_INFRA_CF_STACK_FILE
+sed "s^__CREATOR_ID__^$CREATOR_ID^g;s^__CREATOR_EMAIL__^$CREATOR_EMAIL^g;s^__AWS_EC2_IAM_ROLE__^$AWS_EC2_IAM_ROLE^g;s^__WEBSITE__^$WEBSITE^g;s^__HOSTED_ZONE_ID__^$HOSTED_ZONE_ID^g" $WEBSITE_INFRA_CF_STACK_TEMPLATE > $WEBSITE_INFRA_CF_STACK_FILE
 
 # create the website infrastructure using CloudFormation
 echo "creating website infrastructure via CloudFormation"

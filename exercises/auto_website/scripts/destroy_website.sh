@@ -28,8 +28,8 @@ CREATOR_ID="raco"
 CREATOR_NAME="Patrick Raco"
 CREATOR_EMAIL="pataraco@gmail.com"
 AWS_KEY_PAIR_NAME="$CREATOR_ID"
-AWS_WEBSITE_INFRA_CF_STACK_NAME="${WEBSITE}-website-infra"
-AWS_WEBSITE_CF_STACK_NAME="${WEBSITE}-website"
+AWS_WEBSITE_INFRA_CF_STACK_NAME="${WEBSITE//./-}-website-infra"
+AWS_WEBSITE_CF_STACK_NAME="${WEBSITE//./-}-website"
 
 # define functions
 
@@ -80,11 +80,11 @@ if [ -z "$AWS_DEFAULT_PROFILE" ]; then
    [ -z "$AWS_ACCESS_KEY_ID" -a -z "$AWS_SECRET_ACCESS_KEY" -a -z "$AWS_DEFAULT_REGION" ] && { echo "AWS environment not set"; exit 2; }
 fi
 
-# get the website URL about to destroy
-website_url=$($AWS_CMD elb describe-load-balancers --load-balancer-name ${CREATOR_ID}-website | jq -r .LoadBalancerDescriptions[].DNSName)
-echo "URL of website you are about to delete: $website_url"
-read -p "Are you sure you want to delete this website ['yes' to confirm]? " ans
-[ "$ans" != "yes" ] && { echo "ok, not deleting the website"; exit; }
+# get the ELB public URL
+elb_public_url=$($AWS_CMD elb describe-load-balancers --load-balancer-name ${CREATOR_ID}-website | jq -r .LoadBalancerDescriptions[].DNSName)
+echo "Here is the website you are about to take down and destroy: $WEBSITE"
+read -p "Are you sure you want to destroy this website ['yes' to confirm]? " ans
+[ "$ans" != "yes" ] && { echo "ok, not destroying the website"; exit; }
 
 # disable termination protection on bastion and chef-server hosts
 disable_instance_termination_protection ${CREATOR_ID}-bastion
@@ -118,4 +118,4 @@ if [ -n "$master_key_id" ]; then
    $AWS_CMD kms schedule-key-deletion --key-id $master_key_id
 fi
 
-echo "website destruction complete: $website_url"
+echo "website destruction complete: $WEBSITE"

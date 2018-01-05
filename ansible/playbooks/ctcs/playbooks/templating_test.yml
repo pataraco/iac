@@ -8,6 +8,11 @@
   connection: local
   gather_facts: no
   vars:
+    #the_list: ['one', 'two', 'three']
+    the_list:
+      - one
+      - two
+      - three
     project: "{{ p | default('vmedix') }}"
     branch_tag: test_branch
     vpc_name: "{{ v | default('mirkwood') }}"
@@ -21,3 +26,6 @@
     - name: Create the hello world inventory file
       template: src=templates/hello_world.sh.j2
                 dest="/tmp/hello_world_inv.sh" mode=0744
+    - name: Create the list_test.py script
+      template: src=templates/list_test.py.j2
+                dest="/tmp/list_test.py" mode=0755

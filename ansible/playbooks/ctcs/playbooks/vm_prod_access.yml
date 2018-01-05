@@ -1,6 +1,7 @@
 ---
 # ansible-playbook -i inventory/VMedix/VPC/hosts_CLUSTER [--limit 'PATTERN:!localhost:!loghost'] -e "c=add|rem u=USER"] --vault-password-file=~/.vault vm_prod_access.yml
 #
+
 - hosts: all:!localhost*:!loghost*:!logstash*:!vpnhost*
   remote_user: ec2-user
   become: yes
@@ -9,8 +10,7 @@
   vars:
     user: "{{ u | mandatory }}"
     cmd: "{{ c | mandatory }}"
-    pub_key_qry: "[?name=='{{user}}'].ssh_keys"
-
+    pub_key_qry: "[?name=='{{ user }}'].ssh_keys"
   tasks:
     #- debug: var=user
     #- debug: var=cmd
@@ -18,22 +18,22 @@
     - name: Include users role dev vars
       include_vars: "/home/praco/cloud_automation/ansible/roles/users/vars/dev_users_present.yml"
     #- debug: var=create_dev_users
-    - name: Get users public key
+    - name: Get user's public key
       set_fact:
-        users_pub_keys: "{{create_dev_users|json_query(pub_key_qry)}}"
-    #- debug: var=users_pub_keys
+        users_public_keys: "{{ create_dev_users | json_query(pub_key_qry) }}"
+    #- debug: var=users_public_keys
     - name: Grant access to servers | push ssh public key
       lineinfile:
-        dest: "/home/{{user}}/.ssh/authorized_keys"
+        dest: "/home/{{ user }}/.ssh/authorized_keys"
         create: yes
-        line: "{{item}}"
-        owner: "{{user}}"
-        group: "{{user}}"
+        line: "{{ item }}"
+        owner: "{{ user }}"
+        group: "{{ user }}"
         mode: 0600
-      with_items: "{{users_pub_keys}}"
+      with_items: "{{ users_public_keys }}"
       when: cmd == "add"
     - name: Revoke access from servers | remove ssh public key
       file:
-        path: "/home/{{user}}/.ssh/authorized_keys"
+        path: "/home/{{ user }}/.ssh/authorized_keys"
         state: absent
       when: cmd == "rem"

@@ -1,5 +1,5 @@
 # CTCS
-Ansilbe fun at CTCS
+Ansible fun at CTCS
 
 ## Description
 Contains a bunch of test playbooks to learn and test new code or modifications

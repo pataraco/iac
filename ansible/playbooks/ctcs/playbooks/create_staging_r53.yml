@@ -1,0 +1,51 @@
+---
+# Used to get/see which AWS ELB facts are returned from "ec2_elb_facts"
+#
+# Usage:
+#       
+#       ansible-playbook -i ~/cloud_automation/ansible/inventory/VMedix/isengard/hosts_green -e "env=staging" --vault-password-file=~/.vault create_staging_r53.yml
+#
+
+- hosts: aws
+  connection: local
+  gather_facts: no
+  vars:
+    elb_names: "{{ elb | default('elb-vmedix-api-green') }}"
+  tasks:
+    - name: gather all ELB facts
+      ec2_elb_facts:
+        names: "{{ item.name | mandatory }}"
+        region: "{{ region }}"
+      register: elb_facts
+      with_items: "{{ aws_elb_specs }}"
+      when: env == 'staging'
+
+#     - debug: var=elb_facts
+#     - debug: var=elb_facts.results
+#     - debug: var=elb_facts.results[0]
+#     - debug: var=elb_facts.results[0].elbs
+#     - debug: var=aws_elb_specs
+    
+#     - name: show staging R53 values
+#       debug: msg="{{ item.staging_r53_name }}.{{ domain }}"
+#       with_items:
+#         - "{{ aws_elb_specs }}"
+# 
+#     - name: show ELB facts gathered
+#       debug: msg="{{ item }}"
+#       with_items:
+#         - "{{ elb_facts.results[0] }}"
+# 
+#     - name: show ELB DNS facts gathered
+#       debug: msg="{{ item.dns_name }}"
+#       with_items:
+#         - "{{ elb_facts.results[0].elbs }}"
+# 
+#     - name: show results of gathered facts
+    - debug: msg="{{ item.0.staging_r53_name }}.{{ domain }} CNAME {{ item.1.elbs[0].dns_name }} 60"
+      loop_control:
+        #label: "{{ item.0.staging_r53_name }} {{ item.1.elbs[0].dns_name }}"
+        label: "debug"
+      with_together:
+        - "{{ aws_elb_specs }}"
+        - "{{ elb_facts.results }}"

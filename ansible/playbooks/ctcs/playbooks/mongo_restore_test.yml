@@ -1,0 +1,84 @@
+---
+# Restore MongoDB from snapshot (TEST)
+# Goal, needs to be modified to find out the master host first and run the restore on
+#
+# $ ansible-playbook \
+#     -i mongo1.shared{1,2}.{mirkwood,isengard}.nim \
+#     -e "env=production" \
+#     -e "ts=YYYY_MM_DD_hh_mm" \           # optional: (default: 'latest')
+#     playbooks/mongo_restore_test.yml
+#
+# $ ansible-playbook -i mongo1.shared1.mirkwood.nim, playbooks/mongo_restore_test.yml
+#
+ 
+- hosts: "*mongo1.*"
+  gather_facts: yes
+
+  vars:
+    - timestamp: "{{ ts | default('latest') }}"
+    - mongo_name: mongo
+
+  tasks:
+#     - name: Remove existing dir if any
+#       file:
+#         dest: dump
+#         state: absent
+
+#     - name: Copy the latest dump from S3
+#       s3:
+#         bucket: "{{ virtumedix_backup_bucket }}"
+#         object: "/{{ region }}/{{ env }}/dump-{{ timestamp }}.tar.bz2"
+#         dest: "dump-{{ timestamp }}.tar.bz2"
+#         mode: get
+
+#     - name: Extract the backup
+#       unarchive:
+#         src: "dump-{{ timestamp }}.tar.bz2"
+#         copy: no
+#         dest: .
+
+    - name: Find the Mongo master server
+      #command: "mongo --quiet --ssl --sslAllowInvalidCertificates --host {{ mongo_name }}1 --eval \"printjson(db.runCommand('ismaster'))\""
+      # the output is supposed to be json, but there's a setting that breaks "from_json" ["localTime" : ISODate("2017-11-15T09:15:50.340Z")]
+      #shell: "mongo --quiet --ssl --sslAllowInvalidCertificates --host {{ mongo_name }}1 --eval \"printjson(db.runCommand('ismaster'))\""
+      shell: "mongo --quiet --ssl --sslAllowInvalidCertificates --host {{ mongo_name }}1 --eval \"printjson(db.runCommand('ismaster'))\" | /bin/grep primary"
+      register: mongo_ismaster
+    - debug: var=mongo_ismaster.stdout
+
+#     - debug: var={{item}}
+#       with_items: "{{ mongo_ismaster.stdout.split(':') | string }}"
+
+    - set_fact:
+        #mongo_master: "{{ mongo_ismaster.stdout.split(':',1) }}"
+        mongo_master: "{{ mongo_ismaster.stdout.split(':')[1].split('\"')[1] }}"
+        #mongo_master_port_json: "{{ mongo_ismaster.stdout | from_json }}"
+    #- debug: var=mongo_master_port_json
+    - debug: var=mongo_master
+
+#     - set_fact:
+#         mongo_master_port: "{{ mongo_master_port_json | map(attribute='primary') }}"
+#     - debug: var=mongo_master_port
+
+#     - set_fact:
+#         mongo_master: "{{ mongo_master_port.split(':',1) }}"
+#     - debug: var=mongo_master
+
+    - set_fact:
+        old_backup_command: mongorestore -h "{{ mongo_name }}1" --ssl --sslAllowInvalidCertificates --drop dump
+        new_backup_command: mongorestore -h "{{ mongo_master }}" --ssl --sslAllowInvalidCertificates --drop dump
+
+    - debug: var=mongo_master
+    - debug: var=old_backup_command
+    - debug: var=new_backup_command
+
+#     - name: Restore the mongo database
+#       command: mongorestore -h "{{ mongo_name }}1" --ssl --sslAllowInvalidCertificates --drop dump
+#       no_log: yes
+
+#     - name: Cleanup
+#       file:
+#         state: absent
+#         dest: "{{ item }}"
+#       with_items:
+#         - "dump-{{ timestamp }}"
+#         - "dump-{{ timestamp }}.tar.bz2"

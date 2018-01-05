@@ -1,0 +1,30 @@
+---
+# Used to test whether or not a var being defined triggers a when statement
+# Usage:
+#       
+#       ansible-playbook -i localhost, [-e "s=absent"] when_test.yml
+#
+
+- include: /home/praco/cloud_automation/ansible/playbooks/util/confirmation_prompt.yml
+
+- hosts: localhost
+  connection: local
+  gather_facts: no
+  vars:
+    state: "{{ s | default('present') }}"
+    confirm_delete: "{{ prompt_result.user_input }}"
+  tasks:
+    - name: show value of 'confirm_delete' always
+      debug: var=confirm_delete
+    - name: show value of 'confirm_delete' only when state == absent and (confirm_delete == yes or confirm_delete)
+      debug: var=confirm_delete
+      when: state == "absent" and (confirm_delete == "yes" or confirm_delete)
+    - name: show value of 'confirm_delete' only when confirm_delete == yes or confirm_delete
+      debug: var=confirm_delete
+      when: confirm_delete == "yes" or confirm_delete
+    - name: show value of 'confirm_delete' only when confirm_delete == yes
+      debug: var=confirm_delete
+      when: confirm_delete == "yes"
+    - name: show value of 'confirm_delete' only when confirm_delete
+      debug: var=confirm_delete
+      when: confirm_delete

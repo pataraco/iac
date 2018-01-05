@@ -1,0 +1,24 @@
+---
+# Used to get/see which AWS ELB facts are returned from "ec2_elb_facts"
+#
+# Usage:
+#       
+#       ansible-playbook -i localhost, [-e "elb=elb-vmedix-api-green reg=us-east-1"] aws_elb_facts.yml
+#
+
+- hosts: localhost
+  connection: local
+  gather_facts: no
+  vars:
+    elb_names: "{{ elb | default('elb-vmedix-api-green') }}"
+    region: "{{ reg | default('us-east-1') }}"
+  tasks:
+    - name: gather all ELB facts
+      ec2_elb_facts:
+        names:
+          - "{{ elb_names }}"
+        region: "{{ region }}"
+      register: elb_facts
+
+    - name: show results of gathered facts
+      debug: var=elb_facts

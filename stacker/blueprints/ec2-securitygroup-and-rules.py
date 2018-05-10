@@ -1,16 +1,31 @@
 #!/usr/bin/env python
-"""Stacker module for creating an EC2 Security Group."""
+"""Stacker module for creating an EC2 Security Group and its ingress rules."""
 
+from re import sub
 from stacker.blueprints.base import Blueprint
 from stacker.blueprints.variables.types import CFNString, EC2VPCId
-from troposphere import Export, ec2, GetAtt, Output, Tags, Sub
+from troposphere import ec2, Export, GetAtt, Output, Sub, Tags
 from utils import standalone_output  # pylint: disable=relative-import
 
 
-class SecurityGroup(Blueprint):
+class SecurityGroupAndRules(Blueprint):
     """Extends Stacker Blueprint class."""
 
     VARIABLES = {
+        'Rules': {
+            'type': dict,
+            'description': 'List of rules to add to a security group. List'
+                           ' should be a dict of dicts with the keys:'
+                           ' FromPort, ToPort, IpProtocol (optional [tcp, udp'
+                           ' or icmp] default: tcp),'
+                           ' CidrIp or SourceSecurityGroupId',
+            'default': {
+                'rule1': {'FromPort': 80, 'ToPort': 80, 'IpProtocol': 'udp',
+                          'CidrIp': '0.0.0.0/0'},
+                'rule2': {'FromPort': 443, 'ToPort': 443,
+                          'SourceSecurityGroupId': 'sg-1111'}
+            },
+        },
         'SgName': {
             'type': CFNString,
             'description': 'Name of Security Group to create',
@@ -32,7 +47,7 @@ class SecurityGroup(Blueprint):
         },
     }
 
-    def add_resource_and_output(self):
+    def add_resources_and_output(self):
         """Add resources to template."""
         template = self.template
         variables = self.get_variables()
@@ -46,6 +61,17 @@ class SecurityGroup(Blueprint):
                 VpcId=variables['VpcId'].ref
             )
         )
+
+        for rule, settings in variables['Rules'].iteritems():
+            if 'IpProtocol' not in settings.keys():
+                settings['IpProtocol'] = 'tcp'
+            template.add_resource(
+                ec2.SecurityGroupIngress(
+                    'SgIngress{}'.format(sub('[/.-]', '', rule)),
+                    GroupId=GetAtt(ec2securitygroup, 'GroupId'),
+                    **settings
+                )
+            )
 
         template.add_output(
             Output(
@@ -62,9 +88,9 @@ class SecurityGroup(Blueprint):
         """Create template (main function called by Stacker)."""
         self.template.add_version('2010-09-09')
         self.template.add_description(
-            'Creates an EC2 Security Group'
+            'Creates an EC2 Security Group and its ingress rules'
         )
-        self.add_resource_and_output()
+        self.add_resources_and_output()
 
 
 # Helper section to enable easy blueprint -> template generation
@@ -73,7 +99,7 @@ if __name__ == "__main__":
     from stacker.context import Context
 
     standalone_output.json(
-        blueprint=SecurityGroup(
+        blueprint=SecurityGroupAndRules(
             'test', Context({"namespace": "test"}), None
         )
     )

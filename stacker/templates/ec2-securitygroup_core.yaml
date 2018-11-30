@@ -1,0 +1,84 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Creates EC2 Security Groups for common core environment
+  (All Servers and VPN)'
+
+Parameters:
+
+  Application:
+    Description: Name of Application
+    Type: String
+
+  EnvironmentName:
+    Default: Dev
+    Description: Name of Environment
+    Type: String
+
+  VpcId:
+    Description: VPC id.
+    Type: 'AWS::EC2::VPC::Id'
+
+
+Resources:
+
+  AllSecurityGroup:
+    Properties:
+      GroupName: !Sub '${Application}-${EnvironmentName}-all-servers'
+      GroupDescription: !Sub 'Common Security Group for all servers in
+        ${Application} ${EnvironmentName} environment'
+      SecurityGroupEgress:
+        - {CidrIp: 0.0.0.0/0, FromPort: '0', IpProtocol: '-1', ToPort: '65535'}
+      SecurityGroupIngress:
+        - {FromPort: '0', IpProtocol: '-1', SourceSecurityGroupId: !Ref VPNSecurityGroup, ToPort: '65535'}
+      Tags:
+        - Key: Name
+          Value: !Sub '${Application}-${EnvironmentName}-all-servers'
+      VpcId: !Ref VpcId
+    Type: AWS::EC2::SecurityGroup
+
+  InternalSecurityGroup:
+    Properties:
+      GroupName: !Sub '${Application}-${EnvironmentName}-internal-servers'
+      GroupDescription: !Sub 'Common Security Group for internal servers in
+        ${Application} ${EnvironmentName} environment'
+      SecurityGroupEgress:
+        - {CidrIp: 0.0.0.0/0, FromPort: '0', IpProtocol: '-1', ToPort: '65535'}
+      SecurityGroupIngress: []
+      Tags:
+        - Key: Name
+          Value: !Sub '${Application}-${EnvironmentName}-internal-servers'
+      VpcId: !Ref VpcId
+    Type: AWS::EC2::SecurityGroup
+
+  VPNSecurityGroup:
+    Properties:
+      GroupName: !Sub '${Application}-${EnvironmentName}-vpn-servers'
+      GroupDescription: !Sub 'Common Security Group for VPN servers in
+        ${Application} ${EnvironmentName} environment'
+      SecurityGroupEgress:
+        - {CidrIp: 0.0.0.0/0, FromPort: '0', IpProtocol: '-1', ToPort: '65535'}
+      SecurityGroupIngress:
+        - {CidrIp: 0.0.0.0/0, FromPort: '1194', IpProtocol: udp, ToPort: '1194'}
+      Tags:
+        - Key: Name
+          Value: !Sub '${Application}-${EnvironmentName}-vpn-servers'
+      VpcId: !Ref VpcId
+    Type: AWS::EC2::SecurityGroup
+
+
+Outputs:
+
+  AllSecurityGroupId:
+    Description: Security group ID for all servers
+    Export: {'Name': !Sub '${AWS::StackName}-AllSecurityGroupId'}
+    Value: !GetAtt AllSecurityGroup.GroupId
+
+  InternalSecurityGroupId:
+    Description: Security group ID for internal servers
+    Export: {'Name': !Sub '${AWS::StackName}-InternalSecurityGroupId'}
+    Value: !GetAtt InternalSecurityGroup.GroupId
+
+  VpnSecurityGroupId:
+    Description: Security group ID for VPN servers
+    Export: {'Name': !Sub '${AWS::StackName}-VpnSecurityGroupId'}
+    Value: !GetAtt VPNSecurityGroup.GroupId

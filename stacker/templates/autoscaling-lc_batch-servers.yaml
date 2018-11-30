@@ -1,0 +1,117 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Creates an Auto Scaling Launch Configuration'
+
+
+Parameters:
+
+  AssociatePublicIpAddress:
+    AllowedValues: ['false', 'true']
+    ConstraintDescription: 'enter true or false'
+    Default: 'false'
+    Description: 'Indicates whether instances in the Auto Scaling group
+      receive public IP addresses or not (default: false)'
+    Type: String
+
+  DeleteOnTermination:
+    Default: 'true'
+    Description: 'Indicates whether the volume is
+      deleted on instance termination'
+    Type: String
+
+  ImageId:
+    Description: 'The AMI image ID of the instance.
+      This value obtained by a look up in SSM (/aws/service/ami-windows-latest)'
+    Type: String
+
+  InstanceMonitoring:
+    AllowedValues: ['false', 'true']
+    Default: 'false'
+    Description: 'Indicates whether detailed instance monitoring is enabled for
+      the Auto Scaling group. When detailed monitoring is enabled, Amazon
+      CloudWatch (CloudWatch) generates metrics every minute and your account
+      is charged a fee. When you disable detailed monitoring, CloudWatch
+      generates metrics every 5 minutes (default: false)'
+    Type: String
+
+  InstanceProfile:
+    AllowedPattern: '[a-zA-Z0-9-:/]*'
+    Description: 'The name or the Amazon Resource Name (ARN) of the instance
+      profile associated with the IAM role for the instance. The instance
+      profile contains the IAM role'
+    Type: String
+
+  InstanceType:
+    Default: t2.micro
+    Description: 'Specifies the instance type of the EC2 instance'
+    Type: String
+
+  Iops:
+    Default: 0
+    Description: 'The number of I/O operations per second (IOPS) that
+      the volume supports. The maximum ratio of IOPs to volume size is 30'
+    MaxValue: 20000
+    Type: Number
+
+  KeyName:
+    Description: Provides the name of the EC2 key pair
+    Type: String
+
+  PlacementTenancy:
+    AllowedValues: [dedicated, default]
+    Default: default
+    Description: 'The tenancy of the instance: dedicated or default'
+    Type: String
+
+  SecurityGroups:
+    Description: 'A list that contains the EC2 security groups to assign
+      to the Amazon EC2 instances in the Auto Scaling group'
+    Type: 'List<AWS::EC2::SecurityGroup::Id>'
+
+  VolumeSize:
+    Description: 'Specifies the volume size (GiB) for the instance'
+    Type: Number
+
+  VolumeType:
+    AllowedValues: ['standard', 'gp2', 'io1']
+    Description: 'Specifies the volume type for the instance'
+    Type: String
+
+
+Conditions:
+
+  IopsSpecified: !Not
+    - !Equals [!Ref Iops, 0]
+
+
+Resources:
+
+  AutoScalingLaunchConfiguration:
+    Properties:
+      AssociatePublicIpAddress: !Ref AssociatePublicIpAddress
+      BlockDeviceMappings:
+        - DeviceName: /dev/sda1
+          Ebs:
+            DeleteOnTermination: !Ref DeleteOnTermination
+            Iops: !If
+              - IopsSpecified
+              - !Ref Iops
+              - !Ref 'AWS::NoValue'
+            VolumeSize: !Ref VolumeSize
+            VolumeType: !Ref VolumeType
+      IamInstanceProfile: !Ref InstanceProfile
+      ImageId: !Ref ImageId
+      InstanceMonitoring: !Ref InstanceMonitoring
+      InstanceType: !Ref InstanceType
+      KeyName: !Ref KeyName
+      PlacementTenancy: !Ref PlacementTenancy
+      SecurityGroups: !Ref SecurityGroups
+    Type: AWS::AutoScaling::LaunchConfiguration
+
+
+Outputs:
+
+  AutoScalingLcName:
+    Description: Name of the Auto Scaling Launch Configuration
+    Export: {'Name': !Sub '${AWS::StackName}-AutoScalingLcName'}
+    Value: !Ref AutoScalingLaunchConfiguration

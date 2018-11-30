@@ -1,0 +1,326 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Creates an EC2 Windows ArcGIS Server Instance and joins it to a Windows Domain - Esri ArcGIS must be installed manually'
+
+Parameters:
+  BackupDaily: {Default: 'True', Type: String}
+  BackupWeekly: {Default: 'True', Type: String}
+  DetailedMonitoring: {Default: 'false', Type: String}
+  DnsServer1: {Type: String}
+  DnsServer2: {Type: String}
+  DomainUserId: {Type: String}
+  DomainUserPw: {Type: String, NoEcho: true}
+  ImageId: {Type: 'AWS::EC2::Image::Id'}
+  InstanceName: {Type: String}
+  InstanceProfile: {Type: String}
+  InstanceType: {Type: String}
+  KeyName: {Type: String}
+  NetBIOS: {Type: String}
+  SecurityGroupIds: {Type: 'List<AWS::EC2::SecurityGroup::Id>'}
+  SubnetId: {Type: String}
+  WindowsDomain: {Type: String}
+  # disk drive sizes
+  CDriveSize: {Default: 0, Type: Number}
+  DDriveSize: {Default: 0, Type: Number}
+  EDriveSize: {Default: 0, Type: Number}
+  FDriveSize: {Default: 0, Type: Number}
+  GDriveSize: {Default: 0, Type: Number}
+  HDriveSize: {Default: 0, Type: Number}
+  IDriveSize: {Default: 0, Type: Number}
+  JDriveSize: {Default: 0, Type: Number}
+  KDriveSize: {Default: 0, Type: Number}
+  LDriveSize: {Default: 0, Type: Number}
+  NDriveSize: {Default: 0, Type: Number}
+  PDriveSize: {Default: 0, Type: Number}
+  RDriveSize: {Default: 0, Type: Number}
+  SDriveSize: {Default: 0, Type: Number}
+  TDriveSize: {Default: 0, Type: Number}
+  VDriveSize: {Default: 0, Type: Number}
+  WDriveSize: {Default: 0, Type: Number}
+  YDriveSize: {Default: 0, Type: Number}
+
+Conditions:
+  AddDDrive: !Not [!Equals [!Ref DDriveSize, 0]]
+  AddEDrive: !Not [!Equals [!Ref EDriveSize, 0]]
+  AddFDrive: !Not [!Equals [!Ref FDriveSize, 0]]
+  AddGDrive: !Not [!Equals [!Ref GDriveSize, 0]]
+  AddHDrive: !Not [!Equals [!Ref HDriveSize, 0]]
+  AddIDrive: !Not [!Equals [!Ref IDriveSize, 0]]
+  AddJDrive: !Not [!Equals [!Ref JDriveSize, 0]]
+  AddKDrive: !Not [!Equals [!Ref KDriveSize, 0]]
+  AddLDrive: !Not [!Equals [!Ref LDriveSize, 0]]
+  AddNDrive: !Not [!Equals [!Ref NDriveSize, 0]]
+  AddPDrive: !Not [!Equals [!Ref PDriveSize, 0]]
+  AddRDrive: !Not [!Equals [!Ref RDriveSize, 0]]
+  AddSDrive: !Not [!Equals [!Ref SDriveSize, 0]]
+  AddTDrive: !Not [!Equals [!Ref TDriveSize, 0]]
+  AddVDrive: !Not [!Equals [!Ref VDriveSize, 0]]
+  AddWDrive: !Not [!Equals [!Ref WDriveSize, 0]]
+  AddYDrive: !Not [!Equals [!Ref YDriveSize, 0]]
+
+Resources:
+  Instance:
+    Metadata:
+      AWS::CloudFormation::Init:
+        configSets:
+          config:
+            - configure_windows_drives
+            - rename_computer
+            - install_net_framework_3_5
+            - join_domain
+        configure_windows_drives:
+          files:
+            c:\cfn\scripts\Map-Drives.ps1:
+              content: |
+                function Get-EC2InstanceMetadata {
+                    param([string]$Path)
+                    (Invoke-RestMethod -Uri "http://169.254.169.254/latest/$Path")
+                }
+
+                function Convert-SCSITargetIdToDeviceName {
+                    param([int]$SCSITargetId)
+                    If ($SCSITargetId -eq 0) {
+                        return "/dev/sda1"
+                    }
+                    $deviceName = "xvd"
+                    If ($SCSITargetId -gt 25) {
+                        $deviceName += [char](0x60 + [int]($SCSITargetId / 26))
+                    }
+                    $deviceName += [char](0x61 + $SCSITargetId % 26)
+                    return $deviceName
+                }
+
+                $VirtualDeviceMap = @{}
+
+                (Get-EC2InstanceMetadata "meta-data/block-device-mapping").Split("`n") | ForEach-Object {
+                    $VirtualDevice = $_
+                    $BlockDeviceName = Get-EC2InstanceMetadata "meta-data/block-device-mapping/$VirtualDevice"
+                    $VirtualDeviceMap[$BlockDeviceName] = $VirtualDevice
+                    $VirtualDeviceMap[$VirtualDevice] = $BlockDeviceName
+                }
+
+                $disks = Get-CimInstance -Class Win32_DiskDrive | ForEach-Object {
+                    $DiskDrive = $_
+                    $Volumes = Get-CimInstance -Query "ASSOCIATORS OF {Win32_DiskDrive.DeviceID='$($DiskDrive.DeviceID)'} WHERE AssocClass=Win32_DiskDriveToDiskPartition" | ForEach-Object {
+                        $DiskPartition = $_
+                        Get-CimInstance -Query "ASSOCIATORS OF {Win32_DiskPartition.DeviceID='$($DiskPartition.DeviceID)'} WHERE AssocClass=Win32_LogicalDiskToPartition"
+                    }
+                    If ($DiskDrive.PNPDeviceID -like "*PROD_PVDISK*") {
+                        $BlockDeviceName = Convert-SCSITargetIdToDeviceName($DiskDrive.SCSITargetId)
+                    }
+                    Else {
+                        $BlockDeviceName = $null
+                    }
+                    New-Object PSObject -Property @{
+                        DriveLetter = If ($Volumes -eq $null) {"N/A"} Else {$Volumes.DeviceID};
+                        Device = If ($BlockDeviceName -eq $null) {"N/A"} Else {$BlockDeviceName};
+                    }
+                }
+
+                $sortedDisks = ($disks | Sort-Object -Property Device -Descending)
+
+                Foreach ($disk in $sortedDisks) {
+                    If ($disk.Device[-1].ToString().ToUpper() -ne (($disk.DriveLetter[0].ToString()))) {
+                        If ($disk.Device -ne '/dev/sda1') {  # Change all drives except C:\
+                            If ($(Get-ItemProperty -Path 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion' -Name ProductName).ProductName -like "Windows Server 2008 R2*") {
+                                Get-CimInstance -Query "SELECT * FROM Win32_Volume WHERE DriveLetter='$($disk.driveletter)'" | Set-CimInstance -Arguments @{DriveLetter=$($disk.Device[-1].ToString().ToUpper()) + ':'}
+
+                            }
+                            ElseIf ($(Get-ItemProperty -Path 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion' -Name ProductName).ProductName -like "Windows Server 2012 R2*") {
+                                Get-Partition -DriveLetter $disk.DriveLetter[0].ToString() | Set-Partition -NewDriveLetter $disk.Device[-1].ToString().ToUpper()
+                            }
+                            Else {
+                                throw('This script has only been tested in Windows Server 2008 R2 and Windows Server 2012 R2')
+                            }
+                            Write-Output "$($disk.DriveLetter[0].ToString()) changed to $($disk.Device[-1].ToString().ToUpper())"
+                        }
+                    }
+                }
+          commands:
+            01_configure_windows_drives:
+              command: powershell.exe -ExecutionPolicy RemoteSigned -Command c:\cfn\scripts\Map-Drives.ps1
+        rename_computer:
+          files:
+            c:\cfn\scripts\Unset-AutoComputerName.ps1:
+              content: |
+                $EC2SettingsFile = 'C:\Program Files\Amazon\Ec2ConfigService\Settings\Config.xml'
+                $xml = [xml](get-content $EC2SettingsFile)
+                $xmlElement = $xml.get_DocumentElement()
+                $xmlElementToModify = $xmlElement.Plugins
+
+                $disableElements = "Ec2SetComputerName"
+
+                $xmlElementToModify.Plugin | Where-Object {$disableElements -contains $_.name} | Foreach-Object {$_.State="Disabled"}
+
+                $xml.Save($EC2SettingsFile)
+            c:\cfn\scripts\Rename-Computer.ps1:
+              content: !Sub |
+                Try {Rename-Computer -NewName ${NetBIOS} -Restart -Force -ErrorAction Stop}
+                Catch {Write-Output 'An error occurred renaming the computer';Write-Verbose -Message "$Error[0].Exception" -Verbose}
+          commands:
+            01_unset_autocomputername:
+              command: powershell.exe -ExecutionPolicy RemoteSigned -Command c:\cfn\scripts\Unset-AutoComputerName.ps1
+            02_rename_computer:
+              command: powershell.exe -ExecutionPolicy RemoteSigned -Command c:\cfn\scripts\Rename-Computer.ps1
+              waitAfterCompletion: 'forever'
+        install_net_framework_3_5:
+          files:
+            c:\cfn\scripts\Install-NET-Framework-3.5.ps1:
+              content: |
+                #   Install .NET Framework 3.5 and confirm installation was successful
+                $error.clear()
+                Try {
+                   Install-WindowsFeature NET-Framework-Core -ea Stop
+                }
+                Catch {
+                   Write-Output "Error installing .NET Framework"
+                   Write-Output $error[0].exception.message
+                }
+                If ((Get-WindowsFeature NET-Framework-Core).InstallState -eq "Installed") {
+                   Write-Output ".NET Framework 3.5 install successful"
+                }
+                Else {
+                   Write-Output ".NET Framework 3.5 install NOT successful"
+                }
+          commands:
+            01_install_net_framework_3_5:
+              command: powershell.exe -ExecutionPolicy RemoteSigned -Command c:\cfn\scripts\Install-NET-Framework-3.5.ps1
+        join_domain:
+          files:
+            c:\cfn\scripts\Join-Domain.ps1:
+              content: !Sub |
+                $domain = "${WindowsDomain}"
+                $username = "$domain\${DomainUserId}"
+                $password = "${DomainUserPw}" | ConvertTo-SecureString -asPlainText -Force
+                $credential = New-Object System.Management.Automation.PSCredential($username,$password)
+
+                if ($(Get-Service xagt).Status -eq 'Running' -and $(Get-Service SepMasterService).Status -eq 'Running') {
+                    Write-Output "FireEye Agent is: $((Get-Service xagt).Status)"
+                    Write-Output "Symantec EndPoint Agent is: $((Get-Service SepMasterService).Status)"
+
+                    Set-DnsClientServerAddress -InterfaceIndex $(Get-NetAdapter).ifIndex -ServerAddresses("${DnsServer1}", "${DnsServer2}")
+
+                    Add-Computer -DomainName $domain -Credential $credential -Restart -Force
+                }
+                else {
+                    Write-Output "Not joining to the $domain because:"
+                    Write-Output "FireEye Agent is: $((Get-Service xagt).Status)"
+                    Write-Output "Symantec EndPoint Agent is: $((Get-Service SepMasterService).Status)"
+                }
+          commands:
+            01_join_domain:
+              command: powershell.exe -ExecutionPolicy RemoteSigned -Command c:\cfn\scripts\Join-Domain.ps1
+              waitAfterCompletion: 'forever'
+    Properties:
+      BlockDeviceMappings:
+        - DeviceName: '/dev/sda1'
+          Ebs: {DeleteOnTermination: true, VolumeSize: !Ref CDriveSize, VolumeType: gp2}
+        - !If
+          - AddDDrive
+          - DeviceName: '/dev/xvdd'
+            Ebs: {DeleteOnTermination: true, VolumeSize: !Ref DDriveSize, VolumeType: gp2}
+          - !Ref AWS::NoValue
+        - !If
+          - AddEDrive
+          - DeviceName: '/dev/xvde'
+            Ebs: {DeleteOnTermination: true, VolumeSize: !Ref EDriveSize, VolumeType: gp2}
+          - !Ref AWS::NoValue
+        - !If
+          - AddFDrive
+          - DeviceName: '/dev/xvdf'
+            Ebs: {DeleteOnTermination: true, VolumeSize: !Ref FDriveSize, VolumeType: gp2}
+          - !Ref AWS::NoValue
+        - !If
+          - AddGDrive
+          - DeviceName: '/dev/xvdg'
+            Ebs: {DeleteOnTermination: true, VolumeSize: !Ref GDriveSize, VolumeType: gp2}
+          - !Ref AWS::NoValue
+        - !If
+          - AddHDrive
+          - DeviceName: '/dev/xvdh'
+            Ebs: {DeleteOnTermination: true, VolumeSize: !Ref HDriveSize, VolumeType: gp2}
+          - !Ref AWS::NoValue
+        - !If
+          - AddIDrive
+          - DeviceName: '/dev/xvdi'
+            Ebs: {DeleteOnTermination: true, VolumeSize: !Ref IDriveSize, VolumeType: gp2}
+          - !Ref AWS::NoValue
+        - !If
+          - AddJDrive
+          - DeviceName: '/dev/xvdj'
+            Ebs: {DeleteOnTermination: true, VolumeSize: !Ref JDriveSize, VolumeType: gp2}
+          - !Ref AWS::NoValue
+        - !If
+          - AddKDrive
+          - DeviceName: '/dev/xvdk'
+            Ebs: {DeleteOnTermination: true, VolumeSize: !Ref KDriveSize, VolumeType: gp2}
+          - !Ref AWS::NoValue
+        - !If
+          - AddLDrive
+          - DeviceName: '/dev/xvdl'
+            Ebs: {DeleteOnTermination: true, VolumeSize: !Ref LDriveSize, VolumeType: gp2}
+          - !Ref AWS::NoValue
+        - !If
+          - AddNDrive
+          - DeviceName: '/dev/xvdn'
+            Ebs: {DeleteOnTermination: true, VolumeSize: !Ref NDriveSize, VolumeType: gp2}
+          - !Ref AWS::NoValue
+        - !If
+          - AddPDrive
+          - DeviceName: '/dev/xvdp'
+            Ebs: {DeleteOnTermination: true, VolumeSize: !Ref PDriveSize, VolumeType: gp2}
+          - !Ref AWS::NoValue
+        - !If
+          - AddRDrive
+          - DeviceName: '/dev/xvdr'
+            Ebs: {DeleteOnTermination: true, VolumeSize: !Ref RDriveSize, VolumeType: gp2}
+          - !Ref AWS::NoValue
+        - !If
+          - AddSDrive
+          - DeviceName: '/dev/xvds'
+            Ebs: {DeleteOnTermination: true, VolumeSize: !Ref SDriveSize, VolumeType: gp2}
+          - !Ref AWS::NoValue
+        - !If
+          - AddTDrive
+          - DeviceName: '/dev/xvdt'
+            Ebs: {DeleteOnTermination: true, VolumeSize: !Ref TDriveSize, VolumeType: gp2}
+          - !Ref AWS::NoValue
+        - !If
+          - AddVDrive
+          - DeviceName: '/dev/xvdv'
+            Ebs: {DeleteOnTermination: true, VolumeSize: !Ref VDriveSize, VolumeType: gp2}
+          - !Ref AWS::NoValue
+        - !If
+          - AddWDrive
+          - DeviceName: '/dev/xvdw'
+            Ebs: {DeleteOnTermination: true, VolumeSize: !Ref WDriveSize, VolumeType: gp2}
+          - !Ref AWS::NoValue
+        - !If
+          - AddYDrive
+          - DeviceName: '/dev/xvdy'
+            Ebs: {DeleteOnTermination: true, VolumeSize: !Ref YDriveSize, VolumeType: gp2}
+          - !Ref AWS::NoValue
+      IamInstanceProfile: !Ref InstanceProfile
+      ImageId: !Ref ImageId
+      InstanceType: !Ref InstanceType
+      KeyName: !Ref KeyName
+      Monitoring: !Ref DetailedMonitoring
+      SecurityGroupIds: !Ref SecurityGroupIds
+      SubnetId: !Ref SubnetId
+      Tags:
+        - {Key: BackupDaily, Value: !Ref BackupDaily}
+        - {Key: BackupWeekly, Value: !Ref BackupWeekly}
+        - {Key: Monitoring, Value: Enabled}
+        - {Key: Name, Value: !Ref InstanceName}
+      UserData:
+        Fn::Base64: !Sub |
+          <script>
+          cfn-init.exe --verbose --configsets=config --stack=${AWS::StackId} --resource=Instance --region=${AWS::Region}
+          </script>
+    Type: AWS::EC2::Instance
+
+Outputs:
+  InstanceAvailabilityZone: {Value: !GetAtt Instance.AvailabilityZone}
+  InstanceId: {Value: !Ref Instance}
+  InstancePrivateDnsName: {Value: !GetAtt Instance.PrivateDnsName}
+  InstancePrivateIp: {Value: !GetAtt Instance.PrivateIp}

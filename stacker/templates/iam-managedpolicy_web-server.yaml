@@ -1,0 +1,65 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Creates an AWS IAM managed policy for the Web Servers'
+
+Parameters:
+
+  Description:
+    Description: 'Description of the AWS IAM managed policy'
+    Type: String
+
+  ManagedPolicyName:
+    Description: 'Name to give the AWS IAM managed policy'
+    Type: String
+
+
+Resources:
+
+  IamManagedPolicy:
+    Properties:
+      Description: !Ref Description
+      ManagedPolicyName: !Ref ManagedPolicyName
+      PolicyDocument:
+        Statement:
+          - Action:
+              - 'ec2:CreateTags'
+              - 'ec2:DeleteTags'
+              - 'ec2:Describe*'
+              - 's3:Get*'
+              - 's3:List*'
+              - 's3:Put*'
+              - 'ses:DeleteIdentity*'
+              - 'ses:DeleteReceipt*'
+              - 'ses:DeleteVerifiedEmailAddress'
+              - 'ses:Describe*'
+              - 'ses:Get*'
+              - 'ses:List*'
+              - 'ses:Send*'
+              - 'ses:Set*'
+              - 'ses:Verify*'
+              - 'sns:CheckIfPhoneNumberIsOptedOut'
+              - 'sns:ConfirmSubscription'
+              - 'sns:CreatePlatform*'
+              - 'sns:DeleteEndpoint'
+              - 'sns:Get*'
+              - 'sns:List*'
+              - 'sns:OptInPhoneNumber'
+              - 'sns:Subscribe'
+              - 'sns:Unsubscribe'
+              - 'sqs:ChangeMessageVisibility*'
+              - 'sqs:Get*'
+              - 'sqs:List*'
+              - 'sqs:Send*'
+            Effect: Allow
+            Resource: ['*']
+            Sid: AllowEc2S3SesSnsSqsAccess
+        Version: '2012-10-17'
+    Type: AWS::IAM::ManagedPolicy
+
+
+Outputs:
+
+  IamManagedPolicyArn:
+    Description: Managed policy ARN
+    Export: {'Name': !Sub '${AWS::StackName}-IamManagedPolicyArn'}
+    Value: !Ref IamManagedPolicy

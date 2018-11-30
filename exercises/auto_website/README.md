@@ -1,36 +1,36 @@
 # Exercise Description
-Create a web server in AWS via automation
+Create a web site in AWS via automation
 
 # Objective
-Create infrastructure automation code that installs a web page onto a group of auto scaled servers that serve it up via a load balancer
+Create infrastructure automation code that installs a web page onto a group of auto scaled servers that sit behind a load balancer
 
 # Requirements
-I. Use an ELB to register the web server instances
+I. Use a Load Balancer to register the web server instances
  - Should include health check(s) to monitor the web servers and terminate them if they are unhealthy
 
-II. Use Auto Scaling Group/Launch Configuration to launch the EC2 instances and connect them to the ELB
- - **Bonus**: Configure instance counts to enable scale up/down capability based on a metric of your choice
+II. Use Auto Scaling Group/Launch Configuration to launch the EC2 instances and connect them to the Load Balancer
+ - **Extra Credit**: Configure Auto Scaling instance counts to enable scale out/in capability based on a metric
 
-III. Does not allow direct access to the web servers (instances)
- - Use one Security Group allowing HTTP traffic to the ELB
- - And another Security Group allowing HTTP traffic from the ELB to the instance(s)
+III. No direct access to the web servers (instances) - i.e. private subnet
+ - Use one Security Group allowing HTTP traffic to the Load Balancer
+ - And another Security Group allowing HTTP traffic from the Load Balancer to the instance(s)
 
 IV. Infrastructure Automation (Chef, Ansible) that achieves the following:
  - Installs a web server (e.g. Apache or Nginx)
- - Installs a simple “hello world” web page to be served up
+ - Installs a simple “Hello World!” web page to be served up
  1. Written in any language (your choice: HTML, PHP, etc)
  2. Sourced from any location (your choice: S3, cookbook file/template, etc)
- 3. **Bonus**: Include the server’s hostname on the web page presented
- - **Bonus**: Chef - Establish basic cookbook testing using Test Kitchen
+ 3. **Extra Credit**: Include the server’s hostname (and/or instance ID) on the web page presented
+ - **Extra Credit (Chef)**: Establish basic cookbook testing using Test Kitchen
 
-V. Some method of running Chef on the instance
+V. Establish some method of running Chef on the instances
  - This could be Chef Server, Chef Solo, Chef Zero
-  (May or may not be baked into the AMI - as long as Chef is performing all of the configuration)
+  (May or may not be baked into an AMI - as long as Chef is performing all the configurations)
 
 # Success Criteria
-A website displaying “hello world” served up by a Auto Scaled EC2 instances behind an ELB configured using Chef.
+A website displaying “Hello World!” served up by Auto Scaled EC2 instances behind a Load Balancer and configured with Chef.
 
-**Bonus**: Use automation (CloudFormation, Terraform, Stacker, etc) to create the AWS infrastructure
+**Extra Credit**: Use automation (CloudFormation, Terraform, etc) to create the AWS infrastructure
 
 # Steps Performed to Create
 1. Generate AWS keys and set up AWS environment
@@ -50,7 +50,7 @@ A website displaying “hello world” served up by a Auto Scaled EC2 instances 
 
 # Testing Performed
 - Ran all the scripts and verified that all the infrastructure and web servers got created
-- Tested the web site by using the ELB's public DNS Name/URL
+- Tested the web site by using the Load Balancer's public DNS Name/URL
 - Tested AWS AutoScaling
    - health checks: stopped nginx service on a web server and verified auto scaler replaced it
    - scaling out/in: increased loads on web servers (via `stress`) and verified

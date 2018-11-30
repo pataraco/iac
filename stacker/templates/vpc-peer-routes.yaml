@@ -1,0 +1,201 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Creates Routes for a VPC Peering Connection
+
+
+Conditions:
+
+  cCreatePublRte1: !Not [!Equals [!Ref pPublSubRtAz1, '']]
+  cCreatePublRte2: !Not [!Equals [!Ref pPublSubRtAz2, '']]
+  cCreatePublRte3: !Not [!Equals [!Ref pPublSubRtAz3, '']]
+  cCreatePrivRte1: !Not [!Equals [!Ref pPrivSubRtAz1, '']]
+  cCreatePrivRte2: !Not [!Equals [!Ref pPrivSubRtAz2, '']]
+  cCreatePrivRte3: !Not [!Equals [!Ref pPrivSubRtAz3, '']]
+  cCreatePeriRte: !Not [!Equals [!Ref pPeriSubRt, '']]
+  cCreateProtRte1: !Not [!Equals [!Ref pProtSubRtAz1, '']]
+  cCreateProtRte2: !Not [!Equals [!Ref pProtSubRtAz2, '']]
+  cCreateProtRte3: !Not [!Equals [!Ref pProtSubRtAz3, '']]
+  cCreateMgmtRte1: !Not [!Equals [!Ref pMgmtSubRtAz1, '']]
+  cCreateMgmtRte2: !Not [!Equals [!Ref pMgmtSubRtAz2, '']]
+  cCreateMgmtRte3: !Not [!Equals [!Ref pMgmtSubRtAz3, '']]
+
+
+Parameters:
+
+  pPublSubRtAz1:
+    Type: String
+    Default: ''
+    Description: 'Public Tier Route Table Id - AZ1'
+  pPublSubRtAz2:
+    Type: String
+    Default: ''
+    Description: 'Public Tier Route Table Id - AZ2'
+  pPublSubRtAz3:
+    Type: String
+    Default: ''
+    Description: 'Public Tier Route Table Id - AZ3'
+  pPrivSubRtAz1:
+    Type: String
+    Description: 'Private Tier Route Table Id - AZ1'
+    Default: ''
+  pPrivSubRtAz2:
+    Type: String
+    Description: 'Private Tier Route Table Id - AZ2'
+    Default: ''
+  pPrivSubRtAz3:
+    Type: String
+    Description: 'Private Tier Route Table Id - AZ3'
+    Default: ''
+  pPeriSubRt:
+    Type: String
+    Description: 'Perimeter Tier Route Table Id'
+    Default: ''
+  pProtSubRtAz1:
+    Type: String
+    Description: 'Protected Tier Route Table Id - AZ1'
+    Default: ''
+  pProtSubRtAz2:
+    Type: String
+    Description: 'Protected Tier Route Table Id - AZ2'
+    Default: ''
+  pProtSubRtAz3:
+    Type: String
+    Description: 'Protected Tier Route Table Id - AZ3'
+    Default: ''
+  pMgmtSubRtAz1:
+    Type: String
+    Description: 'Management Tier Route Table Id - AZ1'
+    Default: ''
+  pMgmtSubRtAz2:
+    Type: String
+    Description: 'Management Tier Route Table Id - AZ2'
+    Default: ''
+  pMgmtSubRtAz3:
+    Type: String
+    Description: 'Management Tier Route Table Id - AZ3'
+    Default: ''
+  pDestinationCidr:
+    Type: String
+    Description: 'Destination/Peered VPC CIDR Block'
+    MinLength: '9'
+    MaxLength: '18'
+    AllowedPattern: "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})"
+    ConstraintDescription: 'must be a valid IP CIDR range of the form x.x.x.x/x.'
+  pVpcPeerId:
+    Description: VPC Peering Connection Id
+    Type: String
+
+
+Resources:
+
+  ## Public Tier Default Routes
+  # Public Tier AZ 1 Default Route
+  rPublicTierDefaultRouteAZ1:
+    Condition: cCreatePublRte1
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref pPublSubRtAz1
+      DestinationCidrBlock: !Ref pDestinationCidr
+      VpcPeeringConnectionId: !Ref pVpcPeerId
+  # Public Tier AZ 2 Default Route
+  rPublicTierDefaultRouteAZ2:
+    Condition: cCreatePublRte2
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref pPublSubRtAz2
+      DestinationCidrBlock: !Ref pDestinationCidr
+      VpcPeeringConnectionId: !Ref pVpcPeerId
+  # Public Tier AZ 3 Default Route
+  rPublicTierDefaultRouteAZ3:
+    Condition: cCreatePublRte3
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref pPublSubRtAz3
+      DestinationCidrBlock: !Ref pDestinationCidr
+      VpcPeeringConnectionId: !Ref pVpcPeerId
+
+  ## Private Tier Default Routes
+  # Private Tier AZ 1 Default Route
+  rPrivateTierDefaultRouteAZ1:
+    Condition: cCreatePrivRte1
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref pPrivSubRtAz1
+      DestinationCidrBlock: !Ref pDestinationCidr
+      VpcPeeringConnectionId: !Ref pVpcPeerId
+  # Private Tier AZ 2 Default Route
+  rPrivateTierDefaultRouteAZ2:
+    Condition: cCreatePrivRte2
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref pPrivSubRtAz2
+      DestinationCidrBlock: !Ref pDestinationCidr
+      VpcPeeringConnectionId: !Ref pVpcPeerId
+  # Private Tier AZ 3 Default Route
+  rPrivateTierDefaultRouteAZ3:
+    Condition: cCreatePrivRte3
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref pPrivSubRtAz3
+      DestinationCidrBlock: !Ref pDestinationCidr
+      VpcPeeringConnectionId: !Ref pVpcPeerId
+
+  ## Perimeter Tier Default Routes
+  rPerimeterTierDefaultRoute:
+    Condition: cCreatePeriRte
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref pPeriSubRt
+      DestinationCidrBlock: !Ref pDestinationCidr
+      VpcPeeringConnectionId: !Ref pVpcPeerId
+
+  ## Protected Tier Default Routes
+  # Protected Tier AZ 1 Default Route
+  rProtectedTierDefaultRouteAZ1:
+    Condition: cCreateProtRte1
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref pProtSubRtAz1
+      DestinationCidrBlock: !Ref pDestinationCidr
+      VpcPeeringConnectionId: !Ref pVpcPeerId
+  # Protected Tier AZ 2 Default Route
+  rProtectedTierDefaultRouteAZ2:
+    Condition: cCreateProtRte2
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref pProtSubRtAz2
+      DestinationCidrBlock: !Ref pDestinationCidr
+      VpcPeeringConnectionId: !Ref pVpcPeerId
+  # Protected Tier AZ 3 Default Route
+  rProtectedTierDefaultRouteAZ3:
+    Condition: cCreateProtRte3
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref pProtSubRtAz3
+      DestinationCidrBlock: !Ref pDestinationCidr
+      VpcPeeringConnectionId: !Ref pVpcPeerId
+
+  ## Management Tier Default Routes
+  # Management Tier AZ 1 Default Route
+  rManagementTierDefaultRouteAZ1:
+    Condition: cCreateMgmtRte1
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref pMgmtSubRtAz1
+      DestinationCidrBlock: !Ref pDestinationCidr
+      VpcPeeringConnectionId: !Ref pVpcPeerId
+  # Management Tier AZ 2 Default Route
+  rManagementTierDefaultRouteAZ2:
+    Condition: cCreateMgmtRte2
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref pMgmtSubRtAz2
+      DestinationCidrBlock: !Ref pDestinationCidr
+      VpcPeeringConnectionId: !Ref pVpcPeerId
+  # Management Tier AZ 3 Default Route
+  rManagementTierDefaultRouteAZ3:
+    Condition: cCreateMgmtRte3
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref pMgmtSubRtAz3
+      DestinationCidrBlock: !Ref pDestinationCidr
+      VpcPeeringConnectionId: !Ref pVpcPeerId

@@ -1,0 +1,51 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Adds the scale-out and scale-in scaling policies
+  to the Auto Scaling Group for the Web Servers'
+
+
+Parameters:
+
+  AutoScalingGroupName:
+    Description: 'The name or Amazon Resource Name (ARN) of the Auto Scaling
+      Group that you want to attach the policy to'
+    Type: String
+
+  Cooldown:
+    Description: 'The amount of time, in seconds, after a scaling activity
+      completes before any further trigger-related scaling activities can start'
+    Type: String
+
+
+Resources:
+
+  AsgScalingPolicyAdd1:
+    Properties:
+      AdjustmentType: ChangeInCapacity
+      AutoScalingGroupName: !Ref AutoScalingGroupName
+      Cooldown: !Ref Cooldown
+      PolicyType: SimpleScaling
+      ScalingAdjustment: 1
+    Type: AWS::AutoScaling::ScalingPolicy
+
+  AsgScalingPolicySub1:
+    Properties:
+      AdjustmentType: ChangeInCapacity
+      AutoScalingGroupName: !Ref AutoScalingGroupName
+      Cooldown: !Ref Cooldown
+      PolicyType: SimpleScaling
+      ScalingAdjustment: -1
+    Type: AWS::AutoScaling::ScalingPolicy
+
+
+Outputs:
+
+  AsgAddScalingPolicy:
+    Description: ARN of the Auto Scaling Group scaling policy to scale-out by 1
+    Export: {'Name': !Sub '${AWS::StackName}-AsgAddScalingPolicy'}
+    Value: !Ref AsgScalingPolicyAdd1
+
+  AsgSubScalingPolicy:
+    Description: ARN of the Auto Scaling Group scaling policy to scale-in by 1
+    Export: {'Name': !Sub '${AWS::StackName}-AsgSubScalingPolicy'}
+    Value: !Ref AsgScalingPolicySub1

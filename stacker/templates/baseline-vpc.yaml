@@ -1,0 +1,674 @@
+---
+AWSTemplateFormatVersion: "2010-09-09"
+Description: 'Creates VPC base resources across (up to) 3 AZs dynamically (depending on subnet CIDRs provided): 1 VPC, Subnets (public, private, perimeter, protected, management), and NACLs.'
+
+Conditions:
+  cCreatePeriSub1: !Not [!Equals [!Ref pPeriSubAz1, '']]
+  cCreatePeriSub2: !Not [!Equals [!Ref pPeriSubAz2, '']]
+  cCreatePeriSub3: !Not [!Equals [!Ref pPeriSubAz3, '']]
+  cCreatePublSub1: !Not [!Equals [!Ref pPublSubAz1, '']]
+  cCreatePublSub2: !Not [!Equals [!Ref pPublSubAz2, '']]
+  cCreatePublSub3: !Not [!Equals [!Ref pPublSubAz3, '']]
+  cCreateMgmtSub1: !Not [!Equals [!Ref pMgmtSubAz1, '']]
+  cCreateMgmtSub2: !Not [!Equals [!Ref pMgmtSubAz2, '']]
+  cCreateMgmtSub3: !Not [!Equals [!Ref pMgmtSubAz3, '']]
+  cCreatePrivSub1: !Not [!Equals [!Ref pPrivSubAz1, '']]
+  cCreatePrivSub2: !Not [!Equals [!Ref pPrivSubAz2, '']]
+  cCreatePrivSub3: !Not [!Equals [!Ref pPrivSubAz3, '']]
+  cCreateProtSub1: !Not [!Equals [!Ref pProtSubAz1, '']]
+  cCreateProtSub2: !Not [!Equals [!Ref pProtSubAz2, '']]
+  cCreateProtSub3: !Not [!Equals [!Ref pProtSubAz3, '']]
+
+Parameters:
+  pVpcCidrBlock:
+    Type: String
+    Description: VPC CIDR Block
+    MinLength: '9'
+    MaxLength: '18'
+    AllowedPattern: "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})"
+    ConstraintDescription: must be a valid IP CIDR range of the form x.x.x.x/x.
+  pPeriSubAz1:
+    Type: String
+    Description: 'Perimeter Tier Subnet Cidr Block - AZ1'
+    Default: ''
+  pPeriSubAz2:
+    Type: String
+    Description: 'Perimeter Tier Subnet Cidr Block - AZ2'
+    Default: ''
+  pPeriSubAz3:
+    Type: String
+    Description: 'Perimeter Tier Subnet Cidr Block - AZ3'
+    Default: ''
+  pPublSubAz1:
+    Type: String
+    Description: 'Public Tier Subnet Cidr Block - AZ1'
+    Default: ''
+  pPublSubAz2:
+    Type: String
+    Description: 'Public Tier Subnet Cidr Block - AZ2'
+    Default: ''
+  pPublSubAz3:
+    Type: String
+    Description: 'Public Tier Subnet Cidr Block - AZ3'
+    Default: ''
+  pMgmtSubAz1:
+    Type: String
+    Description: 'Management Tier Subnet Cidr Block - AZ1'
+    Default: ''
+  pMgmtSubAz2:
+    Type: String
+    Description: 'Management Tier Subnet Cidr Block - AZ2'
+    Default: ''
+  pMgmtSubAz3:
+    Type: String
+    Description: 'Management Tier Subnet Cidr Block - AZ3'
+    Default: ''
+  pPrivSubAz1:
+    Type: String
+    Description: 'Private Tier Subnet Cidr Block - AZ1'
+    Default: ''
+  pPrivSubAz2:
+    Type: String
+    Description: 'Private Tier Subnet Cidr Block - AZ2'
+    Default: ''
+  pPrivSubAz3:
+    Type: String
+    Description: 'Private Tier Subnet Cidr Block - AZ3'
+    Default: ''
+  pProtSubAz1:
+    Type: String
+    Description: 'Protected Tier Subnet Cidr Block - AZ1'
+    Default: ''
+  pProtSubAz2:
+    Type: String
+    Description: 'Protected Tier Subnet Cidr Block - AZ2'
+    Default: ''
+  pProtSubAz3:
+    Type: String
+    Description: 'Protected Tier Subnet Cidr Block - AZ3'
+    Default: ''
+  # Common Tags
+  pAppName:
+    Type: String
+    Description: 'The Name of the Application'
+  pEnvName:
+    Type: String
+    Description: 'Environment Name e.g. dev, qa, prod, etc.'
+
+Resources:
+  # Create VPC
+  rMainVPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref pVpcCidrBlock
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: !Join ['', [!Ref pAppName, '-', !Ref pEnvName, '-', !Ref 'AWS::Region', '-vpc']]
+
+  #####################################################################################
+  # SUBNETS SECTION - Create Subnets and their respective route tables
+  #####################################################################################
+  ## Perimeter Tier ##
+  # Perimeter Subnet AZ 1
+  rPeriSubAz1:
+    Condition: cCreatePeriSub1
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !Select ['0', !GetAZs '']
+      CidrBlock: !Ref pPeriSubAz1
+      MapPublicIpOnLaunch: false
+      VpcId: !Ref rMainVPC
+      Tags:
+        - Key: Name
+          Value: !Join ['', [!Ref pAppName, '-', !Ref pEnvName, '-per-', !Select ['0', !GetAZs ''], '-subnet']]
+  # Perimeter Subnet AZ 2
+  rPeriSubAz2:
+    Condition: cCreatePeriSub2
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !Select ['1', !GetAZs '']
+      CidrBlock: !Ref pPeriSubAz2
+      MapPublicIpOnLaunch: false
+      VpcId: !Ref rMainVPC
+      Tags:
+        - Key: Name
+          Value: !Join ['', [!Ref pAppName, '-', !Ref pEnvName, '-per-', !Select ['1', !GetAZs ''], '-subnet']]
+  # Perimeter Subnet AZ 3
+  rPeriSubAz3:
+    Condition: cCreatePeriSub3
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !Select ['2', !GetAZs '']
+      CidrBlock: !Ref pPeriSubAz3
+      MapPublicIpOnLaunch: false
+      VpcId: !Ref rMainVPC
+      Tags:
+        - Key: Name
+          Value: !Join ['', [!Ref pAppName, '-', !Ref pEnvName, '-per-', !Select ['2', !GetAZs ''], '-subnet']]
+
+  ## Public Tier ##
+  # Public Subnet AZ 1
+  rPublSubAz1:
+    Condition: cCreatePublSub1
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !Select ['0', !GetAZs '']
+      CidrBlock: !Ref pPublSubAz1
+      MapPublicIpOnLaunch: false
+      VpcId: !Ref rMainVPC
+      Tags:
+        - Key: Name
+          Value: !Join ['', [!Ref pAppName, '-', !Ref pEnvName, '-pub-', !Select ['0', !GetAZs ''], '-subnet']]
+  # Public Subnet AZ 2
+  rPublSubAz2:
+    Condition: cCreatePublSub2
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !Select ['1', !GetAZs '']
+      CidrBlock: !Ref pPublSubAz2
+      MapPublicIpOnLaunch: false
+      VpcId: !Ref rMainVPC
+      Tags:
+        - Key: Name
+          Value: !Join ['', [!Ref pAppName, '-', !Ref pEnvName, '-pub-', !Select ['1', !GetAZs ''], '-subnet']]
+  # Public Subnet AZ 3
+  rPublSubAz3:
+    Condition: cCreatePublSub3
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !Select ['2', !GetAZs '']
+      CidrBlock: !Ref pPublSubAz3
+      MapPublicIpOnLaunch: false
+      VpcId: !Ref rMainVPC
+      Tags:
+        - Key: Name
+          Value: !Join ['', [!Ref pAppName, '-', !Ref pEnvName, '-pub-', !Select ['2', !GetAZs ''], '-subnet']]
+
+  ## Private Tier ##
+  # Private Subnet AZ 1
+  rPrivSubAz1:
+    Condition: cCreatePrivSub1
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !Select ['0', !GetAZs '']
+      CidrBlock: !Ref pPrivSubAz1
+      MapPublicIpOnLaunch: false
+      VpcId: !Ref rMainVPC
+      Tags:
+        - Key: Name
+          Value: !Join ['', [!Ref pAppName, '-', !Ref pEnvName, '-priv-', !Select ['0', !GetAZs ''], '-subnet']]
+  # Private Subnet AZ 2
+  rPrivSubAz2:
+    Condition: cCreatePrivSub2
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !Select ['1', !GetAZs '']
+      CidrBlock: !Ref pPrivSubAz2
+      MapPublicIpOnLaunch: false
+      VpcId: !Ref rMainVPC
+      Tags:
+        - Key: Name
+          Value: !Join ['', [!Ref pAppName, '-', !Ref pEnvName, '-priv-', !Select ['1', !GetAZs ''], '-subnet']]
+  # Private Subnet AZ 3
+  rPrivSubAz3:
+    Condition: cCreatePrivSub3
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !Select ['2', !GetAZs '']
+      CidrBlock: !Ref pPrivSubAz3
+      MapPublicIpOnLaunch: false
+      VpcId: !Ref rMainVPC
+      Tags:
+        - Key: Name
+          Value: !Join ['', [!Ref pAppName, '-', !Ref pEnvName, '-priv-', !Select ['2', !GetAZs ''], '-subnet']]
+
+  ## Protected Tier ##
+  # Protected Subnet AZ 1
+  rProtSubAz1:
+    Condition: cCreateProtSub1
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !Select ['0', !GetAZs '']
+      CidrBlock: !Ref pProtSubAz1
+      MapPublicIpOnLaunch: false
+      VpcId: !Ref rMainVPC
+      Tags:
+        - Key: Name
+          Value: !Join ['', [!Ref pAppName, '-', !Ref pEnvName, '-prot-', !Select ['0', !GetAZs ''], '-subnet']]
+  # Protected Subnet AZ 2
+  rProtSubAz2:
+    Condition: cCreateProtSub2
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !Select ['1', !GetAZs '']
+      CidrBlock: !Ref pProtSubAz2
+      MapPublicIpOnLaunch: false
+      VpcId: !Ref rMainVPC
+      Tags:
+        - Key: Name
+          Value: !Join ['', [!Ref pAppName, '-', !Ref pEnvName, '-prot-', !Select ['1', !GetAZs ''], '-subnet']]
+  # Protected Subnet AZ 3
+  rProtSubAz3:
+    Condition: cCreateProtSub3
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !Select ['2', !GetAZs '']
+      CidrBlock: !Ref pProtSubAz3
+      MapPublicIpOnLaunch: false
+      VpcId: !Ref rMainVPC
+      Tags:
+        - Key: Name
+          Value: !Join ['', [!Ref pAppName, '-', !Ref pEnvName, '-prot-', !Select ['2', !GetAZs ''], '-subnet']]
+
+  ## Management Tier ##
+  # Management Subnet AZ 1
+  rMgmtSubAz1:
+    Condition: cCreateMgmtSub1
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !Select ['0', !GetAZs '']
+      CidrBlock: !Ref pMgmtSubAz1
+      MapPublicIpOnLaunch: false
+      VpcId: !Ref rMainVPC
+      Tags:
+        - Key: Name
+          Value: !Join ['', [!Ref pAppName, '-', !Ref pEnvName, '-mgmt-', !Select ['0', !GetAZs ''], '-subnet']]
+  # Management Subnet AZ 2
+  rMgmtSubAz2:
+    Condition: cCreateMgmtSub2
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !Select ['1', !GetAZs '']
+      CidrBlock: !Ref pMgmtSubAz2
+      MapPublicIpOnLaunch: false
+      VpcId: !Ref rMainVPC
+      Tags:
+        - Key: Name
+          Value: !Join ['', [!Ref pAppName, '-', !Ref pEnvName, '-mgmt-', !Select ['1', !GetAZs ''], '-subnet']]
+  # Management Subnet AZ 3
+  rMgmtSubAz3:
+    Condition: cCreateMgmtSub3
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !Select ['2', !GetAZs '']
+      CidrBlock: !Ref pMgmtSubAz3
+      MapPublicIpOnLaunch: false
+      VpcId: !Ref rMainVPC
+      Tags:
+        - Key: Name
+          Value: !Join ['', [!Ref pAppName, '-', !Ref pEnvName, '-mgmt-', !Select ['2', !GetAZs ''], '-subnet']]
+
+  #####################################################################################
+  # Additional Firewall Protection (inbound and outbound traffic at the subnet level)
+  #####################################################################################
+  # Create the Perimeter Tier NACL
+  rPerimeterTierSubnetsNacl:
+    DependsOn: rPeriSubAz1
+    Type: AWS::EC2::NetworkAcl
+    Properties:
+      VpcId: !Ref rMainVPC
+      Tags:
+        - Key: Name
+          Value: !Join ['', [!Ref pAppName, '-', !Ref pEnvName, '-', !Ref 'AWS::Region', '-perimeter-nacl']]
+  # Create the Public Tier NACL
+  rPublicTierSubnetsNacl:
+    Condition: cCreatePublSub1
+    DependsOn: rPublSubAz1
+    Type: AWS::EC2::NetworkAcl
+    Properties:
+      VpcId: !Ref rMainVPC
+      Tags:
+        - Key: Name
+          Value: !Join ['', [!Ref pAppName, '-', !Ref pEnvName, '-', !Ref 'AWS::Region', '-public-nacl']]
+  # Create the Private Tier NACL
+  rPrivateTierSubnetsNacl:
+    DependsOn: rPrivSubAz1
+    Type: AWS::EC2::NetworkAcl
+    Properties:
+      VpcId: !Ref rMainVPC
+      Tags:
+        - Key: Name
+          Value: !Join ['', [!Ref pAppName, '-', !Ref pEnvName, '-', !Ref 'AWS::Region', '-private-nacl']]
+  # Create the Protected Tier NACL
+  rProtectedTierSubnetsNacl:
+    DependsOn: rPrivSubAz1
+    Type: AWS::EC2::NetworkAcl
+    Properties:
+      VpcId: !Ref rMainVPC
+      Tags:
+        - Key: Name
+          Value: !Join ['', [!Ref pAppName, '-', !Ref pEnvName, '-', !Ref 'AWS::Region', '-protected-nacl']]
+  # Create the Management Tier NACL
+  rManagementTierSubnetsNacl:
+    DependsOn: rMgmtSubAz1
+    Type: AWS::EC2::NetworkAcl
+    Properties:
+      VpcId: !Ref rMainVPC
+      Tags:
+        - Key: Name
+          Value: !Join ['', [!Ref pAppName, '-', !Ref pEnvName, '-', !Ref 'AWS::Region', '-management-nacl']]
+
+  # Perimeter Tier NACL INBOUND RULES
+  rPerimeterTierSubnetsNaclIn:
+    Type: "AWS::EC2::NetworkAclEntry"
+    Properties:
+      NetworkAclId: !Ref rPerimeterTierSubnetsNacl
+      RuleNumber: '100'
+      Protocol: "-1"
+      RuleAction: "allow"
+      CidrBlock: "0.0.0.0/0"
+      PortRange:
+        From: '-1'
+        To: '-1'
+  # Perimeter Tier NACL OUTBOUND RULES
+  rPerimeterTierSubnetsNaclOut:
+    Type: "AWS::EC2::NetworkAclEntry"
+    Properties:
+      NetworkAclId: !Ref rPerimeterTierSubnetsNacl
+      RuleNumber: '100'
+      Protocol: "-1"
+      RuleAction: "allow"
+      Egress: "true"
+      CidrBlock: "0.0.0.0/0"
+      PortRange:
+        From: '-1'
+        To: '-1'
+  # Public Tier NACL INBOUND RULES
+  rPublicTierSubnetsNaclIn:
+    Condition: cCreatePublSub1
+    Type: "AWS::EC2::NetworkAclEntry"
+    Properties:
+      NetworkAclId: !Ref rPublicTierSubnetsNacl
+      RuleNumber: '100'
+      Protocol: "-1"
+      RuleAction: "allow"
+      CidrBlock: "0.0.0.0/0"
+      PortRange:
+        From: '-1'
+        To: '-1'
+  # Public Tier NACL OUTBOUND RULES
+  rPublicTierSubnetsNaclOut:
+    Condition: cCreatePublSub1
+    Type: "AWS::EC2::NetworkAclEntry"
+    Properties:
+      NetworkAclId: !Ref rPublicTierSubnetsNacl
+      RuleNumber: '100'
+      Protocol: "-1"
+      RuleAction: "allow"
+      Egress: "true"
+      CidrBlock: "0.0.0.0/0"
+      PortRange:
+        From: '-1'
+        To: '-1'
+  # Private Tier NACL INBOUND RULES
+  rPrivateTierSubnetsNaclIn:
+    Type: "AWS::EC2::NetworkAclEntry"
+    Properties:
+      NetworkAclId: !Ref rPrivateTierSubnetsNacl
+      RuleNumber: '100'
+      Protocol: "-1"
+      RuleAction: "allow"
+      Egress: "false"
+      CidrBlock: "0.0.0.0/0"
+      PortRange:
+        From: '-1'
+        To: '-1'
+  # Private Tier NACL OUTBOUND RULES
+  rPrivateTierSubnetsNaclOut:
+    Type: "AWS::EC2::NetworkAclEntry"
+    Properties:
+      NetworkAclId: !Ref rPrivateTierSubnetsNacl
+      RuleNumber: '100'
+      Protocol: "-1"
+      RuleAction: "allow"
+      Egress: "true"
+      CidrBlock: "0.0.0.0/0"
+      PortRange:
+        From: '-1'
+        To: '-1'
+  # Protected Tier NACL INBOUND RULES
+  rProtectedTierSubnetsNaclIn:
+    Type: "AWS::EC2::NetworkAclEntry"
+    Properties:
+      NetworkAclId: !Ref rProtectedTierSubnetsNacl
+      RuleNumber: '100'
+      Protocol: "-1"
+      RuleAction: "allow"
+      Egress: "false"
+      CidrBlock: "0.0.0.0/0"
+      PortRange:
+        From: '-1'
+        To: '-1'
+  # Protected Tier NACL OUTBOUND RULES
+  rProtectedTierSubnetsNaclOut:
+    Type: "AWS::EC2::NetworkAclEntry"
+    Properties:
+      NetworkAclId: !Ref rProtectedTierSubnetsNacl
+      RuleNumber: '100'
+      Protocol: "-1"
+      RuleAction: "allow"
+      Egress: "true"
+      CidrBlock: "0.0.0.0/0"
+      PortRange:
+        From: '-1'
+        To: '-1'
+  # Management Tier NACL INBOUND RULES
+  rManagementTierSubnetsNaclIn:
+    Type: "AWS::EC2::NetworkAclEntry"
+    Properties:
+      NetworkAclId: !Ref rManagementTierSubnetsNacl
+      RuleNumber: '100'
+      Protocol: "-1"
+      RuleAction: "allow"
+      Egress: "false"
+      CidrBlock: "0.0.0.0/0"
+      PortRange:
+        From: '-1'
+        To: '-1'
+  # Management Tier NACL OUTBOUND RULES
+  rManagementTierSubnetsNaclOut:
+    Type: "AWS::EC2::NetworkAclEntry"
+    Properties:
+      NetworkAclId: !Ref rManagementTierSubnetsNacl
+      RuleNumber: '100'
+      Protocol: "-1"
+      RuleAction: "allow"
+      Egress: "true"
+      CidrBlock: "0.0.0.0/0"
+      PortRange:
+        From: '-1'
+        To: '-1'
+  # NACL Subnet Associations
+  rNaclAssocPerSubnet1:
+    Condition: cCreatePeriSub1
+    Type: AWS::EC2::SubnetNetworkAclAssociation
+    Properties:
+      NetworkAclId: !Ref rPerimeterTierSubnetsNacl
+      SubnetId: !Ref rPeriSubAz1
+  rNaclAssocPerSubnet2:
+    Condition: cCreatePeriSub2
+    Type: AWS::EC2::SubnetNetworkAclAssociation
+    Properties:
+      NetworkAclId: !Ref rPerimeterTierSubnetsNacl
+      SubnetId: !Ref rPeriSubAz2
+  rNaclAssocPerSubnet3:
+    Condition: cCreatePeriSub3
+    Type: AWS::EC2::SubnetNetworkAclAssociation
+    Properties:
+      NetworkAclId: !Ref rPerimeterTierSubnetsNacl
+      SubnetId: !Ref rPeriSubAz3
+  rNaclAssocPubSubnet1:
+    Condition: cCreatePublSub1
+    Type: AWS::EC2::SubnetNetworkAclAssociation
+    Properties:
+      NetworkAclId: !Ref rPublicTierSubnetsNacl
+      SubnetId: !Ref rPublSubAz1
+  rNaclAssocPubSubnet2:
+    Condition: cCreatePublSub2
+    Type: AWS::EC2::SubnetNetworkAclAssociation
+    Properties:
+      NetworkAclId: !Ref rPublicTierSubnetsNacl
+      SubnetId: !Ref rPublSubAz2
+  rNaclAssocPubSubnet3:
+    Condition: cCreatePublSub3
+    Type: AWS::EC2::SubnetNetworkAclAssociation
+    Properties:
+      NetworkAclId: !Ref rPublicTierSubnetsNacl
+      SubnetId: !Ref rPublSubAz3
+  rNaclAssocPrivSubnet1:
+    Condition: cCreatePrivSub1
+    Type: AWS::EC2::SubnetNetworkAclAssociation
+    Properties:
+      NetworkAclId: !Ref rPrivateTierSubnetsNacl
+      SubnetId: !Ref rPrivSubAz1
+  rNaclAssocPrivSubnet2:
+    Condition: cCreatePrivSub2
+    Type: AWS::EC2::SubnetNetworkAclAssociation
+    Properties:
+      NetworkAclId: !Ref rPrivateTierSubnetsNacl
+      SubnetId: !Ref rPrivSubAz2
+  rNaclAssocPrivSubnet3:
+    Condition: cCreatePrivSub3
+    Type: AWS::EC2::SubnetNetworkAclAssociation
+    Properties:
+      NetworkAclId: !Ref rPrivateTierSubnetsNacl
+      SubnetId: !Ref rPrivSubAz3
+  rNaclAssocProtSubnet1:
+    Condition: cCreateProtSub1
+    Type: AWS::EC2::SubnetNetworkAclAssociation
+    Properties:
+      NetworkAclId: !Ref rProtectedTierSubnetsNacl
+      SubnetId: !Ref rProtSubAz1
+  rNaclAssocProtSubnet2:
+    Condition: cCreateProtSub2
+    Type: AWS::EC2::SubnetNetworkAclAssociation
+    Properties:
+      NetworkAclId: !Ref rProtectedTierSubnetsNacl
+      SubnetId: !Ref rProtSubAz2
+  rNaclAssocProtSubnet3:
+    Condition: cCreateProtSub3
+    Type: AWS::EC2::SubnetNetworkAclAssociation
+    Properties:
+      NetworkAclId: !Ref rProtectedTierSubnetsNacl
+      SubnetId: !Ref rProtSubAz3
+  rNaclAssocMgmtSubnet1:
+    Condition: cCreateMgmtSub1
+    Type: AWS::EC2::SubnetNetworkAclAssociation
+    Properties:
+      NetworkAclId: !Ref rManagementTierSubnetsNacl
+      SubnetId: !Ref rMgmtSubAz1
+  rNaclAssocMgmtSubnet2:
+    Condition: cCreateMgmtSub2
+    Type: AWS::EC2::SubnetNetworkAclAssociation
+    Properties:
+      NetworkAclId: !Ref rManagementTierSubnetsNacl
+      SubnetId: !Ref rMgmtSubAz2
+  rNaclAssocMgmtSubnet3:
+    Condition: cCreateMgmtSub3
+    Type: AWS::EC2::SubnetNetworkAclAssociation
+    Properties:
+      NetworkAclId: !Ref rManagementTierSubnetsNacl
+      SubnetId: !Ref rMgmtSubAz3
+
+Outputs:
+  VpcId:
+    Description: 'The VPC ID of this VPC'
+    Value: !Ref rMainVPC
+    Export:
+      Name: !Sub "${AWS::StackName}-VpcId"
+  VpcCidrBlock:
+    Description: 'VPC CIDR Block'
+    Value: !Ref pVpcCidrBlock
+    Export:
+      Name: !Sub "${AWS::StackName}-VpcCidrBlock"
+  PerimeterSubnet1Id:
+    Condition: cCreatePeriSub1
+    Description: 'The ID of Perimeter Subnet AZ 1'
+    Value: !Ref rPeriSubAz1
+    Export:
+      Name: !Sub "${AWS::StackName}-PerSub1Id"
+  PerimeterSubnet2Id:
+    Condition: cCreatePeriSub2
+    Description: 'Perimeter Subnet 2 ID'
+    Value: !Ref rPeriSubAz2
+    Export:
+      Name: !Sub "${AWS::StackName}-PerSub2Id"
+  PerimeterSubnet3Id:
+    Condition: cCreatePeriSub3
+    Description: 'Perimeter Subnet 3 ID'
+    Value: !Ref rPeriSubAz3
+    Export:
+      Name: !Sub "${AWS::StackName}-PerSub3Id"
+  PublicSubnet1Id:
+    Condition: cCreatePublSub1
+    Description: 'The ID of Public Subnet AZ 1'
+    Value: !Ref rPublSubAz1
+    Export:
+      Name: !Sub "${AWS::StackName}-PubSub1Id"
+  PublicSubnet2Id:
+    Condition: cCreatePublSub2
+    Description: 'Public Subnet 2 ID'
+    Value: !Ref rPublSubAz2
+    Export:
+      Name: !Sub "${AWS::StackName}-PubSub2Id"
+  PublicSubnet3Id:
+    Condition: cCreatePublSub3
+    Description: 'Public Subnet 3 ID'
+    Value: !Ref rPublSubAz3
+    Export:
+      Name: !Sub "${AWS::StackName}-PubSub3Id"
+  ManagementSubnet1Id:
+    Condition: cCreateMgmtSub1
+    Description: 'Management Subnet 1 ID'
+    Value: !Ref rMgmtSubAz1
+    Export:
+      Name: !Sub "${AWS::StackName}-MgmtSub1Id"
+  ManagementSubnet2Id:
+    Condition: cCreateMgmtSub2
+    Description: 'Management Subnet 2 ID'
+    Value: !Ref rMgmtSubAz2
+    Export:
+      Name: !Sub "${AWS::StackName}-MgmtSub2Id"
+  ManagementSubnet3Id:
+    Condition: cCreateMgmtSub3
+    Description: 'Management Subnet 3 ID'
+    Value: !Ref rMgmtSubAz3
+    Export:
+      Name: !Sub "${AWS::StackName}-MgmtSub3Id"
+  PrivateSubnet1Id:
+    Condition: cCreatePrivSub1
+    Description: 'Private Subnet 1 ID'
+    Value: !Ref rPrivSubAz1
+    Export:
+      Name: !Sub "${AWS::StackName}-PrivSub1Id"
+  PrivateSubnet2Id:
+    Condition: cCreatePrivSub2
+    Description: 'Private Subnet 2 ID'
+    Value: !Ref rPrivSubAz2
+    Export:
+      Name: !Sub "${AWS::StackName}-PrivSub2Id"
+  PrivateSubnet3Id:
+    Condition: cCreatePrivSub3
+    Description: 'Private Subnet 3 ID'
+    Value: !Ref rPrivSubAz3
+    Export:
+      Name: !Sub "${AWS::StackName}-PrivSub3Id"
+  ProtectedSubnet1Id:
+    Condition: cCreateProtSub1
+    Description: 'Protected Subnet 1 ID'
+    Value: !Ref rProtSubAz1
+    Export:
+      Name: !Sub "${AWS::StackName}-ProtSub1Id"
+  ProtectedSubnet2Id:
+    Condition: cCreateProtSub2
+    Description: 'Protected Subnet 2 ID'
+    Value: !Ref rProtSubAz2
+    Export:
+      Name: !Sub "${AWS::StackName}-ProtSub2Id"
+  ProtectedSubnet3Id:
+    Condition: cCreateProtSub3
+    Description: 'Protected Subnet 3 ID'
+    Value: !Ref rProtSubAz3
+    Export:
+      Name: !Sub "${AWS::StackName}-ProtSub3Id"

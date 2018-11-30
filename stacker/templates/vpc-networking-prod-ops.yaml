@@ -1,0 +1,997 @@
+---
+AWSTemplateFormatVersion: "2010-09-09"
+Description: 'Creates networking infrastructure for baseline VPC: Palo Alto instances, IGW, VPN GW, route tables and routes.'
+
+
+Conditions:
+
+  cCreatePeriSub1: !Not [!Equals [!Ref pPeriSubId1, '']]
+  cCreatePeriSub2: !Not [!Equals [!Ref pPeriSubId2, '']]
+  cCreatePeriSub3: !Not [!Equals [!Ref pPeriSubId3, '']]
+  cCreatePublSub1: !Not [!Equals [!Ref pPublSubId1, '']]
+  cCreatePublSub2: !Not [!Equals [!Ref pPublSubId2, '']]
+  cCreatePublSub3: !Not [!Equals [!Ref pPublSubId3, '']]
+  cCreateMgmtSub1: !Not [!Equals [!Ref pMgmtSubId1, '']]
+  cCreateMgmtSub2: !Not [!Equals [!Ref pMgmtSubId2, '']]
+  cCreateMgmtSub3: !Not [!Equals [!Ref pMgmtSubId3, '']]
+  cCreatePrivSub1: !Not [!Equals [!Ref pPrivSubId1, '']]
+  cCreatePrivSub2: !Not [!Equals [!Ref pPrivSubId2, '']]
+  cCreatePrivSub3: !Not [!Equals [!Ref pPrivSubId3, '']]
+  cCreateProtSub1: !Not [!Equals [!Ref pProtSubId1, '']]
+  cCreateProtSub2: !Not [!Equals [!Ref pProtSubId2, '']]
+  cCreateProtSub3: !Not [!Equals [!Ref pProtSubId3, '']]
+
+
+Parameters:
+
+  pBackupDaily:
+    Default: 'True'
+    Description: 'Whether or not to perform Daily backups (True|False)'
+    Type: String
+  pBackupWeekly:
+    Default: 'True'
+    Description: 'Whether or not to perform Weekly backups (True|False)'
+    Type: String
+  pVpcCidrBlock:
+    Type: String
+    Description: VPC CIDR Block
+    MinLength: '9'
+    MaxLength: '18'
+    AllowedPattern: "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})"
+    ConstraintDescription: 'must be a valid IP CIDR range of the form x.x.x.x/x.'
+  pVpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: 'VPC Id'
+  pPeriSubId1:
+    Type: String
+    Description: 'Perimeter Tier Subnet Id - AZ1'
+  pPeriSubId2:
+    Type: String
+    Default: ''
+    Description: 'Perimeter Tier Subnet Id - AZ2'
+  pPeriSubId3:
+    Type: String
+    Default: ''
+    Description: 'Perimeter Tier Subnet Id - AZ3'
+  pPublSubId1:
+    Type: String
+    Default: ''
+    Description: 'Public Tier Subnet Id - AZ1'
+  pPublSubId2:
+    Type: String
+    Default: ''
+    Description: 'Public Tier Subnet Id - AZ2'
+  pPublSubId3:
+    Type: String
+    Default: ''
+    Description: 'Public Tier Subnet Id - AZ3'
+  pMgmtSubId1:
+    Type: String
+    Description: 'Management Tier Subnet Id - AZ1'
+    Default: ''
+  pMgmtSubId2:
+    Type: String
+    Description: 'Management Tier Subnet Id - AZ2'
+    Default: ''
+  pMgmtSubId3:
+    Type: String
+    Description: 'Management Tier Subnet Id - AZ3'
+    Default: ''
+  pPrivSubId1:
+    Type: String
+    Description: 'Private Tier Subnet Id - AZ1'
+    Default: ''
+  pPrivSubId2:
+    Type: String
+    Description: 'Private Tier Subnet Id - AZ2'
+    Default: ''
+  pPrivSubId3:
+    Type: String
+    Description: 'Private Tier Subnet Id - AZ3'
+    Default: ''
+  pProtSubId1:
+    Type: String
+    Description: 'Protected Tier Subnet Id - AZ1'
+    Default: ''
+  pProtSubId2:
+    Type: String
+    Description: 'Protected Tier Subnet Id - AZ2'
+    Default: ''
+  pProtSubId3:
+    Type: String
+    Description: 'Protected Tier Subnet Id - AZ3'
+    Default: ''
+  # Palo Alto
+  pPaloAltoImageId:
+    Type: String
+    Description: 'ImageId for the Palo Alto instance'
+  pPaloAltoInstanceType:
+    Type: String
+    Description: 'InstanceType for the Palo Alto instance'
+  pKeyName:
+    Type: AWS::EC2::KeyPair::KeyName
+    Description: 'Key Name to use for PaloAlto'
+  pInstanceProfile:
+    Type: String
+    Description: 'IAM Instance Profile to attach to Palo Alto'
+  # Common Tags
+  pAppName:
+    Type: String
+    Description: 'The Name of the Application'
+  pEnvName:
+    Type: String
+    Description: 'Environment Name e.g. dev, qa, prod, etc.'
+  # RFC 1918
+  pPrivCidr10:
+    Type: String
+    Description: 'Private CIDR 10.0.0.0/8'
+    Default: '10.0.0.0/8'
+  pPrivCidr172:
+    Type: String
+    Description: 'Private CIDR 172.16.0.0/12'
+    Default: '172.16.0.0/12'
+  pPrivCidr192:
+    Type: String
+    Description: 'Private CIDR 192.168.0.0/16'
+    Default: '192.168.0.0/16'
+  pAdminCidr:
+    Type: String
+    Description: 'Admin CIDR to allow adminstration access to'
+
+
+Resources:
+
+  # Create the VPC Internet Gateway (IGW)
+  rInternetGateway:
+    Condition: cCreatePublSub1
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Join ['', [!Ref pAppName, '-', !Ref pEnvName, '-', !Ref 'AWS::Region', '-igw']]
+  # Attach the IGW to main VPC
+  rVpcGatewayAttachmentIgw:
+    Condition: cCreatePublSub1
+    DependsOn: rInternetGateway
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      InternetGatewayId: !Ref rInternetGateway
+      VpcId: !Ref pVpcId
+
+  # Create a Virtual Private Gateway
+  rVpnGateway:
+    Type: AWS::EC2::VPNGateway
+    Properties:
+      Type: ipsec.1
+      Tags:
+        - Key: Name
+          Value: !Join ['', [!Ref pAppName, '-', !Ref pEnvName, '-', !Ref 'AWS::Region', '-vgw']]
+  # Attach the VGW to main VPC
+  rVpcGatewayAttachmentVgw:
+    Type: AWS::EC2::VPCGatewayAttachment
+    DependsOn: rVpnGateway
+    Properties:
+      VpnGatewayId: !Ref rVpnGateway
+      VpcId: !Ref pVpcId
+
+  #############################################################################
+  # Palo Alto SECTION - Create Palo Alto Instances and ENIs
+  #############################################################################
+
+  # Security Groups
+  rPaloAltoSecurityGroupAdmin:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Palo Alto SecurityGroup for adminstration access
+      VpcId: !Ref pVpcId
+      SecurityGroupIngress:
+        - {FromPort: 443, ToPort: 443, IpProtocol: tcp, CidrIp: !Ref pAdminCidr, Description: Administration}
+        - {FromPort: 443, ToPort: 443, IpProtocol: tcp, CidrIp: !Ref pPrivCidr10, Description: RFC 1918 10.x}
+        - {FromPort: 443, ToPort: 443, IpProtocol: tcp, CidrIp: !Ref pPrivCidr172, Description: RFC 1918 172.x}
+        - {FromPort: 443, ToPort: 443, IpProtocol: tcp, CidrIp: !Ref pPrivCidr192, Description: RFC 1918 192.x}
+      Tags:
+        - {Key: Name, Value: palo-alto-admin-access}
+  rPaloAltoSecurityGroupPerim:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Palo Alto SecurityGroup for perimeter access
+      VpcId: !Ref pVpcId
+      SecurityGroupIngress:
+        - {IpProtocol: -1, CidrIp: !Ref pVpcCidrBlock, Description: VPC}
+        - {FromPort: 80, ToPort: 80, IpProtocol: tcp, CidrIp: 0.0.0.0/0, Description: HTTP}
+        - {FromPort: 443, ToPort: 443, IpProtocol: tcp, CidrIp: 0.0.0.0/0, Description: HTTPS}
+      Tags:
+        - {Key: Name, Value: palo-alto-perimeter-access}
+  rPaloAltoSecurityGroupInternal:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Palo Alto SecurityGroup for internal access
+      VpcId: !Ref pVpcId
+      SecurityGroupIngress:
+        - {IpProtocol: -1, CidrIp: !Ref pVpcCidrBlock, Description: VPC}
+      Tags:
+        - {Key: Name, Value: palo-alto-internal-access}
+
+
+  ## Subnet 1 ##
+  rPaloAlto1:
+    Condition: cCreatePeriSub1
+    Type: AWS::EC2::Instance
+    Properties:
+      DisableApiTermination: true
+      ImageId: !Ref pPaloAltoImageId
+      InstanceType: !Ref pPaloAltoInstanceType
+      KeyName: !Ref pKeyName
+      IamInstanceProfile: !Ref pInstanceProfile
+      NetworkInterfaces:
+        - DeviceIndex: 0
+          DeleteOnTermination: true
+          GroupSet:
+            - !Ref rPaloAltoSecurityGroupAdmin
+          SubnetId: !Ref pPeriSubId1
+      Tags:
+        - Key: Name
+          Value: !Join ['', [!Ref pAppName, '-', !Ref pEnvName, '-', !Select ['0', !GetAZs ''], '-pan']]
+        - {Key: BackupDaily, Value: !Ref pBackupDaily}
+        - {Key: BackupWeekly, Value: !Ref pBackupWeekly}
+
+  rPaloAlto1Eni1:
+    Condition: cCreatePeriSub1
+    Type: AWS::EC2::NetworkInterface
+    Properties:
+      SourceDestCheck: false
+      GroupSet:
+        - !Ref rPaloAltoSecurityGroupPerim
+      SubnetId: !Ref pPeriSubId1
+  rPaloAlto1Eni1Attach:
+    Condition: cCreatePeriSub1
+    Type: AWS::EC2::NetworkInterfaceAttachment
+    Properties:
+      DeviceIndex: 1
+      InstanceId: !Ref rPaloAlto1
+      NetworkInterfaceId: !Ref rPaloAlto1Eni1
+  rPaloAlto1Eni2:
+    Condition: cCreatePublSub1
+    Type: AWS::EC2::NetworkInterface
+    Properties:
+      SourceDestCheck: false
+      GroupSet:
+        - !Ref rPaloAltoSecurityGroupInternal
+      SubnetId: !Ref pPublSubId1
+  rPaloAlto1Eni2Attach:
+    Condition: cCreatePublSub1
+    Type: AWS::EC2::NetworkInterfaceAttachment
+    Properties:
+      DeviceIndex: 2
+      InstanceId: !Ref rPaloAlto1
+      NetworkInterfaceId: !Ref rPaloAlto1Eni2
+  rPaloAlto1Eni3:
+    Condition: cCreatePrivSub1
+    Type: AWS::EC2::NetworkInterface
+    Properties:
+      SourceDestCheck: false
+      GroupSet:
+        - !Ref rPaloAltoSecurityGroupInternal
+      SubnetId: !Ref pPrivSubId1
+  rPaloAlto1Eni3Attach:
+    Condition: cCreatePrivSub1
+    Type: AWS::EC2::NetworkInterfaceAttachment
+    Properties:
+      DeviceIndex: 3
+      InstanceId: !Ref rPaloAlto1
+      NetworkInterfaceId: !Ref rPaloAlto1Eni3
+  rPaloAlto1Eni4:
+    Condition: cCreateProtSub1
+    Type: AWS::EC2::NetworkInterface
+    Properties:
+      SourceDestCheck: false
+      GroupSet:
+        - !Ref rPaloAltoSecurityGroupInternal
+      SubnetId: !Ref pProtSubId1
+  rPaloAlto1Eni4Attach:
+    Condition: cCreateProtSub1
+    Type: AWS::EC2::NetworkInterfaceAttachment
+    Properties:
+      DeviceIndex: 4
+      InstanceId: !Ref rPaloAlto1
+      NetworkInterfaceId: !Ref rPaloAlto1Eni4
+  rPaloAlto1Eni5:
+    Condition: cCreateMgmtSub1
+    Type: AWS::EC2::NetworkInterface
+    Properties:
+      SourceDestCheck: false
+      GroupSet:
+        - !Ref rPaloAltoSecurityGroupInternal
+      SubnetId: !Ref pMgmtSubId1
+  rPaloAlto1Eni5Attach:
+    Condition: cCreateMgmtSub1
+    Type: AWS::EC2::NetworkInterfaceAttachment
+    Properties:
+      DeviceIndex: 5
+      InstanceId: !Ref rPaloAlto1
+      NetworkInterfaceId: !Ref rPaloAlto1Eni5
+
+  ## Subnet 2 ##
+  rPaloAlto2:
+    Condition: cCreatePeriSub2
+    Type: AWS::EC2::Instance
+    Properties:
+      DisableApiTermination: true
+      ImageId: !Ref pPaloAltoImageId
+      InstanceType: !Ref pPaloAltoInstanceType
+      KeyName: !Ref pKeyName
+      IamInstanceProfile: !Ref pInstanceProfile
+      NetworkInterfaces:
+        - DeviceIndex: 0
+          DeleteOnTermination: true
+          GroupSet:
+            - !Ref rPaloAltoSecurityGroupAdmin
+          SubnetId: !Ref pPeriSubId2
+      Tags:
+        - Key: Name
+          Value: !Join ['', [!Ref pAppName, '-', !Ref pEnvName, '-', !Select ['1', !GetAZs ''], '-pan']]
+        - {Key: BackupDaily, Value: !Ref pBackupDaily}
+        - {Key: BackupWeekly, Value: !Ref pBackupWeekly}
+
+  rPaloAlto2Eni1:
+    Condition: cCreatePeriSub2
+    Type: AWS::EC2::NetworkInterface
+    Properties:
+      SourceDestCheck: false
+      GroupSet:
+        - !Ref rPaloAltoSecurityGroupPerim
+      SubnetId: !Ref pPeriSubId2
+  rPaloAlto2Eni1Attach:
+    Condition: cCreatePeriSub2
+    Type: AWS::EC2::NetworkInterfaceAttachment
+    Properties:
+      DeviceIndex: 1
+      InstanceId: !Ref rPaloAlto2
+      NetworkInterfaceId: !Ref rPaloAlto2Eni1
+  rPaloAlto2Eni2:
+    Condition: cCreatePublSub2
+    Type: AWS::EC2::NetworkInterface
+    Properties:
+      SourceDestCheck: false
+      GroupSet:
+        - !Ref rPaloAltoSecurityGroupInternal
+      SubnetId: !Ref pPublSubId2
+  rPaloAlto2Eni2Attach:
+    Condition: cCreatePublSub2
+    Type: AWS::EC2::NetworkInterfaceAttachment
+    Properties:
+      DeviceIndex: 2
+      InstanceId: !Ref rPaloAlto2
+      NetworkInterfaceId: !Ref rPaloAlto2Eni2
+  rPaloAlto2Eni3:
+    Condition: cCreatePrivSub2
+    Type: AWS::EC2::NetworkInterface
+    Properties:
+      SourceDestCheck: false
+      GroupSet:
+        - !Ref rPaloAltoSecurityGroupInternal
+      SubnetId: !Ref pPrivSubId2
+  rPaloAlto2Eni3Attach:
+    Condition: cCreatePrivSub2
+    Type: AWS::EC2::NetworkInterfaceAttachment
+    Properties:
+      DeviceIndex: 3
+      InstanceId: !Ref rPaloAlto2
+      NetworkInterfaceId: !Ref rPaloAlto2Eni3
+  rPaloAlto2Eni4:
+    Condition: cCreateProtSub2
+    Type: AWS::EC2::NetworkInterface
+    Properties:
+      SourceDestCheck: false
+      GroupSet:
+        - !Ref rPaloAltoSecurityGroupInternal
+      SubnetId: !Ref pProtSubId2
+  rPaloAlto2Eni4Attach:
+    Condition: cCreateProtSub2
+    Type: AWS::EC2::NetworkInterfaceAttachment
+    Properties:
+      DeviceIndex: 4
+      InstanceId: !Ref rPaloAlto2
+      NetworkInterfaceId: !Ref rPaloAlto2Eni4
+  rPaloAlto2Eni5:
+    Condition: cCreateMgmtSub2
+    Type: AWS::EC2::NetworkInterface
+    Properties:
+      SourceDestCheck: false
+      GroupSet:
+        - !Ref rPaloAltoSecurityGroupInternal
+      SubnetId: !Ref pMgmtSubId2
+  rPaloAlto2Eni5Attach:
+    Condition: cCreateMgmtSub2
+    Type: AWS::EC2::NetworkInterfaceAttachment
+    Properties:
+      DeviceIndex: 5
+      InstanceId: !Ref rPaloAlto2
+      NetworkInterfaceId: !Ref rPaloAlto2Eni5
+
+  ## Subnet 3 ##
+  rPaloAlto3:
+    Condition: cCreatePeriSub3
+    Type: AWS::EC2::Instance
+    Properties:
+      DisableApiTermination: true
+      ImageId: !Ref pPaloAltoImageId
+      InstanceType: !Ref pPaloAltoInstanceType
+      KeyName: !Ref pKeyName
+      IamInstanceProfile: !Ref pInstanceProfile
+      NetworkInterfaces:
+        - DeviceIndex: 0
+          DeleteOnTermination: true
+          GroupSet:
+            - !Ref rPaloAltoSecurityGroupAdmin
+          SubnetId: !Ref pPeriSubId3
+      Tags:
+        - Key: Name
+          Value: !Join ['', [!Ref pAppName, '-', !Ref pEnvName, '-', !Select ['2', !GetAZs ''], '-pan']]
+        - {Key: BackupDaily, Value: !Ref pBackupDaily}
+        - {Key: BackupWeekly, Value: !Ref pBackupWeekly}
+
+  rPaloAlto3Eni1:
+    Condition: cCreatePeriSub3
+    Type: AWS::EC2::NetworkInterface
+    Properties:
+      SourceDestCheck: false
+      GroupSet:
+        - !Ref rPaloAltoSecurityGroupPerim
+      SubnetId: !Ref pPeriSubId3
+  rPaloAlto3Eni1Attach:
+    Condition: cCreatePeriSub3
+    Type: AWS::EC2::NetworkInterfaceAttachment
+    Properties:
+      DeviceIndex: 1
+      InstanceId: !Ref rPaloAlto3
+      NetworkInterfaceId: !Ref rPaloAlto3Eni1
+  rPaloAlto3Eni2:
+    Condition: cCreatePublSub3
+    Type: AWS::EC2::NetworkInterface
+    Properties:
+      SourceDestCheck: false
+      GroupSet:
+        - !Ref rPaloAltoSecurityGroupInternal
+      SubnetId: !Ref pPublSubId3
+  rPaloAlto3Eni2Attach:
+    Condition: cCreatePublSub3
+    Type: AWS::EC2::NetworkInterfaceAttachment
+    Properties:
+      DeviceIndex: 2
+      InstanceId: !Ref rPaloAlto3
+      NetworkInterfaceId: !Ref rPaloAlto3Eni2
+  rPaloAlto3Eni3:
+    Condition: cCreatePrivSub3
+    Type: AWS::EC2::NetworkInterface
+    Properties:
+      SourceDestCheck: false
+      GroupSet:
+        - !Ref rPaloAltoSecurityGroupInternal
+      SubnetId: !Ref pPrivSubId3
+  rPaloAlto3Eni3Attach:
+    Condition: cCreatePrivSub3
+    Type: AWS::EC2::NetworkInterfaceAttachment
+    Properties:
+      DeviceIndex: 3
+      InstanceId: !Ref rPaloAlto3
+      NetworkInterfaceId: !Ref rPaloAlto3Eni3
+  rPaloAlto3Eni4:
+    Condition: cCreateProtSub3
+    Type: AWS::EC2::NetworkInterface
+    Properties:
+      SourceDestCheck: false
+      GroupSet:
+        - !Ref rPaloAltoSecurityGroupInternal
+      SubnetId: !Ref pProtSubId3
+  rPaloAlto3Eni4Attach:
+    Condition: cCreateProtSub3
+    Type: AWS::EC2::NetworkInterfaceAttachment
+    Properties:
+      DeviceIndex: 4
+      InstanceId: !Ref rPaloAlto3
+      NetworkInterfaceId: !Ref rPaloAlto3Eni4
+  rPaloAlto3Eni5:
+    Condition: cCreateMgmtSub3
+    Type: AWS::EC2::NetworkInterface
+    Properties:
+      SourceDestCheck: false
+      GroupSet:
+        - !Ref rPaloAltoSecurityGroupInternal
+      SubnetId: !Ref pMgmtSubId3
+  rPaloAlto3Eni5Attach:
+    Condition: cCreateMgmtSub3
+    Type: AWS::EC2::NetworkInterfaceAttachment
+    Properties:
+      DeviceIndex: 5
+      InstanceId: !Ref rPaloAlto3
+      NetworkInterfaceId: !Ref rPaloAlto3Eni5
+
+  #############################################################################
+  # Route Table SECTION - Create route tables
+  #############################################################################
+
+  ## Perimeter Tier ##
+  # Perimeter Subnet Tier Route Table
+  rPeriSubRt:
+    Condition: cCreatePeriSub1
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref pVpcId
+      Tags:
+        - Key: Name
+          # Value: !Join ['', [!Ref pAppName, '-', !Ref pEnvName, '-per-rt']]
+          Value: !Sub '${pAppName}-${pEnvName}-per-rt'
+  # Perimeter Subnet Tier Route Table Associations
+  rPerimeterSubnet1RouteTableAssociation:
+    Condition: cCreatePeriSub1
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref rPeriSubRt
+      SubnetId: !Ref pPeriSubId1
+  rPerimeterSubnet2RouteTableAssociation:
+    Condition: cCreatePeriSub2
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref rPeriSubRt
+      SubnetId: !Ref pPeriSubId2
+  rPerimeterSubnet3RouteTableAssociation:
+    Condition: cCreatePeriSub3
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref rPeriSubRt
+      SubnetId: !Ref pPeriSubId3
+
+  ## Public Tier ##
+  # Public Subnet Tier AZ1 Route Table
+  rPublSubRtAz1:
+    Condition: cCreatePublSub1
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref pVpcId
+      Tags:
+        - Key: Name
+          Value: !Join ['', [!Ref pAppName, '-', !Ref pEnvName, '-publ-', !Select ['0', !GetAZs ''], '-rt']]
+  # Public Subnet Tier AZ2 Route Table
+  rPublSubRtAz2:
+    Condition: cCreatePublSub2
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref pVpcId
+      Tags:
+        - Key: Name
+          Value: !Join ['', [!Ref pAppName, '-', !Ref pEnvName, '-publ-', !Select ['1', !GetAZs ''], '-rt']]
+  # Public Subnet Tier AZ3 Route Table
+  rPublSubRtAz3:
+    Condition: cCreatePublSub3
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref pVpcId
+      Tags:
+        - Key: Name
+          Value: !Join ['', [!Ref pAppName, '-', !Ref pEnvName, '-publ-', !Select ['2', !GetAZs ''], '-rt']]
+  # Public Subnet Tier Route Table Associations
+  rPublicSubnet1RouteTableAssociation:
+    Condition: cCreatePublSub1
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref rPublSubRtAz1
+      SubnetId: !Ref pPublSubId1
+  rPublicSubnet2RouteTableAssociation:
+    Condition: cCreatePublSub2
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref rPublSubRtAz2
+      SubnetId: !Ref pPublSubId2
+  rPublicSubnet3RouteTableAssociation:
+    Condition: cCreatePublSub3
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref rPublSubRtAz3
+      SubnetId: !Ref pPublSubId3
+
+  ## Private Tier ##
+  # Private Subnet Tier AZ1 Route Table
+  rPrivSubRtAz1:
+    Condition: cCreatePrivSub1
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref pVpcId
+      Tags:
+        - Key: Name
+          Value: !Join ['', [!Ref pAppName, '-', !Ref pEnvName, '-priv-', !Select ['0', !GetAZs ''], '-rt']]
+  # Private Subnet Tier AZ2 Route Table
+  rPrivSubRtAz2:
+    Condition: cCreatePrivSub2
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref pVpcId
+      Tags:
+        - Key: Name
+          Value: !Join ['', [!Ref pAppName, '-', !Ref pEnvName, '-priv-', !Select ['1', !GetAZs ''], '-rt']]
+  # Private Subnet Tier AZ3 Route Table
+  rPrivSubRtAz3:
+    Condition: cCreatePrivSub3
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref pVpcId
+      Tags:
+        - Key: Name
+          Value: !Join ['', [!Ref pAppName, '-', !Ref pEnvName, '-priv-', !Select ['2', !GetAZs ''], '-rt']]
+  # Private Subnet Tier Route Table Associations
+  rPrivateSubnet1RouteTableAssociation:
+    Condition: cCreatePrivSub1
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref rPrivSubRtAz1
+      SubnetId: !Ref pPrivSubId1
+  rPrivateSubnet2RouteTableAssociation:
+    Condition: cCreatePrivSub2
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref rPrivSubRtAz2
+      SubnetId: !Ref pPrivSubId2
+  rPrivateSubnet3RouteTableAssociation:
+    Condition: cCreatePrivSub3
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref rPrivSubRtAz3
+      SubnetId: !Ref pPrivSubId3
+
+  ## Protected Tier ##
+  # Protected Subnet Tier AZ1 Route Table
+  rProtSubRtAz1:
+    Condition: cCreateProtSub1
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref pVpcId
+      Tags:
+        - Key: Name
+          Value: !Join ['', [!Ref pAppName, '-', !Ref pEnvName, '-prot-', !Select ['0', !GetAZs ''], '-rt']]
+  # Protected Subnet Tier AZ2 Route Table
+  rProtSubRtAz2:
+    Condition: cCreateProtSub2
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref pVpcId
+      Tags:
+        - Key: Name
+          Value: !Join ['', [!Ref pAppName, '-', !Ref pEnvName, '-prot-', !Select ['1', !GetAZs ''], '-rt']]
+  # Protected Subnet Tier AZ3 Route Table
+  rProtSubRtAz3:
+    Condition: cCreateProtSub3
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref pVpcId
+      Tags:
+        - Key: Name
+          Value: !Join ['', [!Ref pAppName, '-', !Ref pEnvName, '-prot-', !Select ['2', !GetAZs ''], '-rt']]
+  # Protected Subnet Tier Route Table Associations
+  rProtectedSubnet1RouteTableAssociation:
+    Condition: cCreateProtSub1
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref rProtSubRtAz1
+      SubnetId: !Ref pProtSubId1
+  rProtectedSubnet2RouteTableAssociation:
+    Condition: cCreateProtSub2
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref rProtSubRtAz2
+      SubnetId: !Ref pProtSubId2
+  rProtectedSubnet3RouteTableAssociation:
+    Condition: cCreateProtSub3
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref rProtSubRtAz3
+      SubnetId: !Ref pProtSubId3
+
+  ## Management Tier ##
+  # Management Subnet Tier AZ1 Route Table
+  rMgmtSubRtAz1:
+    Condition: cCreateMgmtSub1
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref pVpcId
+      Tags:
+        - Key: Name
+          Value: !Join ['', [!Ref pAppName, '-', !Ref pEnvName, '-mgmt-', !Select ['0', !GetAZs ''], '-rt']]
+  # Management Subnet Tier AZ2 Route Table
+  rMgmtSubRtAz2:
+    Condition: cCreateMgmtSub2
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref pVpcId
+      Tags:
+        - Key: Name
+          Value: !Join ['', [!Ref pAppName, '-', !Ref pEnvName, '-mgmt-', !Select ['1', !GetAZs ''], '-rt']]
+  # Management Subnet Tier AZ3 Route Table
+  rMgmtSubRtAz3:
+    Condition: cCreateMgmtSub3
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref pVpcId
+      Tags:
+        - Key: Name
+          Value: !Join ['', [!Ref pAppName, '-', !Ref pEnvName, '-mgmt-', !Select ['2', !GetAZs ''], '-rt']]
+  # Management Subnet Tier Route Table Associations
+  rManagementSubnet1RouteTableAssociation:
+    Condition: cCreateMgmtSub1
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref rMgmtSubRtAz1
+      SubnetId: !Ref pMgmtSubId1
+  rManagementSubnet2RouteTableAssociation:
+    Condition: cCreateMgmtSub2
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref rMgmtSubRtAz2
+      SubnetId: !Ref pMgmtSubId2
+  rManagementSubnet3RouteTableAssociation:
+    Condition: cCreateMgmtSub3
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref rMgmtSubRtAz3
+      SubnetId: !Ref pMgmtSubId3
+
+  #############################################################################
+  # ROUTES SECTION - Route Entries
+  #############################################################################
+
+  ## Perimeter Tier Default Routes
+  # Perimeter Tier Default Route
+  rPerimeterTierDefaultRoute:
+    Condition: cCreatePeriSub1
+    DependsOn: rVpcGatewayAttachmentVgw
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref rPeriSubRt
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref rVpnGateway
+
+  ## Public Tier Default Routes
+  # Public Tier AZ 1 Default Route
+  rPublicTierDefaultRouteAZ1:
+    Condition: cCreatePublSub1
+    DependsOn: rVpcGatewayAttachmentVgw
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref rPublSubRtAz1
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref rVpnGateway
+  # Public Tier AZ 2 Default Route
+  rPublicTierDefaultRouteAZ2:
+    Condition: cCreatePublSub2
+    DependsOn: rVpcGatewayAttachmentVgw
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref rPublSubRtAz2
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref rVpnGateway
+  # Public Tier AZ 3 Default Route
+  rPublicTierDefaultRouteAZ3:
+    Condition: cCreatePublSub3
+    DependsOn: rVpcGatewayAttachmentVgw
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref rPublSubRtAz3
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref rVpnGateway
+
+  ## Private Tier Default Routes
+  # Private Tier AZ 1 Default Route
+  rPrivateTierDefaultRouteAZ1:
+    Condition: cCreatePrivSub1
+    DependsOn: rVpcGatewayAttachmentVgw
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref rPrivSubRtAz1
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref rVpnGateway
+  # Private Tier AZ 2 Default Route
+  rPrivateTierDefaultRouteAZ2:
+    Condition: cCreatePrivSub2
+    DependsOn: rVpcGatewayAttachmentVgw
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref rPrivSubRtAz2
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref rVpnGateway
+  # Private Tier AZ 3 Default Route
+  rPrivateTierDefaultRouteAZ3:
+    Condition: cCreatePrivSub3
+    DependsOn: rVpcGatewayAttachmentVgw
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref rPrivSubRtAz3
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref rVpnGateway
+
+  ## Protected Tier Default Routes
+  # Protected should not have any default routes to 0.0.0.0/0
+
+  ## Management Tier Default Routes
+  # Management Tier AZ 1 Default Route
+  rManagementTierDefaultRouteAZ1:
+    Condition: cCreateMgmtSub1
+    DependsOn: rVpcGatewayAttachmentVgw
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref rMgmtSubRtAz1
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref rVpnGateway
+  # Management Tier AZ 2 Default Route
+  rManagementTierDefaultRouteAZ2:
+    Condition: cCreateMgmtSub2
+    DependsOn: rVpcGatewayAttachmentVgw
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref rMgmtSubRtAz2
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref rVpnGateway
+  # Management Tier AZ 3 Default Route
+  rManagementTierDefaultRouteAZ3:
+    Condition: cCreateMgmtSub3
+    DependsOn: rVpcGatewayAttachmentVgw
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref rMgmtSubRtAz3
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref rVpnGateway
+
+
+Outputs:
+
+  PeriEniId1:
+    Condition: cCreatePeriSub1
+    Description: 'Perimeter ENI ID of AZ 1'
+    Value: !Ref rPaloAlto1Eni1
+    Export: {Name: !Sub "${AWS::StackName}-PeriEniId1"}
+  PeriEniId2:
+    Condition: cCreatePeriSub2
+    Description: 'Perimeter ENI ID of AZ 2'
+    Value: !Ref rPaloAlto2Eni1
+    Export: {Name: !Sub "${AWS::StackName}-PeriEniId2"}
+  PeriEniId3:
+    Condition: cCreatePeriSub3
+    Description: 'Perimeter ENI ID of AZ 3'
+    Value: !Ref rPaloAlto3Eni1
+    Export: {Name: !Sub "${AWS::StackName}-PeriEniId3"}
+  PublEniId1:
+    Condition: cCreatePublSub1
+    Description: 'Public ENI ID of AZ 1'
+    Value: !Ref rPaloAlto1Eni2
+    Export: {Name: !Sub "${AWS::StackName}-PublEniId1"}
+  PublEniId2:
+    Condition: cCreatePublSub2
+    Description: 'Public ENI ID of AZ 2'
+    Value: !Ref rPaloAlto2Eni2
+    Export: {Name: !Sub "${AWS::StackName}-PublEniId2"}
+  PublEniId3:
+    Condition: cCreatePublSub3
+    Description: 'Public ENI ID of AZ 3'
+    Value: !Ref rPaloAlto3Eni2
+    Export: {Name: !Sub "${AWS::StackName}-PublEniId3"}
+  PrivEniId1:
+    Condition: cCreatePrivSub1
+    Description: 'Private ENI ID of AZ 1'
+    Value: !Ref rPaloAlto1Eni3
+    Export: {Name: !Sub "${AWS::StackName}-PrivEniId1"}
+  PrivEniId2:
+    Condition: cCreatePrivSub2
+    Description: 'Private ENI ID of AZ 2'
+    Value: !Ref rPaloAlto2Eni3
+    Export: {Name: !Sub "${AWS::StackName}-PrivEniId2"}
+  PrivEniId3:
+    Condition: cCreatePrivSub3
+    Description: 'Private ENI ID of AZ 3'
+    Value: !Ref rPaloAlto3Eni3
+    Export: {Name: !Sub "${AWS::StackName}-PrivEniId3"}
+  ProtEniId1:
+    Condition: cCreateProtSub1
+    Description: 'Protected ENI ID of AZ 1'
+    Value: !Ref rPaloAlto1Eni4
+    Export: {Name: !Sub "${AWS::StackName}-ProtEniId1"}
+  ProtEniId2:
+    Condition: cCreateProtSub2
+    Description: 'Protected ENI ID of AZ 2'
+    Value: !Ref rPaloAlto2Eni4
+    Export: {Name: !Sub "${AWS::StackName}-ProtEniId2"}
+  ProtEniId3:
+    Condition: cCreateProtSub3
+    Description: 'Protected ENI ID of AZ 3'
+    Value: !Ref rPaloAlto3Eni4
+    Export: {Name: !Sub "${AWS::StackName}-ProtEniId3"}
+  MgmtEniId1:
+    Condition: cCreateMgmtSub1
+    Description: 'Management ENI ID of AZ 1'
+    Value: !Ref rPaloAlto1Eni5
+    Export: {Name: !Sub "${AWS::StackName}-MgmtEniId1"}
+  MgmtEniId2:
+    Condition: cCreateMgmtSub2
+    Description: 'Management ENI ID of AZ 2'
+    Value: !Ref rPaloAlto2Eni5
+    Export: {Name: !Sub "${AWS::StackName}-MgmtEniId2"}
+  MgmtEniId3:
+    Condition: cCreateMgmtSub3
+    Description: 'Management ENI ID of AZ 3'
+    Value: !Ref rPaloAlto3Eni5
+    Export: {Name: !Sub "${AWS::StackName}-MgmtEniId3"}
+  PerimeterSubnetRouteTable:
+    Condition: cCreatePeriSub1
+    Description: 'Perimeter Subnet Route Table ID of AZ 1'
+    Value: !Ref rPeriSubRt
+    Export:
+      Name: !Sub "${AWS::StackName}-PeriRTId"
+  PublicSubnetRouteTableAZ1:
+    Condition: cCreatePublSub1
+    Description: 'Public Subnet Route Table ID of AZ 1'
+    Value: !Ref rPublSubRtAz1
+    Export:
+      Name: !Sub "${AWS::StackName}-PublRT1Id"
+  PublicSubnetRouteTableAZ2:
+    Condition: cCreatePublSub2
+    Description: 'Public Subnet Route Table ID of AZ 2'
+    Value: !Ref rPublSubRtAz2
+    Export:
+      Name: !Sub "${AWS::StackName}-PublRT2Id"
+  PublicSubnetRouteTableAZ3:
+    Condition: cCreatePublSub3
+    Description: 'Public Subnet Route Table ID of AZ 3'
+    Value: !Ref rPublSubRtAz3
+    Export:
+      Name: !Sub "${AWS::StackName}-PublRT3Id"
+  ManagementSubnetRouteTableAZ1:
+    Condition: cCreateMgmtSub1
+    Description: 'Management Subnet Route Table ID of AZ 1'
+    Value: !Ref rMgmtSubRtAz1
+    Export:
+      Name: !Sub "${AWS::StackName}-MgmtRT1Id"
+  ManagementSubnetRouteTableAZ2:
+    Condition: cCreateMgmtSub2
+    Description: 'Management Subnet Route Table ID of AZ 2'
+    Value: !Ref rMgmtSubRtAz2
+    Export:
+      Name: !Sub "${AWS::StackName}-MgmtRT2Id"
+  ManagementSubnetRouteTableAZ3:
+    Condition: cCreateMgmtSub3
+    Description: 'Management Subnet Route Table ID of AZ 3'
+    Value: !Ref rMgmtSubRtAz3
+    Export:
+      Name: !Sub "${AWS::StackName}-MgmtRT3Id"
+  PrivateSubnetRouteTableAZ1:
+    Condition: cCreatePrivSub1
+    Description: 'Private Subnet Route Table ID of AZ 1'
+    Value: !Ref rPrivSubRtAz1
+    Export:
+      Name: !Sub "${AWS::StackName}-PrivRT1Id"
+  PrivateSubnetRouteTableAZ2:
+    Condition: cCreatePrivSub2
+    Description: 'Private Subnet Route Table ID of AZ 2'
+    Value: !Ref rPrivSubRtAz2
+    Export:
+      Name: !Sub "${AWS::StackName}-PrivRT2Id"
+  PrivateSubnetRouteTableAZ3:
+    Condition: cCreatePrivSub3
+    Description: 'Private Subnet Route Table ID of AZ 3'
+    Value: !Ref rPrivSubRtAz3
+    Export:
+      Name: !Sub "${AWS::StackName}-PrivRT3Id"
+  ProtectedSubnetRouteTableAZ1:
+    Condition: cCreateProtSub1
+    Description: 'Protected Subnet Route Table ID of AZ 1'
+    Value: !Ref rProtSubRtAz1
+    Export:
+      Name: !Sub "${AWS::StackName}-ProtRT1Id"
+  ProtectedSubnetRouteTableAZ2:
+    Condition: cCreateProtSub2
+    Description: 'Protected Subnet Route Table ID of AZ 2'
+    Value: !Ref rProtSubRtAz2
+    Export:
+      Name: !Sub "${AWS::StackName}-ProtRT2Id"
+  ProtectedSubnetRouteTableAZ3:
+    Condition: cCreateProtSub3
+    Description: 'Protected Subnet Route Table ID of AZ 3'
+    Value: !Ref rProtSubRtAz3
+    Export:
+      Name: !Sub "${AWS::StackName}-ProtRT3Id"

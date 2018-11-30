@@ -1,0 +1,115 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Creates S3 Buckets for Chef Configs and Artifacts'
+
+
+Parameters:
+
+  ChefConfigsS3BucketName:
+    Default: ''
+    Description: 'Name of S3 bucket storing core Chef configurations'
+    Type: String
+
+  ChefArtifactsS3BucketName:
+    Default: ''
+    Description: 'Name of S3 bucket storing extra/restricted Chef artifacts'
+    Type: String
+
+Conditions:
+
+  ChefConfigsS3BucketNameOmitted: !Or
+    - !Equals [!Ref ChefConfigsS3BucketName, '']
+    - !Equals [!Ref ChefConfigsS3BucketName, 'undefined']
+
+  ChefArtifactsS3BucketNameOmitted: !Or
+    - !Equals [!Ref ChefArtifactsS3BucketName, '']
+    - !Equals [!Ref ChefArtifactsS3BucketName, 'undefined']
+
+
+Resources:
+
+  S3BucketChefConfigs:
+    Properties:
+      AccessControl: Private
+      BucketName: !If
+        - ChefConfigsS3BucketNameOmitted
+        - !Ref 'AWS::NoValue'
+        - !Ref ChefConfigsS3BucketName
+      LifecycleConfiguration:
+        Rules:
+          - {NoncurrentVersionExpirationInDays: 90, Status: Enabled}
+      VersioningConfiguration:
+        Status: Enabled
+    Type: AWS::S3::Bucket
+
+  S3BucketChefArtifacts:
+    Properties:
+      AccessControl: Private
+      BucketName: !If
+        - ChefArtifactsS3BucketNameOmitted
+        - !Ref 'AWS::NoValue'
+        - !Ref ChefArtifactsS3BucketName
+      VersioningConfiguration:
+        Status: Enabled
+    Type: AWS::S3::Bucket
+
+  RequireChefDataS3BucketEncryption:
+    Properties:
+      Bucket: !Ref S3BucketChefArtifacts
+      PolicyDocument:
+        Statement:
+          - Action: ['s3:PutObject']
+            Condition:
+              StringNotEquals: {'s3:x-amz-server-side-encryption': AES256}
+            Effect: Deny
+            Principal: '*'
+            Resource: !Join
+              - ''
+              - - !GetAtt S3BucketChefArtifacts.Arn
+                - '/*'
+            Sid: DenyIncorrectEncryptionHeader
+          - Action: ['s3:PutObject']
+            Condition:
+              'Null': {'s3:x-amz-server-side-encryption': 'true'}
+            Effect: Deny
+            Principal: '*'
+            Resource: !Join
+              - ''
+              - - !GetAtt S3BucketChefArtifacts.Arn
+                - '/*'
+            Sid: DenyUnEncryptedObjectUploads
+        Version: '2012-10-17'
+    Type: AWS::S3::BucketPolicy
+
+
+Outputs:
+
+  ChefConfigsS3BucketArn:
+    Description: ARN of S3 bucket storing core Chef configurations
+    Export: {'Name': !Sub '${AWS::StackName}-ChefConfigsS3BucketArn'}
+    Value: !GetAtt S3BucketChefConfigs.Arn
+
+  ChefConfigsS3BucketName:
+    Description: Name of S3 bucket storing core Chef configurations
+    Export: {'Name': !Sub '${AWS::StackName}-ChefConfigsS3BucketName'}
+    Value: !Ref S3BucketChefConfigs
+
+  ChefConfigS3BucketDomainName:
+    Description: DNS domain name of S3 bucket storing core Chef configurations
+    Export: {'Name': !Sub '${AWS::StackName}-ChefConfigS3BucketDomainName'}
+    Value: !GetAtt S3BucketChefConfigs.DomainName
+
+  ChefArtifactsS3BucketArn:
+    Description: ARN of bucket storing extra/restricted Chef artifacts
+    Export: {'Name': !Sub '${AWS::StackName}-ChefArtifactsS3BucketArn'}
+    Value: !GetAtt S3BucketChefArtifacts.Arn
+
+  ChefArtifactsS3BucketName:
+    Description: Name of bucket storing extra/restricted Chef artifacts
+    Export: {'Name': !Sub '${AWS::StackName}-ChefArtifactsS3BucketName'}
+    Value: !Ref S3BucketChefArtifacts
+
+  ChefArtifactsS3BucketDomainName:
+    Description: DNS domain name of S3 bucket storing extra/restricted Chef artifacts
+    Export: {'Name': !Sub '${AWS::StackName}-ChefArtifactsS3BucketDomainName'}
+    Value: !GetAtt S3BucketChefConfigs.DomainName

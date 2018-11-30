@@ -1,0 +1,112 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Creates an AWS Config rule to ensure resources have the required specified tags
+
+Parameters:
+  ConfigRuleName:
+    ConstraintDescription: 'This parameter is required'
+    Default: required-tags
+    Description: 'The name that you assign to the AWS Config rule'
+    MinLength: '1'
+    Type: String
+  ComplianceResourceTypes:
+    Description: 'List of AWS resources to ensure compliance on (Ex. AWS::EC2::Instance). See docs.aws.amazon.com/config/latest/developerguide/required-tags.html for a list of supported resource types'
+    Type: CommaDelimitedList
+  TagKey1:
+    ConstraintDescription: 'This parameter is required'
+    Default: Environment
+    Description: 'Key of the required tag'
+    MinLength: '1'
+    Type: String
+  TagVal1:
+    Default: ''
+    Description: 'Optional value of the required tag. Separate multiple values with commas'
+    Type: String
+  TagKey2:
+    Default: ''
+    Description: 'Key of a second required tag'
+    Type: String
+  TagVal2:
+    Default: ''
+    Description: 'Optional value of the second required tag. Separate multiple values with commas'
+    Type: String
+  TagKey3:
+    Default: ''
+    Description: 'Key of a third required tag'
+    Type: String
+  TagVal3:
+    Default: ''
+    Description: 'Optional value of the third required tag. Separate multiple values with commas'
+    Type: String
+  TagKey4:
+    Default: ''
+    Description: 'Key of a fourth required tag'
+    Type: String
+  TagVal4:
+    Default: ''
+    Description: 'Optional value of the fourth required tag. Separate multiple values with commas'
+    Type: String
+  TagKey5:
+    Default: ''
+    Description: 'Key of a fifth required tag'
+    Type: String
+  TagVal5:
+    Default: ''
+    Description: 'Optional value of the fifth required tag.
+      Separate multiple values with commas'
+    Type: String
+  TagKey6:
+    Default: ''
+    Description: 'Key of a sixth required tag'
+    Type: String
+  TagVal6:
+    Default: ''
+    Description: 'Optional value of the sixth required tag. Separate multiple values with commas'
+    Type: String
+
+Conditions:
+  TagKey1: !Not [!Equals [!Ref TagKey1, '']]
+  TagVal1: !Not [!Equals [!Ref TagVal1, '']]
+  TagKey2: !Not [!Equals [!Ref TagKey2, '']]
+  TagVal2: !Not [!Equals [!Ref TagVal2, '']]
+  TagKey3: !Not [!Equals [!Ref TagKey3, '']]
+  TagVal3: !Not [!Equals [!Ref TagVal3, '']]
+  TagKey4: !Not [!Equals [!Ref TagKey4, '']]
+  TagVal4: !Not [!Equals [!Ref TagVal4, '']]
+  TagKey5: !Not [!Equals [!Ref TagKey5, '']]
+  TagVal5: !Not [!Equals [!Ref TagVal5, '']]
+  TagKey6: !Not [!Equals [!Ref TagKey6, '']]
+  TagVal6: !Not [!Equals [!Ref TagVal6, '']]
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label: {default: Required}
+        Parameters: [TagKey1]
+      - Label: {default: Optional}
+        Parameters: [TagVal1, TagKey2, TagVal2, TagKey3, TagVal3, TagKey4, TagVal4, TagKey5, TagVal5, TagKey6, TagVal6]
+
+Resources:
+  AWSConfigRule:
+    Properties:
+      ConfigRuleName: !Ref ConfigRuleName
+      Description: 'Checks whether your resources have the tags that you specify'
+      InputParameters:
+        tag1Key: !If [TagKey1, !Ref TagKey1, !Ref 'AWS::NoValue']
+        tag1Value: !If [TagVal1, !Ref TagVal1, !Ref 'AWS::NoValue']
+        tag2Key: !If [TagKey2, !Ref TagKey2, !Ref 'AWS::NoValue']
+        tag2Value: !If [TagVal2, !Ref TagVal2, !Ref 'AWS::NoValue']
+        tag3Key: !If [TagKey3, !Ref TagKey3, !Ref 'AWS::NoValue']
+        tag3Value: !If [TagVal3, !Ref TagVal3, !Ref 'AWS::NoValue']
+        tag4Key: !If [TagKey4, !Ref TagKey4, !Ref 'AWS::NoValue']
+        tag4Value: !If [TagVal4, !Ref TagVal4, !Ref 'AWS::NoValue']
+        tag5Key: !If [TagKey5, !Ref TagKey5, !Ref 'AWS::NoValue']
+        tag5Value: !If [TagVal5, !Ref TagVal5, !Ref 'AWS::NoValue']
+        tag6Key: !If [TagKey6, !Ref TagKey6, !Ref 'AWS::NoValue']
+        tag6Value: !If [TagVal6, !Ref TagVal6, !Ref 'AWS::NoValue']
+      Scope:
+        ComplianceResourceTypes: !Ref ComplianceResourceTypes
+      Source:
+        Owner: AWS
+        SourceIdentifier: REQUIRED_TAGS
+    Type: AWS::Config::ConfigRule

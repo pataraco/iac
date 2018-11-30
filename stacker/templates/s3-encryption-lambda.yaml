@@ -1,0 +1,142 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: 'S3 Encryption Lambda'
+Resources:
+  LambdaS3EncryptionRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          -
+            Effect: "Allow"
+            Principal:
+              Service:
+                - "lambda.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+      Path: "/"
+      Policies:
+        -
+          PolicyName: "S3MonitorPolicy"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              -
+                Effect: "Allow"
+                Action:
+                  - s3:GetAccelerateConfiguration
+                  - s3:GetBucketAcl
+                  - s3:GetBucketCORS
+                  - s3:GetBucketLocation
+                  - s3:GetBucketLogging
+                  - s3:GetBucketNotification
+                  - s3:GetBucketPolicy
+                  - s3:GetBucketRequestPayment
+                  - s3:GetBucketTagging
+                  - s3:GetBucketVersioning
+                  - s3:GetBucketWebsite
+                  - s3:GetLifecycleConfiguration
+                  - s3:GetReplicationConfiguration
+                  - s3:ListAllMyBuckets
+                  - s3:ListBucket
+                  - s3:GetEncryptionConfiguration
+                  - config:PutEvaluations
+                Resource: "*"
+  S3EncryptionLambda:
+    Type: "AWS::Lambda::Function"
+    Properties:
+      Runtime: "python2.7"
+      Code:
+        ZipFile: |
+          import boto3
+          import json
+          s3 = boto3.client("s3")
+          config = boto3.client('config')
+          APPLICABLE_RESOURCES = ["AWS::S3::Bucket"]
+          def evaluate_compliance(configuration_item, rule_parameters):
+              compliance_type = 'NON_COMPLIANT'
+              annotation = "S3 bucket either does NOT have default encryption enabled, " \
+                           + "has the wrong TYPE of encryption enabled, or is encrypted " \
+                           + "with the wrong KMS key."
+              if configuration_item['configurationItemStatus'] == "ResourceDeleted":
+                  compliance_type = 'NOT_APPLICABLE'
+                  annotation = "The resource was deleted."
+              elif configuration_item["resourceType"] not in APPLICABLE_RESOURCES:
+                  compliance_type = 'NOT_APPLICABLE'
+                  annotation = "The rule doesn't apply to resources of type " \
+                               + configuration_item["resourceType"] + "."
+              else:
+                  try:
+                      # Encryption isn't in configurationItem so an API call is necessary
+                      response = s3.get_bucket_encryption(
+                          Bucket=configuration_item["resourceName"]
+                      )
+                      if 'SSE_OR_KMS' in rule_parameters:
+                          if rule_parameters['SSE_OR_KMS'] == 'SSE':
+                              if response['ServerSideEncryptionConfiguration']['Rules'][0]['ApplyServerSideEncryptionByDefault']['SSEAlgorithm'] != 'AES256':
+                                  compliance_type = 'NON_COMPLIANT'
+                                  annotation = 'S3 bucket is NOT encrypted with SSE-S3.'
+                              else:
+                                  compliance_type = 'COMPLIANT'
+                                  annotation = 'S3 bucket is encrypted with SSE-S3.'
+                      else:
+                          compliance_type = 'COMPLIANT'
+                          annotation = 'S3 bucket has default encryption enabled.'
+
+                  except:
+                      compliance_type = 'NON_COMPLIANT'
+                      annotation = 'S3 bucket does NOT have default encryption enabled.'
+
+              return {
+                  "compliance_type": compliance_type,
+                  "annotation": annotation
+              }
+
+
+          def lambda_handler(event, context):
+
+              invoking_event = json.loads(event['invokingEvent'])
+
+              if "configurationItem" in invoking_event:
+                  configuration_item = invoking_event["configurationItem"]
+              elif "configurationItemSummary" in invoking_event:
+                  configuration_item = invoking_event["configurationItemSummary"]
+
+              rule_parameters = {}
+              if 'ruleParameters' in event:
+                  rule_parameters = json.loads(event['ruleParameters'])
+
+              evaluation = evaluate_compliance(configuration_item, rule_parameters)
+
+              print('Compliance evaluation for %s: %s' % (configuration_item['resourceId'], evaluation["compliance_type"]))
+              print('Annotation: %s' % (evaluation["annotation"]))
+
+              response = config.put_evaluations(
+                 Evaluations=[
+                     {
+                         'ComplianceResourceType': invoking_event['configurationItem']['resourceType'],
+                         'ComplianceResourceId':   invoking_event['configurationItem']['resourceId'],
+                         'ComplianceType':         evaluation["compliance_type"],
+                         "Annotation":             evaluation["annotation"],
+                         'OrderingTimestamp':      invoking_event['configurationItem']['configurationItemCaptureTime']
+                     },
+                 ],
+                 ResultToken=event['resultToken'])
+      Handler: "index.lambda_handler"
+      Role: !GetAtt LambdaS3EncryptionRole.Arn
+      Timeout: 30
+      MemorySize: 128
+  S3EncryptionLambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: 'lambda:InvokeFunction'
+      FunctionName: !GetAtt S3EncryptionLambda.Arn
+      Principal: config.amazonaws.com
+      SourceAccount: !Ref AWS::AccountId
+
+Outputs:
+  S3EncryptionLambdaArn:
+    Description: S3EncryptionLambda
+    Value: !GetAtt S3EncryptionLambda.Arn
+    Export:
+      Name: !Join [":", [!Ref "AWS::StackName", S3EncryptionLambda]]

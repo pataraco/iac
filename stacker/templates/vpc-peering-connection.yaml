@@ -1,0 +1,55 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Creates a VPC Peering Connection between VPCs in two different AWS Accounts
+
+
+Parameters:
+
+  AccepterAccountId:
+    Description: 'AWS account number where the accepting VPC exists'
+    Type: String
+  AccepterRegion:
+    Description: 'The region code for the accepter VPC, if the accepter VPC is located in a region other than the region in which you make the request. The default is the region in which you make the request'
+    Default: ''
+    Type: String
+  AccepterRoleArn:
+    Description: 'IAM Role ARN used by the accepting AWS account to accept the peering connection request'
+    Type: String
+  AccepterVpcId:
+    Description: 'VPC ID to peer to (accepter VPC)'
+    Type: String
+  PeeringName:
+    Description: 'Name to give VPC peering connection'
+    Type: String
+  RequesterVpcId:
+    Description: 'VPC ID to peer from (requester VPC)'
+    Type: String
+
+
+Conditions:
+
+  DifferentRegion: !Not [!Equals [!Ref AccepterRegion, '']]
+
+
+Resources:
+
+  VPCPeeringConnection:
+    Type: AWS::EC2::VPCPeeringConnection
+    Properties:
+      PeerOwnerId: !Ref AccepterAccountId
+      PeerRegion: !If
+        - DifferentRegion
+        - !Ref AccepterRegion
+        - !Ref 'AWS::NoValue'
+      PeerRoleArn: !Ref AccepterRoleArn
+      PeerVpcId: !Ref AccepterVpcId
+      VpcId: !Ref RequesterVpcId
+      Tags:
+        - {Key: Name, Value: !Ref PeeringName}
+
+
+Outputs:
+
+  VpcPeerId:
+    Description: VPC Peering Connection
+    Value: !Ref VPCPeeringConnection

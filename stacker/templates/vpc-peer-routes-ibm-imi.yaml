@@ -1,0 +1,39 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Creates Routes for a VPC Peering Connection
+
+
+Parameters:
+
+  DestinationCidrBlock:
+    AllowedPattern: "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})"
+    ConstraintDescription: 'must be a valid IP CIDR range of the form x.x.x.x/x.'
+    Description: VPC CIDR Block
+    MaxLength: '18'
+    MinLength: '9'
+    Type: String
+  PrivateRouteTableAZ1:
+    Description: 'ID of Private Route Table AZ1'
+    Type: String
+  PrivateRouteTableAZ2:
+    Description: 'ID of Private Route Table AZ2'
+    Type: String
+  VpcPeeringConnectionId:
+    Description: 'ID of VPC Peering Connection'
+    Type: String
+
+
+Resources:
+
+  PrivateRouteAZ1:
+    Properties:
+      DestinationCidrBlock: !Ref DestinationCidrBlock
+      RouteTableId: !Ref PrivateRouteTableAZ1
+      VpcPeeringConnectionId: !Ref VpcPeeringConnectionId
+    Type: AWS::EC2::Route
+  PrivateRouteAZ2:
+    Properties:
+      DestinationCidrBlock: !Ref DestinationCidrBlock
+      RouteTableId: !Ref PrivateRouteTableAZ2
+      VpcPeeringConnectionId: !Ref VpcPeeringConnectionId
+    Type: AWS::EC2::Route

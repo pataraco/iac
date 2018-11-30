@@ -1,0 +1,33 @@
+# Note: Total of 3 buckets will be deploy
+# This is due to each isolated functions
+#
+# https://forums.aws.amazon.com/thread.jspa?threadID=221113
+# Note : at this time ELB logging does not support server side encryption
+#
+---
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >
+    This template to deploys an S3 bucket
+Parameters:
+
+  BucketName:
+    Description: Name of Bucket
+    Type: String
+  AccessControl:
+    Description: Access Control of Bucket
+    Type: String
+    Default: Private
+
+Resources:
+
+  S3Bucket:
+    Type: "AWS::S3::Bucket"
+    Properties:
+      BucketName: !Ref BucketName
+      AccessControl: !Ref AccessControl
+
+Outputs:
+
+  S3Bucket:
+    Description: "S3 Bucket Name"
+    Value: !Ref "S3Bucket"

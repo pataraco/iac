@@ -1,0 +1,45 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Creates EC2 Security Group for Web Servers'
+
+
+Parameters:
+
+  AlbSgId:
+    Description: 'The security group ID of the ALB to allow traffic from'
+    Type: String
+
+  GroupDescription:
+    Description: 'A description of the security group'
+    Type: String
+
+  GroupName:
+    Description: 'A name for the security group'
+    Type: String
+
+  VpcId:
+    Description: 'VPC ID to place security groups'
+    Type: 'AWS::EC2::VPC::Id'
+
+
+Resources:
+
+  Ec2Sg:
+    Properties:
+      GroupName: !Ref GroupName
+      GroupDescription: !Ref GroupDescription
+      SecurityGroupIngress:
+        - {FromPort: 80, ToPort: 80, IpProtocol: tcp, SourceSecurityGroupId: !Ref AlbSgId, Description: HTTP from ALB}
+        - {FromPort: 443, ToPort: 443, IpProtocol: tcp, SourceSecurityGroupId: !Ref AlbSgId, Description: HTTPS from ALB}
+      Tags:
+        - {Key: Name, Value: !Ref GroupName}
+      VpcId: !Ref VpcId
+    Type: AWS::EC2::SecurityGroup
+
+
+Outputs:
+
+  SgId:
+    Description: The ID of the security group
+    Export: {Name: !Sub '${AWS::StackName}-SgId'}
+    Value: !GetAtt Ec2Sg.GroupId

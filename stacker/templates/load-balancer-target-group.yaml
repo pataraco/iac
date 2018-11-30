@@ -1,0 +1,187 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Creates an AWS Elastic Load Balancer Target Group'
+
+
+Parameters:
+
+  DeRegDelay:
+    Default: 300
+    Description: 'The amount of time (in seconds) for the Load Balancer to
+      wait before changing the state of a deregistering target from
+      draining to unused. The range is 0-3600 seconds. (default: 300)'
+    MaxValue: 3600
+    MinValue: 0
+    Type: Number
+
+  EnableStickiness:
+    AllowedValues: [true, false]
+    Default: false
+    Description: 'Indicates whether sticky sessions are enabled or not.
+      (true or false - default: false)'
+    Type: String
+
+  HealthCheckIntervalSeconds:
+    Default: 30
+    Description: 'The approximate amount of time between health checks of an
+      individual target (5-300 seconds) (default: 30)'
+    MaxValue: 300
+    MinValue: 5
+    Type: Number
+
+  HealthCheckPath:
+    Default: /
+    Description: 'The destination path for health checks.
+      This path must begin with a "/" character,
+      and can be at most 1024 characters in length. (default: /)'
+    Type: String
+
+  HealthCheckPort:
+    Default: traffic-port
+    Description: 'The port the load balancer uses when performing health
+      checks on targets. The default is the port on which each target receives
+      traffic from the load balancer, but you can specify a different
+      port (default: traffic-port)'
+    Type: String
+
+  HealthCheckProtocol:
+    AllowedValues: [HTTP, HTTPS]
+    Default: HTTP
+    Description: 'The protocol the load balancer uses when performing health
+      checks on targets in this target group (default: HTTP)'
+    Type: String
+
+  HealthCheckSuccessCodes:
+    Default: '200'
+    Description: 'Successful health check response(s) from a target
+      (Examples: 200, 202,301 or 200-299. Default:200)'
+    Type: String
+
+  HealthCheckTimeoutSeconds:
+    Default: 5
+    Description: 'The amount of time, in seconds, during which no response
+      means a failed health check (2-60 seconds) (default: 5)'
+    MaxValue: 60
+    MinValue: 2
+    Type: Number
+
+  HealthyThresholdCount:
+    Default: 5
+    Description: 'The number of consecutive health checks successes required
+      before considering an unhealthy target healthy (2-10) (default: 5)'
+    MaxValue: 10
+    MinValue: 2
+    Type: Number
+
+  Port:
+    Description: 'The port on which the targets receive traffic'
+    Type: Number
+
+  Protocol:
+    AllowedValues: [HTTP, HTTPS, TCP]
+    Description: 'Application Protocol (HTTP, HTTPS or TCP).
+      The protocol to use for routing traffic to the targets'
+    Type: String
+
+  StickyDuration:
+    Default: 86400
+    Description: 'The time period (in seconds) during which requests from a
+      client should be routed to the same target. After this time period
+      expires, the load balancer-generated cookie is considered stale. The
+      range is 1 to 604800 seconds (1 week). default: 86400 seconds (1 day)'
+    MaxValue: 604800
+    MinValue: 1
+    Type: Number
+
+  TargetGroupName:
+    Description: 'Name of Target Group (max length 32)'
+    Type: String
+
+  Target1:
+    Default: ''
+    Description: 'Target 1 to attach to the Target Group'
+    Type: String
+
+  Target2:
+    Default: ''
+    Description: 'Target 2 to attach to the Target Group'
+    Type: String
+
+  Target3:
+    Default: ''
+    Description: 'Target 3 to attach to the Target Group'
+    Type: String
+
+  Target4:
+    Default: ''
+    Description: 'Target 4 to attach to the Target Group'
+    Type: String
+
+  TargetType:
+    AllowedValues: [instance, ip]
+    Default: instance
+    Description: 'Target Type - instance or ip (default: instance)'
+    Type: String
+
+  UnhealthyThresholdCount:
+    Default: 2
+    Description: 'The number of consecutive health check failures required
+      before considering a target unhealthy (2-10) (default: 2)'
+    MaxValue: 10
+    MinValue: 2
+    Type: Number
+
+  VpcId:
+    Description: VPC ID to create target group in
+    Type: 'AWS::EC2::VPC::Id'
+
+
+Conditions:
+
+  Target1Given: !Not [!Equals [!Ref Target1, '']]
+  Target2Given: !Not [!Equals [!Ref Target2, '']]
+  Target3Given: !Not [!Equals [!Ref Target3, '']]
+  Target4Given: !Not [!Equals [!Ref Target4, '']]
+
+
+Resources:
+
+  TargetGroup:
+    Properties:
+      HealthCheckIntervalSeconds: !Ref HealthCheckIntervalSeconds
+      HealthCheckPath: !Ref HealthCheckPath
+      HealthCheckPort: !Ref HealthCheckPort
+      HealthCheckProtocol: !Ref HealthCheckProtocol
+      HealthCheckTimeoutSeconds: !Ref HealthCheckTimeoutSeconds
+      HealthyThresholdCount: !Ref HealthyThresholdCount
+      Matcher:
+        HttpCode: !Ref HealthCheckSuccessCodes
+      Name: !Ref TargetGroupName
+      Port: !Ref Port
+      Protocol: !Ref Protocol
+      Tags:
+        - {Key: Name, Value: !Ref TargetGroupName}
+      TargetGroupAttributes:
+        - Key: deregistration_delay.timeout_seconds
+          Value: !Ref DeRegDelay
+        - Key: stickiness.enabled
+          Value: !Ref EnableStickiness
+        - Key: stickiness.lb_cookie.duration_seconds
+          Value: !Ref StickyDuration
+      Targets:
+        - !If [Target1Given, {Id: !Ref Target1}, !Ref 'AWS::NoValue']
+        - !If [Target2Given, {Id: !Ref Target2}, !Ref 'AWS::NoValue']
+        - !If [Target3Given, {Id: !Ref Target3}, !Ref 'AWS::NoValue']
+        - !If [Target4Given, {Id: !Ref Target4}, !Ref 'AWS::NoValue']
+      TargetType: !Ref TargetType
+      UnhealthyThresholdCount: !Ref UnhealthyThresholdCount
+      VpcId: !Ref VpcId
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+
+
+Outputs:
+
+  TargetGroupArn:
+    Description: ARN of the Target Group
+    Export: {Name: !Sub '${AWS::StackName}-TargetGroupArn'}
+    Value: !Ref TargetGroup

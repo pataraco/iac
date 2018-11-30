@@ -1,0 +1,53 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Creates an EC2 Security Group and ingress rules for a web server
+  to allow all HTTP and HTTPS traffic from an ALB'
+
+
+Parameters:
+
+  GroupDescription:
+    Description: 'A description of the security group'
+    Type: String
+
+  GroupName:
+    Description: 'A name for the security group'
+    Type: String
+
+  PrivateCidr10: {Type: String}
+  PrivateCidr172: {Type: String}
+  PrivateCidr192: {Type: String}
+
+  SourceSgId:
+    Description: 'Specifies the ID of the EC2 Security Group to allow access'
+    Type: String
+
+  VpcId:
+    Description: 'VPC ID to create the Security Group in'
+    Type: AWS::EC2::VPC::Id
+
+
+Resources:
+
+  Ec2SecurityGroup:
+    Properties:
+      GroupName: !Ref GroupName
+      GroupDescription: !Ref GroupDescription
+      SecurityGroupIngress:
+        - {FromPort: 445, ToPort: 445, IpProtocol: tcp, CidrIp: !Ref PrivateCidr10, Description: SMB from !Ref PrivateCidr10}
+        - {FromPort: 445, ToPort: 445, IpProtocol: tcp, CidrIp: !Ref PrivateCidr172, Description: SMB from !Ref PrivateCidr172}
+        - {FromPort: 445, ToPort: 445, IpProtocol: tcp, CidrIp: !Ref PrivateCidr192, Description: SMB from !Ref PrivateCidr192}
+        - {FromPort: 80, ToPort: 80, IpProtocol: tcp, SourceSecurityGroupId: !Ref SourceSgId, Description: HTTP from the ALB}
+        - {FromPort: 443, ToPort: 443, IpProtocol: tcp, SourceSecurityGroupId: !Ref SourceSgId, Description: HTTPS from the ALB}
+      Tags:
+        - {Key: Name, Value: !Ref GroupName}
+      VpcId: !Ref VpcId
+    Type: AWS::EC2::SecurityGroup
+
+
+Outputs:
+
+  SgId:
+    Description: ID of the Security Group created
+    Export: {'Name': !Sub '${AWS::StackName}-SgId'}
+    Value: !GetAtt Ec2SecurityGroup.GroupId

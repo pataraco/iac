@@ -1,0 +1,43 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Creates an AWS RDS Database Subnet Group'
+
+
+Parameters:
+
+  Application:
+    Description: 'Name of Application'
+    Type: String
+
+  DBSubnetGroupName:
+    Description: 'Name of RDS DB subnet group'
+    Type: String
+
+  Environment:
+    Default: Dev
+    Description: 'Name of Environment'
+    Type: String
+
+  SubnetIds:
+    Description: 'List of subnet IDs of the Private Subnet of the environment'
+    Type: 'List<AWS::EC2::Subnet::Id>'
+
+Resources:
+
+  DBSubnetGroup:
+    Properties:
+      DBSubnetGroupName: !Ref DBSubnetGroupName
+      DBSubnetGroupDescription: !Sub 'RDS DB Subnet Group for
+        ${Application} ${Environment} environment'
+      SubnetIds: !Ref SubnetIds
+      Tags:
+        - Key: Name
+          Value: !Sub '${Application}-${Environment}-rds-subnet-group'
+    Type: AWS::RDS::DBSubnetGroup
+
+
+Outputs:
+
+  RdsDbSubnetGroupName:
+    Description: Name of the RDS DB Subnet Group
+    Export: {'Name': !Sub '${AWS::StackName}-RdsDbSubnetGroupName'}
+    Value: !Ref DBSubnetGroup

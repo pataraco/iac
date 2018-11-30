@@ -1,0 +1,183 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Creates an Amazon Simple Queue Service (Amazon SQS) queue'
+
+
+Parameters:
+
+  Application:
+    Description: 'Name of application for which database will be used'
+    Type: String
+
+  ContentBasedDeduplication:
+    Default: true
+    Description: 'For first-in-first-out (FIFO) queues, specifies
+      whether to enable content-based deduplication. During the
+      deduplication interval, Amazon SQS treats messages that are sent
+      with identical content as duplicates and delivers only one copy
+      of the message'
+    Type: String
+
+  DelaySeconds:
+    Default: 0
+    Description: 'The time in seconds that the delivery of all messages
+      in the queue is delayed. You can specify an integer value of 0 to
+      900 (15 minutes). The default value is 0'
+    MaxValue: 900
+    MinValue: 0
+    Type: Number
+
+  Environment:
+    Default: Dev
+    Description: 'Name of Environment'
+    Type: String
+
+  FifoQueue:
+    Default: false
+    Description: 'Indicates whether or not this is a FIFO queue'
+    Type: String
+
+  KmsMasterKeyId:
+    Default: 'alias/aws/sqs'
+    Description: 'The ID of an AWS managed customer master key (CMK) for
+      Amazon SQS or a custom CMK. To use the AWS managed CMK for Amazon
+      SQS, specify the alias: alias/aws/sqs'
+    Type: String
+
+  KmsDataKeyReusePeriodSeconds:
+    Default: 300
+    Description: 'The length of time in seconds that Amazon SQS can reuse
+      a data key to encrypt or decrypt messages before calling AWS KMS again.
+      The value must be an integer between 60 (1 minute) and 86,400 (24 hours).
+      The default is 300 (5 minutes)'
+    MaxValue: 86400
+    MinValue: 60
+    Type: Number
+
+  MaximumMessageSize:
+    Default: 262144
+    Description: 'The limit of how many bytes that a message can contain before
+      Amazon SQS rejects it. You can specify an integer value
+      from 1024 bytes (1 KiB) to 262144 bytes (256 KiB).
+      The default value is 262144 (256 KiB)'
+    MaxValue: 262144
+    MinValue: 1024
+    Type: Number
+
+  MessageRetentionPeriod:
+    Default: 345600
+    Description: 'The number of seconds that Amazon SQS retains a message.
+      You can specify an integer value from 60 seconds (1 minute)
+      to 1209600 seconds (14 days).
+      The default value is 345600 seconds (4 days)'
+    MaxValue: 1209600
+    MinValue: 60
+    Type: Number
+
+  QueueName:
+    Description: 'A name for the queue. To create a FIFO queue, the name of
+      your FIFO queue must end with the .fifo suffix (automatically added)'
+    Type: String
+
+  ReceiveMessageWaitTimeSeconds:
+    Default: 0
+    Description: 'Specifies the duration, in seconds, that the ReceiveMessage
+      action call waits until a message is in the queue in order to include it
+      in the response, as opposed to returning an empty response if a message
+      is not yet available. You can specify an integer from 1 to 20. The short
+      polling is used as the default or when you specify 0 for this property'
+    MaxValue: 20
+    MinValue: 0
+    Type: Number
+
+  VisibilityTimeout:
+    Default: 30
+    Description: 'The length of time during which a message will be unavailable
+      after a message is delivered from the queue. This blocks other components
+      from receiving the same message and gives the initial component
+      time to process and delete the message from the queue.
+      Values must be from 0 to 43200 seconds (12 hours). Default 30'
+    MaxValue: 43200
+    MinValue: 0
+    Type: Number
+
+  # Settings to handle message failures (and forwarding to dead-letter queue)
+  deadLetterTargetArn:
+    Default: undefined
+    Description: 'The Amazon Resource Name (ARN) of the dead-letter queue to
+      which Amazon SQS moves messages after the value of
+      maxReceiveCount is exceeded'
+    Type: String
+
+  maxReceiveCount:
+    Default: 0
+    Description: 'The number of times a message is delivered to the
+      source queue before being moved to the dead-letter queue'
+    Type: Number
+
+
+Conditions:
+
+  FifoQueueDesired: !Equals [!Ref FifoQueue, 'true']
+
+  DeadLetterArnSpecified: !Not
+    - !Or
+      - !Equals [!Ref deadLetterTargetArn, '']
+      - !Equals [!Ref deadLetterTargetArn, undefined]
+
+  MaxReceiveCountSpecified: !Not
+    - !Or
+      - !Equals [!Ref maxReceiveCount, '']
+      - !Equals [!Ref maxReceiveCount, 0]
+
+  DeadLetterQueueDesired: !And
+    - Condition: DeadLetterArnSpecified
+    - Condition: MaxReceiveCountSpecified
+
+Resources:
+
+  SqsQueue:
+    Properties:
+      ContentBasedDeduplication: !If
+        - FifoQueueDesired
+        - !Ref ContentBasedDeduplication
+        - !Ref 'AWS::NoValue'
+      DelaySeconds: !Ref DelaySeconds
+      FifoQueue: !If
+        - FifoQueueDesired
+        - !Ref FifoQueue
+        - !Ref 'AWS::NoValue'
+      KmsMasterKeyId: !Ref KmsMasterKeyId
+      KmsDataKeyReusePeriodSeconds: !Ref KmsDataKeyReusePeriodSeconds
+      MaximumMessageSize: !Ref MaximumMessageSize
+      MessageRetentionPeriod: !Ref MessageRetentionPeriod
+      QueueName: !If
+        - FifoQueueDesired
+        - !Sub '${QueueName}.fifo'
+        - !Ref QueueName
+      ReceiveMessageWaitTimeSeconds: !Ref ReceiveMessageWaitTimeSeconds
+      RedrivePolicy: !If
+        - DeadLetterQueueDesired
+        - deadLetterTargetArn: !Ref deadLetterTargetArn
+          maxReceiveCount: !Ref maxReceiveCount
+        - !Ref 'AWS::NoValue'
+      VisibilityTimeout: !Ref VisibilityTimeout
+    Type: AWS::SQS::Queue
+
+
+Outputs:
+
+  QueueURL:
+    Description: URL of newly created SQS Queue
+    Export: {'Name': !Sub '${AWS::StackName}-QueueURL'}
+    Value: !Ref SqsQueue
+
+  QueueArn:
+    Description: ARN of newly created SQS Queue
+    Export: {'Name': !Sub '${AWS::StackName}-QueueArn'}
+    Value: !GetAtt SqsQueue.Arn
+
+  QueueName:
+    Description: Name newly created SQS Queue
+    Export: {'Name': !Sub '${AWS::StackName}-QueueName'}
+    Value: !GetAtt SqsQueue.QueueName

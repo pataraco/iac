@@ -1,0 +1,141 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Creates a common IAM Role, Managed Policy and Instance Profile
+  for use by the VPN server'
+
+
+Parameters:
+
+  ChefConfigsS3BucketArn:
+    Description: 'ARN of S3 bucket storing core Chef configurations'
+    Type: String
+
+  ChefArtifactsS3BucketArn:
+    Description: 'ARN of S3 bucket storing extra/restricted Chef artifacts'
+    Type: String
+
+
+Resources:
+
+  IamInstanceProfileCommon:
+    Properties:
+      Path: /
+      Roles:
+        - !Ref IamRoleCommon
+    Type: AWS::IAM::InstanceProfile
+
+  IamManagedPolicyCommon:
+    Properties:
+      Description: 'Common instance policy; allows SSM management and
+        CloudWatch publishing'
+      Path: /
+      PolicyDocument:
+        Statement:
+          - Action:
+              - 'logs:CreateLogGroup'
+              - 'logs:CreateLogStream'
+              - 'logs:DescribeLogGroups'
+              - 'logs:DescribeLogStreams'
+              - 'logs:PutLogEvents'
+            Effect: Allow
+            Resource: ['arn:aws:logs:*:*:*']
+          - Action:
+              - 's3:GetBucketVersioning'
+              - 's3:List*'
+            Effect: Allow
+            Resource: [!Ref ChefConfigsS3BucketArn]
+          - Action:
+              - 's3:Get*'
+              - 's3:List*'
+            Effect: Allow
+            Resource:
+              - !Sub '${ChefConfigsS3BucketArn}/*'
+              - !Sub '${ChefArtifactsS3BucketArn}/all/*'
+          - Action: ['s3:GetBucketVersioning']
+            Effect: Allow
+            Resource: [!Ref ChefArtifactsS3BucketArn]
+          - Action: ['s3:ListBucket']
+            Condition:
+              StringLike:
+                s3:prefix: ['', all/*]
+            Effect: Allow
+            Resource: [!Ref ChefArtifactsS3BucketArn]
+          - Action: ['ssm:GetParameters']
+            Effect: Allow
+            Resource:
+              - !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/all.*'
+              - !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/all/*'
+          - Action:
+              - 's3:GetObject'
+              - 's3:ListBucket'
+            Effect: Allow
+            Resource:
+              - 'arn:aws:s3:::onica-platform*'
+              - 'arn:aws:s3:::sturdy-platform*'
+          - Action:
+              - 'cloudwatch:PutMetricData'
+              - 'ds:CreateComputer'
+              - 'ds:DescribeDirectories'
+              - 'ec2:CreateTags'
+              - 'ec2:DescribeInstanceStatus'
+              - 'ec2:DescribeInstances'
+              - 'ec2:DescribeTags'
+              - 'ec2messages:AcknowledgeMessage'
+              - 'ec2messages:DeleteMessage'
+              - 'ec2messages:FailMessage'
+              - 'ec2messages:GetEndpoint'
+              - 'ec2messages:GetMessages'
+              - 'ec2messages:SendReply'
+              - 'ssm:DescribeAssociation'
+              - 'ssm:DescribeParameters'
+              - 'ssm:GetDeployablePatchSnapshotForInstance'
+              - 'ssm:GetDocument'
+              - 'ssm:ListAssociations'
+              - 'ssm:ListInstanceAssociations'
+              - 'ssm:PutInventory'
+              - 'ssm:UpdateAssociationStatus'
+              - 'ssm:UpdateInstanceAssociationStatus'
+              - 'ssm:UpdateInstanceInformation'
+            Effect: Allow
+            Resource: ['*']
+          - Action: ['s3:ListBucket']
+            Effect: Allow
+            Resource: ['arn:aws:s3:::amazon-ssm-packages-*']
+        Version: '2012-10-17'
+    Type: AWS::IAM::ManagedPolicy
+
+  IamRoleCommon:
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: ['sts:AssumeRole']
+            Effect: Allow
+            Principal:
+              Service: [ec2.amazonaws.com]
+        Version: '2012-10-17'
+      ManagedPolicyArns:
+        - !Ref IamManagedPolicyCommon
+      Path: /
+    Type: AWS::IAM::Role
+
+
+Outputs:
+
+  CommonInstanceProfileName:
+    Description: Common IAM Instance Profile name
+    Export: {'Name': !Sub '${AWS::StackName}-CommonInstanceProfileName'}
+    Value: !Ref IamInstanceProfileCommon
+
+  CommonPolicyArn:
+    Description: Common IAM Managed Policy ARN
+    Export: {'Name': !Sub '${AWS::StackName}-CommonPolicyArn'}
+    Value: !Ref IamManagedPolicyCommon
+
+  CommonRoleName:
+    Description: Common IAM Role name
+    Export: {'Name': !Sub '${AWS::StackName}-CommonRoleName'}
+    Value: !Ref IamRoleCommon
+
+  CommonRoleArn:
+    Description: Common IAM Role ARN
+    Export: {'Name': !Sub '${AWS::StackName}-CommonRoleArn'}
+    Value: !GetAtt IamRoleCommon.Arn

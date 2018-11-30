@@ -1,0 +1,68 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Creates an Load Balancer Listener'
+
+
+Parameters:
+
+  AcmCertArn:
+    Default: ''
+    Description: 'ARN of ACM Certificate. (required for HTTPS protocol)'
+    Type: String
+
+  LbArn:
+    Description: 'ARN of Load Balancer'
+    Type: String
+
+  DefaultTargetGroupArn:
+    Description: 'ARN of the default Target Group'
+    Type: String
+
+  ListeningPort:
+    Description: 'Load Balancer Listening Port'
+    Type: Number
+
+  ListeningProtocol:
+    AllowedValues: [HTTP, HTTPS]
+    Description: 'Listening Protocol (HTTP or HTTPS)'
+    Type: String
+
+  SslPolicy:
+    # docs.aws.amazon.com/elasticloadbalancing/latest/application/create-https-listener.html
+    #Default: ELBSecurityPolicy-TLS-1-1-2017-01
+    Default: ELBSecurityPolicy-FS-2018-06
+    Description: 'Security policy defining ciphers and protocols'
+    Type: String
+
+
+Conditions:
+
+  ProtoIsHttps: !Equals [!Ref ListeningProtocol, HTTPS]
+
+Resources:
+
+  LbListener:
+    Properties:
+      Certificates: !If
+        - ProtoIsHttps
+        - - CertificateArn: !Ref AcmCertArn
+        - !Ref 'AWS::NoValue'
+      DefaultActions:
+        - TargetGroupArn: !Ref DefaultTargetGroupArn
+          Type: forward
+      LoadBalancerArn: !Ref LbArn
+      Port: !Ref ListeningPort
+      Protocol: !Ref ListeningProtocol
+      SslPolicy: !If
+        - ProtoIsHttps
+        - !Ref SslPolicy
+        - !Ref 'AWS::NoValue'
+    Type: AWS::ElasticLoadBalancingV2::Listener
+
+
+Outputs:
+
+  LbListenerArn:
+    Description: ARN of the Listener
+    Export: {Name: !Sub '${AWS::StackName}-LbListenerArn'}
+    Value: !Ref LbListener

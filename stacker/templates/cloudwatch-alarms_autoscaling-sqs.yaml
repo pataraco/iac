@@ -1,0 +1,898 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Creates AWS CloudWatch alarms to automatically scale the batch
+  servers depending on the sizes of the SQS queues'
+
+
+Parameters:
+
+  # SQS queue names
+
+  D3SBulkload: {Type: String}
+  D3SBulkloadAlternate: {Type: String}
+  D3SBulkloadDebug: {Type: String}
+  D3SBulkloadDev: {Type: String}
+  D3SBulkloadLegacydev: {Type: String}
+  D3SBulkloadLegacyprod: {Type: String}
+  D3SBulkloadNightly: {Type: String}
+  D3SBulkloadUat: {Type: String}
+  D3SCache: {Type: String}
+  D3SCacheDebug: {Type: String}
+  D3SCacheDev: {Type: String}
+  D3SCacheNightly: {Type: String}
+  D3SCacheUat: {Type: String}
+  FusionQueue: {Type: String}
+  FusionQueueAlternate: {Type: String}
+  FusionQueueDebug: {Type: String}
+  FusionQueueDev: {Type: String}
+  FusionQueueLegacydev: {Type: String}
+  FusionQueueLegacyprod: {Type: String}
+  FusionQueueNightly: {Type: String}
+  FusionQueueUat: {Type: String}
+
+  AutoScalingGroupName:
+    Description: 'Name of the Auto Scaling Group to send notifications to'
+    Type: String
+
+  ScaleInPolicy:
+    Description: 'Auto Scaling Group scaling policy ARN for scaling in'
+    Type: String
+
+  ScaleOutPolicy:
+    Description: 'Auto Scaling Group scaling policy ARN for scaling out'
+    Type: String
+
+  SnsTopicArnSqs:
+    Description: 'SNS topic ARN to send All SQS notifications to'
+    Type: String
+
+  ThresholdSqsHigh:
+    Description: 'SQS high queue length threshold to scale out on'
+    Type: String
+
+  ThresholdSqsLow:
+    Description: 'SQS low queue length threshold to scale in on'
+    Type: String
+
+
+Resources:
+
+  BatchServerScaleOutD3SBulkload:
+    Properties:
+      AlarmActions:
+        - !Ref ScaleOutPolicy
+        - !Ref SnsTopicArnSqs
+      AlarmName: Batch Server Scale-Out D3S Bulkload Queue
+      Dimensions:
+        - {Name: QueueName, Value: !Ref D3SBulkload}
+      AlarmDescription: Scale Out Batch Servers when SQS queue length is above threshold
+      ComparisonOperator: GreaterThanThreshold
+      EvaluationPeriods: 1
+      MetricName: ApproximateNumberOfMessagesVisible
+      Namespace: AWS/SQS
+      OKActions:
+        - !Ref SnsTopicArnSqs
+      Period: 300
+      Statistic: Sum
+      Threshold: !Ref ThresholdSqsHigh
+      TreatMissingData: ignore
+      Unit: Count
+    Type: 'AWS::CloudWatch::Alarm'
+
+  BatchServerScaleOutD3SBulkloadAlternate:
+    Properties:
+      AlarmActions:
+        - !Ref ScaleOutPolicy
+        - !Ref SnsTopicArnSqs
+      AlarmName: Batch Server Scale-Out D3S Bulkload Alternate Queue
+      Dimensions:
+        - {Name: QueueName, Value: !Ref D3SBulkloadAlternate}
+      AlarmDescription: Scale Out Batch Servers when SQS queue length is above threshold
+      ComparisonOperator: GreaterThanThreshold
+      EvaluationPeriods: 1
+      MetricName: ApproximateNumberOfMessagesVisible
+      Namespace: AWS/SQS
+      OKActions:
+        - !Ref SnsTopicArnSqs
+      Period: 300
+      Statistic: Sum
+      Threshold: !Ref ThresholdSqsHigh
+      TreatMissingData: ignore
+      Unit: Count
+    Type: 'AWS::CloudWatch::Alarm'
+
+  BatchServerScaleOutD3SBulkloadDebug:
+    Properties:
+      AlarmActions:
+        - !Ref ScaleOutPolicy
+        - !Ref SnsTopicArnSqs
+      AlarmName: Batch Server Scale-Out D3S Bulkload Debug Queue
+      Dimensions:
+        - {Name: QueueName, Value: !Ref D3SBulkloadDebug}
+      AlarmDescription: Scale Out Batch Servers when SQS queue length is above threshold
+      ComparisonOperator: GreaterThanThreshold
+      EvaluationPeriods: 1
+      MetricName: ApproximateNumberOfMessagesVisible
+      Namespace: AWS/SQS
+      OKActions:
+        - !Ref SnsTopicArnSqs
+      Period: 300
+      Statistic: Sum
+      Threshold: !Ref ThresholdSqsHigh
+      TreatMissingData: ignore
+      Unit: Count
+    Type: 'AWS::CloudWatch::Alarm'
+
+  BatchServerScaleOutD3SBulkloadDev:
+    Properties:
+      AlarmActions:
+        - !Ref ScaleOutPolicy
+        - !Ref SnsTopicArnSqs
+      AlarmName: Batch Server Scale-Out D3S Bulkload Dev Queue
+      Dimensions:
+        - {Name: QueueName, Value: !Ref D3SBulkloadDev}
+      AlarmDescription: Scale Out Batch Servers when SQS queue length is above threshold
+      ComparisonOperator: GreaterThanThreshold
+      EvaluationPeriods: 1
+      MetricName: ApproximateNumberOfMessagesVisible
+      Namespace: AWS/SQS
+      OKActions:
+        - !Ref SnsTopicArnSqs
+      Period: 300
+      Statistic: Sum
+      Threshold: !Ref ThresholdSqsHigh
+      TreatMissingData: ignore
+      Unit: Count
+    Type: 'AWS::CloudWatch::Alarm'
+
+  BatchServerScaleOutD3SBulkloadLegacydev:
+    Properties:
+      AlarmActions:
+        - !Ref ScaleOutPolicy
+        - !Ref SnsTopicArnSqs
+      AlarmName: Batch Server Scale-Out D3S Bulkload Legacy Dev Queue
+      Dimensions:
+        - {Name: QueueName, Value: !Ref D3SBulkloadLegacydev}
+      AlarmDescription: Scale Out Batch Servers when SQS queue length is above threshold
+      ComparisonOperator: GreaterThanThreshold
+      EvaluationPeriods: 1
+      MetricName: ApproximateNumberOfMessagesVisible
+      Namespace: AWS/SQS
+      OKActions:
+        - !Ref SnsTopicArnSqs
+      Period: 300
+      Statistic: Sum
+      Threshold: !Ref ThresholdSqsHigh
+      TreatMissingData: ignore
+      Unit: Count
+    Type: 'AWS::CloudWatch::Alarm'
+
+  BatchServerScaleOutD3SBulkloadLegacyprod:
+    Properties:
+      AlarmActions:
+        - !Ref ScaleOutPolicy
+        - !Ref SnsTopicArnSqs
+      AlarmName: Batch Server Scale-Out D3S Bulkload Legacy Prod Queue
+      Dimensions:
+        - {Name: QueueName, Value: !Ref D3SBulkloadLegacyprod}
+      AlarmDescription: Scale Out Batch Servers when SQS queue length is above threshold
+      ComparisonOperator: GreaterThanThreshold
+      EvaluationPeriods: 1
+      MetricName: ApproximateNumberOfMessagesVisible
+      Namespace: AWS/SQS
+      OKActions:
+        - !Ref SnsTopicArnSqs
+      Period: 300
+      Statistic: Sum
+      Threshold: !Ref ThresholdSqsHigh
+      TreatMissingData: ignore
+      Unit: Count
+    Type: 'AWS::CloudWatch::Alarm'
+
+  BatchServerScaleOutD3SBulkloadNightly:
+    Properties:
+      AlarmActions:
+        - !Ref ScaleOutPolicy
+        - !Ref SnsTopicArnSqs
+      AlarmName: Batch Server Scale-Out D3S Bulkload Nightly Queue
+      Dimensions:
+        - {Name: QueueName, Value: !Ref D3SBulkloadNightly}
+      AlarmDescription: Scale Out Batch Servers when SQS queue length is above threshold
+      ComparisonOperator: GreaterThanThreshold
+      EvaluationPeriods: 1
+      MetricName: ApproximateNumberOfMessagesVisible
+      Namespace: AWS/SQS
+      OKActions:
+        - !Ref SnsTopicArnSqs
+      Period: 300
+      Statistic: Sum
+      Threshold: !Ref ThresholdSqsHigh
+      TreatMissingData: ignore
+      Unit: Count
+    Type: 'AWS::CloudWatch::Alarm'
+
+  BatchServerScaleOutD3SBulkloadUat:
+    Properties:
+      AlarmActions:
+        - !Ref ScaleOutPolicy
+        - !Ref SnsTopicArnSqs
+      AlarmName: Batch Server Scale-Out D3S Bulkload UAT Queue
+      Dimensions:
+        - {Name: QueueName, Value: !Ref D3SBulkloadUat}
+      AlarmDescription: Scale Out Batch Servers when SQS queue length is above threshold
+      ComparisonOperator: GreaterThanThreshold
+      EvaluationPeriods: 1
+      MetricName: ApproximateNumberOfMessagesVisible
+      Namespace: AWS/SQS
+      OKActions:
+        - !Ref SnsTopicArnSqs
+      Period: 300
+      Statistic: Sum
+      Threshold: !Ref ThresholdSqsHigh
+      TreatMissingData: ignore
+      Unit: Count
+    Type: 'AWS::CloudWatch::Alarm'
+
+  BatchServerScaleInD3SBulkload:
+    Properties:
+      AlarmActions: [!Ref ScaleInPolicy]
+      AlarmName: Batch Server Scale-In D3S Bulkload Queue
+      Dimensions:
+        - {Name: QueueName, Value: !Ref D3SBulkload}
+      AlarmDescription: Scale In Batch Servers when SQS queue length is below threshold
+      ComparisonOperator: LessThanThreshold
+      EvaluationPeriods: 1
+      MetricName: ApproximateNumberOfMessagesVisible
+      Namespace: AWS/SQS
+      Period: 300
+      Statistic: Sum
+      Threshold: !Ref ThresholdSqsLow
+      TreatMissingData: ignore
+      Unit: Count
+    Type: 'AWS::CloudWatch::Alarm'
+
+  BatchServerScaleInD3SBulkloadAlternative:
+    Properties:
+      AlarmActions: [!Ref ScaleInPolicy]
+      AlarmName: Batch Server Scale-In D3S Bulkload Alternative Queue
+      Dimensions:
+        - {Name: QueueName, Value: !Ref D3SBulkloadAlternate}
+      AlarmDescription: Scale In Batch Servers when SQS queue length is below threshold
+      ComparisonOperator: LessThanThreshold
+      EvaluationPeriods: 1
+      MetricName: ApproximateNumberOfMessagesVisible
+      Namespace: AWS/SQS
+      Period: 300
+      Statistic: Sum
+      Threshold: !Ref ThresholdSqsLow
+      TreatMissingData: ignore
+      Unit: Count
+    Type: 'AWS::CloudWatch::Alarm'
+
+  BatchServerScaleInD3SBulkloadDebug:
+    Properties:
+      AlarmActions: [!Ref ScaleInPolicy]
+      AlarmName: Batch Server Scale-In D3S Bulkload Debug Queue
+      Dimensions:
+        - {Name: QueueName, Value: !Ref D3SBulkloadDebug}
+      AlarmDescription: Scale In Batch Servers when SQS queue length is below threshold
+      ComparisonOperator: LessThanThreshold
+      EvaluationPeriods: 1
+      MetricName: ApproximateNumberOfMessagesVisible
+      Namespace: AWS/SQS
+      Period: 300
+      Statistic: Sum
+      Threshold: !Ref ThresholdSqsLow
+      TreatMissingData: ignore
+      Unit: Count
+    Type: 'AWS::CloudWatch::Alarm'
+
+  BatchServerScaleInD3SBulkloadDev:
+    Properties:
+      AlarmActions: [!Ref ScaleInPolicy]
+      AlarmName: Batch Server Scale-In D3S Bulkload Dev Queue
+      Dimensions:
+        - {Name: QueueName, Value: !Ref D3SBulkloadDev}
+      AlarmDescription: Scale In Batch Servers when SQS queue length is below threshold
+      ComparisonOperator: LessThanThreshold
+      EvaluationPeriods: 1
+      MetricName: ApproximateNumberOfMessagesVisible
+      Namespace: AWS/SQS
+      Period: 300
+      Statistic: Sum
+      Threshold: !Ref ThresholdSqsLow
+      TreatMissingData: ignore
+      Unit: Count
+    Type: 'AWS::CloudWatch::Alarm'
+
+  BatchServerScaleInD3SBulkloadLegacydev:
+    Properties:
+      AlarmActions: [!Ref ScaleInPolicy]
+      AlarmName: Batch Server Scale-In D3S Bulkload Legacy Dev Queue
+      Dimensions:
+        - {Name: QueueName, Value: !Ref D3SBulkloadLegacydev}
+      AlarmDescription: Scale In Batch Servers when SQS queue length is below threshold
+      ComparisonOperator: LessThanThreshold
+      EvaluationPeriods: 1
+      MetricName: ApproximateNumberOfMessagesVisible
+      Namespace: AWS/SQS
+      Period: 300
+      Statistic: Sum
+      Threshold: !Ref ThresholdSqsLow
+      TreatMissingData: ignore
+      Unit: Count
+    Type: 'AWS::CloudWatch::Alarm'
+
+  BatchServerScaleInD3SBulkloadLegacyprod:
+    Properties:
+      AlarmActions: [!Ref ScaleInPolicy]
+      AlarmName: Batch Server Scale-In D3S Bulkload Legacy Prod Queue
+      Dimensions:
+        - {Name: QueueName, Value: !Ref D3SBulkloadLegacyprod}
+      AlarmDescription: Scale In Batch Servers when SQS queue length is below threshold
+      ComparisonOperator: LessThanThreshold
+      EvaluationPeriods: 1
+      MetricName: ApproximateNumberOfMessagesVisible
+      Namespace: AWS/SQS
+      Period: 300
+      Statistic: Sum
+      Threshold: !Ref ThresholdSqsLow
+      TreatMissingData: ignore
+      Unit: Count
+    Type: 'AWS::CloudWatch::Alarm'
+
+  BatchServerScaleInD3SBulkloadNightly:
+    Properties:
+      AlarmActions: [!Ref ScaleInPolicy]
+      AlarmName: Batch Server Scale-In D3S Bulkload Nightly Queue
+      Dimensions:
+        - {Name: QueueName, Value: !Ref D3SBulkloadNightly}
+      AlarmDescription: Scale In Batch Servers when SQS queue length is below threshold
+      ComparisonOperator: LessThanThreshold
+      EvaluationPeriods: 1
+      MetricName: ApproximateNumberOfMessagesVisible
+      Namespace: AWS/SQS
+      Period: 300
+      Statistic: Sum
+      Threshold: !Ref ThresholdSqsLow
+      TreatMissingData: ignore
+      Unit: Count
+    Type: 'AWS::CloudWatch::Alarm'
+
+  BatchServerScaleInD3SBulkloadUat:
+    Properties:
+      AlarmActions: [!Ref ScaleInPolicy]
+      AlarmName: Batch Server Scale-In D3S Bulkload UAT Queue
+      Dimensions:
+        - {Name: QueueName, Value: !Ref D3SBulkloadUat}
+      AlarmDescription: Scale In Batch Servers when SQS queue length is below threshold
+      ComparisonOperator: LessThanThreshold
+      EvaluationPeriods: 1
+      MetricName: ApproximateNumberOfMessagesVisible
+      Namespace: AWS/SQS
+      Period: 300
+      Statistic: Sum
+      Threshold: !Ref ThresholdSqsLow
+      TreatMissingData: ignore
+      Unit: Count
+    Type: 'AWS::CloudWatch::Alarm'
+
+  BatchServerScaleOutD3SCache:
+    Properties:
+      AlarmActions:
+        - !Ref ScaleOutPolicy
+        - !Ref SnsTopicArnSqs
+      AlarmName: Batch Server Scale-Out D3S Cache Queue
+      Dimensions:
+        - {Name: QueueName, Value: !Ref D3SCache}
+      AlarmDescription: Scale Out Batch Servers when SQS queue length is above threshold
+      ComparisonOperator: GreaterThanThreshold
+      EvaluationPeriods: 1
+      MetricName: ApproximateNumberOfMessagesVisible
+      Namespace: AWS/SQS
+      OKActions:
+        - !Ref SnsTopicArnSqs
+      Period: 300
+      Statistic: Sum
+      Threshold: !Ref ThresholdSqsHigh
+      TreatMissingData: ignore
+      Unit: Count
+    Type: 'AWS::CloudWatch::Alarm'
+
+  BatchServerScaleOutD3SCacheDebug:
+    Properties:
+      AlarmActions:
+        - !Ref ScaleOutPolicy
+        - !Ref SnsTopicArnSqs
+      AlarmName: Batch Server Scale-Out D3S Cache Debug Queue
+      Dimensions:
+        - {Name: QueueName, Value: !Ref D3SCacheDebug}
+      AlarmDescription: Scale Out Batch Servers when SQS queue length is above threshold
+      ComparisonOperator: GreaterThanThreshold
+      EvaluationPeriods: 1
+      MetricName: ApproximateNumberOfMessagesVisible
+      Namespace: AWS/SQS
+      OKActions:
+        - !Ref SnsTopicArnSqs
+      Period: 300
+      Statistic: Sum
+      Threshold: !Ref ThresholdSqsHigh
+      TreatMissingData: ignore
+      Unit: Count
+    Type: 'AWS::CloudWatch::Alarm'
+
+  BatchServerScaleOutD3SCacheDev:
+    Properties:
+      AlarmActions:
+        - !Ref ScaleOutPolicy
+        - !Ref SnsTopicArnSqs
+      AlarmName: Batch Server Scale-Out D3S Cache Dev Queue
+      Dimensions:
+        - {Name: QueueName, Value: !Ref D3SCacheDev}
+      AlarmDescription: Scale Out Batch Servers when SQS queue length is above threshold
+      ComparisonOperator: GreaterThanThreshold
+      EvaluationPeriods: 1
+      MetricName: ApproximateNumberOfMessagesVisible
+      Namespace: AWS/SQS
+      OKActions:
+        - !Ref SnsTopicArnSqs
+      Period: 300
+      Statistic: Sum
+      Threshold: !Ref ThresholdSqsHigh
+      TreatMissingData: ignore
+      Unit: Count
+    Type: 'AWS::CloudWatch::Alarm'
+
+  BatchServerScaleOutD3SCacheNightly:
+    Properties:
+      AlarmActions:
+        - !Ref ScaleOutPolicy
+        - !Ref SnsTopicArnSqs
+      AlarmName: Batch Server Scale-Out D3S Cache Nightly Queue
+      Dimensions:
+        - {Name: QueueName, Value: !Ref D3SCacheNightly}
+      AlarmDescription: Scale Out Batch Servers when SQS queue length is above threshold
+      ComparisonOperator: GreaterThanThreshold
+      EvaluationPeriods: 1
+      MetricName: ApproximateNumberOfMessagesVisible
+      Namespace: AWS/SQS
+      OKActions:
+        - !Ref SnsTopicArnSqs
+      Period: 300
+      Statistic: Sum
+      Threshold: !Ref ThresholdSqsHigh
+      TreatMissingData: ignore
+      Unit: Count
+    Type: 'AWS::CloudWatch::Alarm'
+
+  BatchServerScaleOutD3SCacheUat:
+    Properties:
+      AlarmActions:
+        - !Ref ScaleOutPolicy
+        - !Ref SnsTopicArnSqs
+      AlarmName: Batch Server Scale-Out D3S Cache UAT Queue
+      Dimensions:
+        - {Name: QueueName, Value: !Ref D3SCacheUat}
+      AlarmDescription: Scale Out Batch Servers when SQS queue length is above threshold
+      ComparisonOperator: GreaterThanThreshold
+      EvaluationPeriods: 1
+      MetricName: ApproximateNumberOfMessagesVisible
+      Namespace: AWS/SQS
+      OKActions:
+        - !Ref SnsTopicArnSqs
+      Period: 300
+      Statistic: Sum
+      Threshold: !Ref ThresholdSqsHigh
+      TreatMissingData: ignore
+      Unit: Count
+    Type: 'AWS::CloudWatch::Alarm'
+
+  BatchServerScaleInD3SCache:
+    Properties:
+      AlarmActions: [!Ref ScaleInPolicy]
+      AlarmName: Batch Server Scale-In D3S Cache Queue
+      Dimensions:
+        - {Name: QueueName, Value: !Ref D3SCache}
+      AlarmDescription: Scale In Batch Servers when SQS queue length is below threshold
+      ComparisonOperator: LessThanThreshold
+      EvaluationPeriods: 1
+      MetricName: ApproximateNumberOfMessagesVisible
+      Namespace: AWS/SQS
+      Period: 300
+      Statistic: Sum
+      Threshold: !Ref ThresholdSqsLow
+      TreatMissingData: ignore
+      Unit: Count
+    Type: 'AWS::CloudWatch::Alarm'
+
+  BatchServerScaleInD3SCacheDebug:
+    Properties:
+      AlarmActions: [!Ref ScaleInPolicy]
+      AlarmName: Batch Server Scale-In D3S Cache Debug Queue
+      Dimensions:
+        - {Name: QueueName, Value: !Ref D3SCacheDebug}
+      AlarmDescription: Scale In Batch Servers when SQS queue length is below threshold
+      ComparisonOperator: LessThanThreshold
+      EvaluationPeriods: 1
+      MetricName: ApproximateNumberOfMessagesVisible
+      Namespace: AWS/SQS
+      Period: 300
+      Statistic: Sum
+      Threshold: !Ref ThresholdSqsLow
+      TreatMissingData: ignore
+      Unit: Count
+    Type: 'AWS::CloudWatch::Alarm'
+
+  BatchServerScaleInD3SCacheDev:
+    Properties:
+      AlarmActions: [!Ref ScaleInPolicy]
+      AlarmName: Batch Server Scale-In D3S Cache Dev Queue
+      Dimensions:
+        - {Name: QueueName, Value: !Ref D3SCacheDev}
+      AlarmDescription: Scale In Batch Servers when SQS queue length is below threshold
+      ComparisonOperator: LessThanThreshold
+      EvaluationPeriods: 1
+      MetricName: ApproximateNumberOfMessagesVisible
+      Namespace: AWS/SQS
+      Period: 300
+      Statistic: Sum
+      Threshold: !Ref ThresholdSqsLow
+      TreatMissingData: ignore
+      Unit: Count
+    Type: 'AWS::CloudWatch::Alarm'
+
+  BatchServerScaleInD3SCacheNightly:
+    Properties:
+      AlarmActions: [!Ref ScaleInPolicy]
+      AlarmName: Batch Server Scale-In D3S Cache Nightly Queue
+      Dimensions:
+        - {Name: QueueName, Value: !Ref D3SCacheNightly}
+      AlarmDescription: Scale In Batch Servers when SQS queue length is below threshold
+      ComparisonOperator: LessThanThreshold
+      EvaluationPeriods: 1
+      MetricName: ApproximateNumberOfMessagesVisible
+      Namespace: AWS/SQS
+      Period: 300
+      Statistic: Sum
+      Threshold: !Ref ThresholdSqsLow
+      TreatMissingData: ignore
+      Unit: Count
+    Type: 'AWS::CloudWatch::Alarm'
+
+  BatchServerScaleInD3SCacheUat:
+    Properties:
+      AlarmActions: [!Ref ScaleInPolicy]
+      AlarmName: Batch Server Scale-In D3S Cache UAT Queue
+      Dimensions:
+        - {Name: QueueName, Value: !Ref D3SCacheUat}
+      AlarmDescription: Scale In Batch Servers when SQS queue length is below threshold
+      ComparisonOperator: LessThanThreshold
+      EvaluationPeriods: 1
+      MetricName: ApproximateNumberOfMessagesVisible
+      Namespace: AWS/SQS
+      Period: 300
+      Statistic: Sum
+      Threshold: !Ref ThresholdSqsLow
+      TreatMissingData: ignore
+      Unit: Count
+    Type: 'AWS::CloudWatch::Alarm'
+
+  BatchServerScaleOutFusion:
+    Properties:
+      AlarmActions:
+        - !Ref ScaleOutPolicy
+        - !Ref SnsTopicArnSqs
+      AlarmName: Batch Server Scale-Out Fusion Queue
+      Dimensions:
+        - {Name: QueueName, Value: !Ref FusionQueue}
+      AlarmDescription: Scale Out Batch Servers when SQS queue length is above threshold
+      ComparisonOperator: GreaterThanThreshold
+      EvaluationPeriods: 1
+      MetricName: ApproximateNumberOfMessagesVisible
+      Namespace: AWS/SQS
+      OKActions:
+        - !Ref SnsTopicArnSqs
+      Period: 300
+      Statistic: Sum
+      Threshold: !Ref ThresholdSqsHigh
+      TreatMissingData: ignore
+      Unit: Count
+    Type: 'AWS::CloudWatch::Alarm'
+
+  BatchServerScaleOutFusionAlternate:
+    Properties:
+      AlarmActions:
+        - !Ref ScaleOutPolicy
+        - !Ref SnsTopicArnSqs
+      AlarmName: Batch Server Scale-Out Fusion Alternative Queue
+      Dimensions:
+        - {Name: QueueName, Value: !Ref FusionQueueAlternate}
+      AlarmDescription: Scale Out Batch Servers when SQS queue length is above threshold
+      ComparisonOperator: GreaterThanThreshold
+      EvaluationPeriods: 1
+      MetricName: ApproximateNumberOfMessagesVisible
+      Namespace: AWS/SQS
+      OKActions:
+        - !Ref SnsTopicArnSqs
+      Period: 300
+      Statistic: Sum
+      Threshold: !Ref ThresholdSqsHigh
+      TreatMissingData: ignore
+      Unit: Count
+    Type: 'AWS::CloudWatch::Alarm'
+
+  BatchServerScaleOutFusionDebug:
+    Properties:
+      AlarmActions:
+        - !Ref ScaleOutPolicy
+        - !Ref SnsTopicArnSqs
+      AlarmName: Batch Server Scale-Out Fusion Debug Queue
+      Dimensions:
+        - {Name: QueueName, Value: !Ref FusionQueueDebug}
+      AlarmDescription: Scale Out Batch Servers when SQS queue length is above threshold
+      ComparisonOperator: GreaterThanThreshold
+      EvaluationPeriods: 1
+      MetricName: ApproximateNumberOfMessagesVisible
+      Namespace: AWS/SQS
+      OKActions:
+        - !Ref SnsTopicArnSqs
+      Period: 300
+      Statistic: Sum
+      Threshold: !Ref ThresholdSqsHigh
+      TreatMissingData: ignore
+      Unit: Count
+    Type: 'AWS::CloudWatch::Alarm'
+
+  BatchServerScaleOutFusionDev:
+    Properties:
+      AlarmActions:
+        - !Ref ScaleOutPolicy
+        - !Ref SnsTopicArnSqs
+      AlarmName: Batch Server Scale-Out Fusion Dev Queue
+      Dimensions:
+        - {Name: QueueName, Value: !Ref FusionQueueDev}
+      AlarmDescription: Scale Out Batch Servers when SQS queue length is above threshold
+      ComparisonOperator: GreaterThanThreshold
+      EvaluationPeriods: 1
+      MetricName: ApproximateNumberOfMessagesVisible
+      Namespace: AWS/SQS
+      OKActions:
+        - !Ref SnsTopicArnSqs
+      Period: 300
+      Statistic: Sum
+      Threshold: !Ref ThresholdSqsHigh
+      TreatMissingData: ignore
+      Unit: Count
+    Type: 'AWS::CloudWatch::Alarm'
+
+  BatchServerScaleOutFusionLegacydev:
+    Properties:
+      AlarmActions:
+        - !Ref ScaleOutPolicy
+        - !Ref SnsTopicArnSqs
+      AlarmName: Batch Server Scale-Out Fusion Legacy Dev Queue
+      Dimensions:
+        - {Name: QueueName, Value: !Ref FusionQueueLegacydev}
+      AlarmDescription: Scale Out Batch Servers when SQS queue length is above threshold
+      ComparisonOperator: GreaterThanThreshold
+      EvaluationPeriods: 1
+      MetricName: ApproximateNumberOfMessagesVisible
+      Namespace: AWS/SQS
+      OKActions:
+        - !Ref SnsTopicArnSqs
+      Period: 300
+      Statistic: Sum
+      Threshold: !Ref ThresholdSqsHigh
+      TreatMissingData: ignore
+      Unit: Count
+    Type: 'AWS::CloudWatch::Alarm'
+
+  BatchServerScaleOutFusionLegacyprod:
+    Properties:
+      AlarmActions:
+        - !Ref ScaleOutPolicy
+        - !Ref SnsTopicArnSqs
+      AlarmName: Batch Server Scale-Out Fusion Legacy Prod Queue
+      Dimensions:
+        - {Name: QueueName, Value: !Ref FusionQueueLegacyprod}
+      AlarmDescription: Scale Out Batch Servers when SQS queue length is above threshold
+      ComparisonOperator: GreaterThanThreshold
+      EvaluationPeriods: 1
+      MetricName: ApproximateNumberOfMessagesVisible
+      Namespace: AWS/SQS
+      OKActions:
+        - !Ref SnsTopicArnSqs
+      Period: 300
+      Statistic: Sum
+      Threshold: !Ref ThresholdSqsHigh
+      TreatMissingData: ignore
+      Unit: Count
+    Type: 'AWS::CloudWatch::Alarm'
+
+  BatchServerScaleOutFusionNightly:
+    Properties:
+      AlarmActions:
+        - !Ref ScaleOutPolicy
+        - !Ref SnsTopicArnSqs
+      AlarmName: Batch Server Scale-Out Fusion Nightly Queue
+      Dimensions:
+        - {Name: QueueName, Value: !Ref FusionQueueNightly}
+      AlarmDescription: Scale Out Batch Servers when SQS queue length is above threshold
+      ComparisonOperator: GreaterThanThreshold
+      EvaluationPeriods: 1
+      MetricName: ApproximateNumberOfMessagesVisible
+      Namespace: AWS/SQS
+      OKActions:
+        - !Ref SnsTopicArnSqs
+      Period: 300
+      Statistic: Sum
+      Threshold: !Ref ThresholdSqsHigh
+      TreatMissingData: ignore
+      Unit: Count
+    Type: 'AWS::CloudWatch::Alarm'
+
+  BatchServerScaleOutFusionUat:
+    Properties:
+      AlarmActions:
+        - !Ref ScaleOutPolicy
+        - !Ref SnsTopicArnSqs
+      AlarmName: Batch Server Scale-Out Fusion UAT Queue
+      Dimensions:
+        - {Name: QueueName, Value: !Ref FusionQueueUat}
+      AlarmDescription: Scale Out Batch Servers when SQS queue length is above threshold
+      ComparisonOperator: GreaterThanThreshold
+      EvaluationPeriods: 1
+      MetricName: ApproximateNumberOfMessagesVisible
+      Namespace: AWS/SQS
+      OKActions:
+        - !Ref SnsTopicArnSqs
+      Period: 300
+      Statistic: Sum
+      Threshold: !Ref ThresholdSqsHigh
+      TreatMissingData: ignore
+      Unit: Count
+    Type: 'AWS::CloudWatch::Alarm'
+
+  BatchServerScaleInFusion:
+    Properties:
+      AlarmActions: [!Ref ScaleInPolicy]
+      AlarmName: Batch Server Scale-In Fusion Queue
+      Dimensions:
+        - {Name: QueueName, Value: !Ref FusionQueue}
+      AlarmDescription: Scale In Batch Servers when SQS queue length is below threshold
+      ComparisonOperator: LessThanThreshold
+      EvaluationPeriods: 1
+      MetricName: ApproximateNumberOfMessagesVisible
+      Namespace: AWS/SQS
+      Period: 300
+      Statistic: Sum
+      Threshold: !Ref ThresholdSqsLow
+      TreatMissingData: ignore
+      Unit: Count
+    Type: 'AWS::CloudWatch::Alarm'
+
+  BatchServerScaleInFusionAlternate:
+    Properties:
+      AlarmActions: [!Ref ScaleInPolicy]
+      AlarmName: Batch Server Scale-In Fusion Alternative Queue
+      Dimensions:
+        - {Name: QueueName, Value: !Ref FusionQueueAlternate}
+      AlarmDescription: Scale In Batch Servers when SQS queue length is below threshold
+      ComparisonOperator: LessThanThreshold
+      EvaluationPeriods: 1
+      MetricName: ApproximateNumberOfMessagesVisible
+      Namespace: AWS/SQS
+      Period: 300
+      Statistic: Sum
+      Threshold: !Ref ThresholdSqsLow
+      TreatMissingData: ignore
+      Unit: Count
+    Type: 'AWS::CloudWatch::Alarm'
+
+  BatchServerScaleInFusionDebug:
+    Properties:
+      AlarmActions: [!Ref ScaleInPolicy]
+      AlarmName: Batch Server Scale-In Fusion Debug Queue
+      Dimensions:
+        - {Name: QueueName, Value: !Ref FusionQueueDebug}
+      AlarmDescription: Scale In Batch Servers when SQS queue length is below threshold
+      ComparisonOperator: LessThanThreshold
+      EvaluationPeriods: 1
+      MetricName: ApproximateNumberOfMessagesVisible
+      Namespace: AWS/SQS
+      Period: 300
+      Statistic: Sum
+      Threshold: !Ref ThresholdSqsLow
+      TreatMissingData: ignore
+      Unit: Count
+    Type: 'AWS::CloudWatch::Alarm'
+
+  BatchServerScaleInFusionDev:
+    Properties:
+      AlarmActions: [!Ref ScaleInPolicy]
+      AlarmName: Batch Server Scale-In Fusion Dev Queue
+      Dimensions:
+        - {Name: QueueName, Value: !Ref FusionQueueDev}
+      AlarmDescription: Scale In Batch Servers when SQS queue length is below threshold
+      ComparisonOperator: LessThanThreshold
+      EvaluationPeriods: 1
+      MetricName: ApproximateNumberOfMessagesVisible
+      Namespace: AWS/SQS
+      Period: 300
+      Statistic: Sum
+      Threshold: !Ref ThresholdSqsLow
+      TreatMissingData: ignore
+      Unit: Count
+    Type: 'AWS::CloudWatch::Alarm'
+
+  BatchServerScaleInFusionLegacydev:
+    Properties:
+      AlarmActions: [!Ref ScaleInPolicy]
+      AlarmName: Batch Server Scale-In Fusion Legacy Dev Queue
+      Dimensions:
+        - {Name: QueueName, Value: !Ref FusionQueueLegacydev}
+      AlarmDescription: Scale In Batch Servers when SQS queue length is below threshold
+      ComparisonOperator: LessThanThreshold
+      EvaluationPeriods: 1
+      MetricName: ApproximateNumberOfMessagesVisible
+      Namespace: AWS/SQS
+      Period: 300
+      Statistic: Sum
+      Threshold: !Ref ThresholdSqsLow
+      TreatMissingData: ignore
+      Unit: Count
+    Type: 'AWS::CloudWatch::Alarm'
+
+  BatchServerScaleInFusionLegacyprod:
+    Properties:
+      AlarmActions: [!Ref ScaleInPolicy]
+      AlarmName: Batch Server Scale-In Fusion Legacy Prod Queue
+      Dimensions:
+        - {Name: QueueName, Value: !Ref FusionQueueLegacyprod}
+      AlarmDescription: Scale In Batch Servers when SQS queue length is below threshold
+      ComparisonOperator: LessThanThreshold
+      EvaluationPeriods: 1
+      MetricName: ApproximateNumberOfMessagesVisible
+      Namespace: AWS/SQS
+      Period: 300
+      Statistic: Sum
+      Threshold: !Ref ThresholdSqsLow
+      TreatMissingData: ignore
+      Unit: Count
+    Type: 'AWS::CloudWatch::Alarm'
+
+  BatchServerScaleInFusionNightly:
+    Properties:
+      AlarmActions: [!Ref ScaleInPolicy]
+      AlarmName: Batch Server Scale-In Fusion Nightly Queue
+      Dimensions:
+        - {Name: QueueName, Value: !Ref FusionQueueNightly}
+      AlarmDescription: Scale In Batch Servers when SQS queue length is below threshold
+      ComparisonOperator: LessThanThreshold
+      EvaluationPeriods: 1
+      MetricName: ApproximateNumberOfMessagesVisible
+      Namespace: AWS/SQS
+      Period: 300
+      Statistic: Sum
+      Threshold: !Ref ThresholdSqsLow
+      TreatMissingData: ignore
+      Unit: Count
+    Type: 'AWS::CloudWatch::Alarm'
+
+  BatchServerScaleInFusionUat:
+    Properties:
+      AlarmActions: [!Ref ScaleInPolicy]
+      AlarmName: Batch Server Scale-In Fusion UAT Queue
+      Dimensions:
+        - {Name: QueueName, Value: !Ref FusionQueueUat}
+      AlarmDescription: Scale In Batch Servers when SQS queue length is below threshold
+      ComparisonOperator: LessThanThreshold
+      EvaluationPeriods: 1
+      MetricName: ApproximateNumberOfMessagesVisible
+      Namespace: AWS/SQS
+      Period: 300
+      Statistic: Sum
+      Threshold: !Ref ThresholdSqsLow
+      TreatMissingData: ignore
+      Unit: Count
+    Type: 'AWS::CloudWatch::Alarm'

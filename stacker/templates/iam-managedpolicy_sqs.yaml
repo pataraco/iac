@@ -1,0 +1,45 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Creates an AWS IAM managed policy
+
+
+Parameters:
+
+  Description:
+    Description: Description of the AWS IAM managed policy
+    Type: String
+
+  ManagedPolicyName:
+    Description: Name to give the AWS IAM managed policy
+    Type: String
+
+
+Resources:
+
+  IamManagedPolicy:
+    Properties:
+      Description: !Ref Description
+      ManagedPolicyName: !Ref ManagedPolicyName
+      PolicyDocument:
+        Statement:
+          - Action:
+              - 'autoscaling:Describe*'
+              - 'cloudwatch:ListMetrics'
+              - 'cloudwatch:Describe*'
+              - 'cloudwatch:GetMetricStatistics*'
+              - 'ec2:Describe*'
+              - 'elasticloadbalancing:Describe*'
+              - 's3:Get*'
+              - 's3:List*'
+            Effect: Allow
+            Resource: ['*']
+            Sid: AllowFullAccessToCommonServiceAndLimitedEc2Access
+        Version: '2012-10-17'
+    Type: AWS::IAM::ManagedPolicy
+
+
+Outputs:
+
+  IamManagedPolicyArn:
+    Description: Managed policy ARN
+    Value: !Ref IamManagedPolicy

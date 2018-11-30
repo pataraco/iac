@@ -1,0 +1,42 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Creates an EC2 Security Group and ingress rule for the public
+  ALB to allow all HTTP and HTTPS traffic from anywhere'
+
+
+Parameters:
+
+  GroupDescription:
+    Description: 'A description of the security group'
+    Type: String
+
+  GroupName:
+    Description: 'A name for the security group'
+    Type: String
+
+  VpcId:
+    Description: 'VPC ID to create the Security Group in'
+    Type: AWS::EC2::VPC::Id
+
+
+Resources:
+
+  Ec2SecurityGroupPublicAlb:
+    Properties:
+      GroupName: !Ref GroupName
+      GroupDescription: !Ref GroupDescription
+      SecurityGroupIngress:
+        - {FromPort: 80, ToPort: 80, IpProtocol: tcp, CidrIp: 0.0.0.0/0, Description: HTTP from anywhere}
+        - {FromPort: 443, ToPort: 443, IpProtocol: tcp, CidrIp: 0.0.0.0/0, Description: HTTPS from anywhere}
+      Tags:
+        - {Key: Name, Value: !Ref GroupName}
+      VpcId: !Ref VpcId
+    Type: AWS::EC2::SecurityGroup
+
+
+Outputs:
+
+  SgId:
+    Description: ID of the Security Group created for the public ALB
+    Export: {'Name': !Sub '${AWS::StackName}-SgId'}
+    Value: !GetAtt Ec2SecurityGroupPublicAlb.GroupId

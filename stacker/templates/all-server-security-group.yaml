@@ -1,0 +1,57 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Creates a Security Group used by all servers
+
+
+Parameters:
+
+  pName:
+    Description: 'Name to give the security group'
+    Type: String
+  pPrivCidr10:
+    Default: '10.0.0.0/8'
+    Description: 'Private CIDR 10.0.0.0/8 to allow access from'
+    Type: String
+  pPrivCidr172:
+    Default: '172.16.0.0/12'
+    Description: 'Private CIDR 172.16.0.0/12 to allow access from'
+    Type: String
+  pPrivCidr192:
+    Default: '192.168.0.0/16'
+    Description: 'Private CIDR 192.168.0.0/16 to allow access from'
+    Type: String
+  pVpcId:
+    Description: 'The exported value of the VPC to be used'
+    Type: AWS::EC2::VPC::Id
+
+
+Resources:
+
+  AllSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allows RDP and Ping
+      VpcId: !Ref pVpcId
+      SecurityGroupIngress:
+        - {FromPort: 22, ToPort: 22, IpProtocol: tcp, CidrIp: !Ref pPrivCidr10, Description: SSH}
+        - {FromPort: 22, ToPort: 22, IpProtocol: tcp, CidrIp: !Ref pPrivCidr172, Description: SSH}
+        - {FromPort: 22, ToPort: 22, IpProtocol: tcp, CidrIp: !Ref pPrivCidr192, Description: SSH}
+        - {FromPort: 123, ToPort: 123, IpProtocol: udp, CidrIp: !Ref pPrivCidr10, Description: NTP}
+        - {FromPort: 123, ToPort: 123, IpProtocol: udp, CidrIp: !Ref pPrivCidr172, Description: NTP}
+        - {FromPort: 123, ToPort: 123, IpProtocol: udp, CidrIp: !Ref pPrivCidr192, Description: NTP}
+        - {FromPort: 3389, ToPort: 3389, IpProtocol: tcp, CidrIp: !Ref pPrivCidr10, Description: RDP}
+        - {FromPort: 3389, ToPort: 3389, IpProtocol: tcp, CidrIp: !Ref pPrivCidr172, Description: RDP}
+        - {FromPort: 3389, ToPort: 3389, IpProtocol: tcp, CidrIp: !Ref pPrivCidr192, Description: RDP}
+        - {FromPort: -1, ToPort: -1, IpProtocol: icmp, CidrIp: !Ref pPrivCidr10, Description: ICMP}
+        - {FromPort: -1, ToPort: -1, IpProtocol: icmp, CidrIp: !Ref pPrivCidr172, Description: ICMP}
+        - {FromPort: -1, ToPort: -1, IpProtocol: icmp, CidrIp: !Ref pPrivCidr192, Description: ICMP}
+      Tags:
+        - {Key: Name, Value: !Ref pName}
+
+
+Outputs:
+
+  AllSecurityGroup:
+    Description: Security Group Id
+    Value: !Ref AllSecurityGroup
+    Export: {Name: !Sub '${AWS::StackName}-AllSecurityGroup'}

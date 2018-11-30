@@ -1,0 +1,63 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Creates Config Rules for S3
+Parameters:
+  ConfigRuleName:
+    Type: String
+    Description: The name that you assign to the AWS Config rule.
+    ConstraintDescription: This parameter is required.
+  SourceIdentifier:
+    Type: String
+    Description: The name of the Source SourceIdentifier
+    ConstraintDescription: This parameter is required.
+  Description:
+    Type: String
+    Description: Default Config Description
+    ConstraintDescription: This parameter is required.
+  Owner:
+    Type: String
+    Description: Name of Owner - AWS or CUSTOM_LAMBDA
+    Default: AWS
+    AllowedValues:
+      - AWS
+      - CUSTOM_LAMBDA
+
+Conditions:
+  CustomLambda: !Equals [!Ref Owner, CUSTOM_LAMBDA]
+  AWSLambda: !Not [!Equals [!Ref Owner, CUSTOM_LAMBDA]]
+
+Resources:
+  AWSConfigRule:
+    Type: AWS::Config::ConfigRule
+    Condition: AWSLambda
+    Properties:
+      ConfigRuleName: !Ref ConfigRuleName
+      Description: !Ref Description
+      InputParameters: {}
+      Scope:
+        ComplianceResourceTypes:
+          - AWS::S3::Bucket
+      Source:
+        Owner: !Ref Owner
+        SourceIdentifier: !Ref SourceIdentifier
+
+  CustomAWSConfigRule:
+    Type: AWS::Config::ConfigRule
+    Condition: CustomLambda
+    Properties:
+      ConfigRuleName: !Ref ConfigRuleName
+      Description: !Ref Description
+      InputParameters: {}
+      Scope:
+        ComplianceResourceTypes:
+          - AWS::S3::Bucket
+      Source:
+        Owner: !Ref Owner
+        SourceIdentifier: !Ref SourceIdentifier
+        SourceDetails:
+          - EventSource: aws.config
+            MessageType: ConfigurationItemChangeNotification
+Outputs:
+  AWSConfigRule:
+    Export:
+      Name: !Sub '${AWS::StackName}-${ConfigRuleName}'
+    Value: !If [CustomLambda, !Ref CustomAWSConfigRule, !Ref AWSConfigRule]

@@ -1,0 +1,154 @@
+---
+common_tags: &common_tags
+  AECOM Client: ${aecom_client}
+  Application: ${application}
+  Billing Contact: ${billing_contact}
+  Cost Center: ${cost_center}
+  Department: ${department}
+  Environment: ${environment_tag}
+  PM Contact: ${pm_contact}
+  Project Name: ${project_name}
+  Project Number: ${project_number}
+  Project Task: ${project_task}
+  Technical Contact: ${technical_contact}
+  Technical Team: ${technical_team}
+cwsv: &common_web_server_vars
+  DnsServer1: ${dns_server_1}
+  DnsServer2: ${dns_server_2}
+  DomainUserId: ${domain_user_id}
+  DomainUserPw: ${ssmstore ${region}@/windows/domain/aecomonline/${domain_user_id}/password}
+  ImageId: ${golden_win_2012}
+  InstanceProfile: ${rxref ${app}-instance-profile::InstanceProfileName}
+  KeyName: ${ec2_key_pair_name}
+  SecurityGroupIds: >-
+    ${xref ${namespace_other}-all-server-sg::AllSecurityGroup},
+    ${rxref ${app}-web-server-security-group-and-ingress-rules::SgId}
+  SubnetId: ${xref ${namespace_other}-base-vpc::${web_server_subnet}}
+  WindowsDomain: ${windows_domain}
+namespace: ${namespace}
+stacker_bucket: ${stacker_bucket_name}
+
+stacks:
+
+  - name: ${app}-web-server-webdev1
+    enabled: false
+    template_path: templates/general-arcgis-server-10.5.1.yaml
+    tags:
+      <<: *common_tags
+      Environment: Dev
+      RS Name: 703867-webdev1
+    variables:
+      <<: *common_web_server_vars
+      CDriveSize: 80
+      DDriveSize: 300
+      InstanceName: USWS22ADGISWW01
+      InstanceType: r4.large
+      NetBIOS: USWS22ADGISWW01
+
+  - name: ${app}-arcgis-server-cartodev
+    enabled: false
+    template_path: templates/general-arcgis-server-10.5.1.yaml
+    tags:
+      <<: *common_tags
+      Environment: Dev
+      RS Name: 757577-cartodev
+    variables:
+      <<: *common_web_server_vars
+      CDriveSize: 80
+      DDriveSize: 100
+      InstanceName: USWS22ADCTPWW01
+      InstanceType: m4.large
+      NetBIOS: USWS22ADCTPWW01
+
+  - name: ${app}-web-server-webgis
+    template_path: templates/web-server-instance.yaml
+    tags:
+      <<: *common_tags
+      RS Name: 721567-webgis
+    variables:
+      <<: *common_web_server_vars
+      CDriveSize: 80
+      DDriveSize: 300
+      InstanceName: USWS22APGISWW01
+      InstanceType: m4.large
+      NetBIOS: USWS22APGISWW01
+
+  - name: ${app}-web-server-geocort
+    template_path: templates/web-server-instance.yaml
+    tags:
+      <<: *common_tags
+      RS Name: 721569-geocort
+    variables:
+      <<: *common_web_server_vars
+      CDriveSize: 60
+      DDriveSize: 150
+      InstanceName: USWS22APGEOWW01
+      InstanceType: m4.large
+      NetBIOS: USWS22APGEOWW01
+
+  - name: ${app}-web-server-carto1
+    enabled: false
+    template_path: templates/general-arcgis-server-10.5.1.yaml
+    tags:
+      <<: *common_tags
+      RS Name: 775806-carto1
+    variables:
+      <<: *common_web_server_vars
+      CDriveSize: 80
+      DDriveSize: 200
+      InstanceName: USWS22APCTPWW01
+      InstanceType: m4.large
+      NetBIOS: USWS22APCTPWW01
+
+  - name: ${app}-web-server-gisweb6
+    enabled: false
+    template_path: templates/general-arcgis-server-10.5.1.yaml
+    tags:
+      <<: *common_tags
+      RS Name: 873760-gisweb6
+    variables:
+      <<: *common_web_server_vars
+      CDriveSize: 100
+      DDriveSize: 100
+      InstanceName: USWS22APGISWW13
+      InstanceType: m4.large
+      NetBIOS: USWS22APGISWW13
+
+# Save decrypted Windows admin passwords into SSM Parameter Store
+post_build:
+
+# ${app}-webdev1-password-save:
+#   path: hooks.ssm-store-ec2-password.add_win_admin_pw_to_ssm
+#   args:
+#     InstanceId: ${app}-web-server-webdev1::InstanceId
+#     SsmParamKey: /asp-web-gis/USWS22ADGISWW01
+
+# ${app}-cartodev-password-save:
+#   path: hooks.ssm-store-ec2-password.add_win_admin_pw_to_ssm
+#   args:
+#     InstanceId: ${app}-web-server-cartodev::InstanceId
+#     SsmParamKey: /asp-web-gis/USWS22ADCTPWW01
+
+  ${app}-webgis-password-save:
+    path: hooks.ssm-store-ec2-password.add_win_admin_pw_to_ssm
+    args:
+      InstanceId: ${app}-web-server-webgis::InstanceId
+      SsmParamKey: /asp-web-gis/USWS22APGISWW01
+
+  ${app}-geocort-password-save:
+    path: hooks.ssm-store-ec2-password.add_win_admin_pw_to_ssm
+    args:
+      InstanceId: ${app}-web-server-geocort::InstanceId
+      SsmParamKey: /asp-web-gis/USWS22APGEOWW01
+
+# ${app}-carto1-password-save:
+#   path: hooks.ssm-store-ec2-password.add_win_admin_pw_to_ssm
+#   args:
+#     InstanceId: ${app}-web-server-carto1::InstanceId
+#     SsmParamKey: /asp-web-gis/USWS22APCTPWW01
+
+# ${app}-gisweb6-password-save:
+#   path: hooks.ssm-store-ec2-password.add_win_admin_pw_to_ssm
+#   args:
+#     InstanceId: ${app}-web-server-gisweb6::InstanceId
+#     SsmParamKey: /asp-web-gis/USWS22APGISWW13

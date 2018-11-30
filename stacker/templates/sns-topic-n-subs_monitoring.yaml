@@ -1,0 +1,42 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Creates an AWS SNS topic and subscriptions to it'
+
+
+Parameters:
+
+  DisplayName:
+    Description: 'A developer-defined string that can be used to
+      identify this SNS topic. Required for SMS subscriptions
+      (up to 10 characters long)'
+    MaxLength: 10
+    Type: String
+
+  TopicName:
+    Description: 'Name of the SNS topic'
+    Type: String
+
+
+Resources:
+
+  SnsTopic:
+    Properties:
+      DisplayName: !Ref DisplayName
+      Subscription:
+        - {Endpoint: praco@onica.com, Protocol: email}
+        - {Endpoint: 1-949-636-8923, Protocol: sms}
+      TopicName: !Ref TopicName
+    Type: AWS::SNS::Topic
+
+
+Outputs:
+
+  TopicArn:
+    Description: ARN of the SNS topic
+    Export: {'Name': !Sub '${AWS::StackName}-TopicArn'}
+    Value: !Ref SnsTopic
+
+  TopicName:
+    Description: Name of the SNS topic
+    Export: {'Name': !Sub '${AWS::StackName}-TopicName'}
+    Value: !GetAtt SnsTopic.TopicName

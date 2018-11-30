@@ -1,0 +1,92 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Creates EC2 Security Groups for Amazon Relational
+  Database Service (Amazon RDS) DB instances'
+
+
+Parameters:
+
+  Application:
+    Description: 'Name of application for which database will be used'
+    Type: String
+
+  Environment:
+    Default: Dev
+    Description: 'Name of Environment'
+    Type: String
+
+  DbPort:
+    Description: 'The port the DB instance is listening on'
+    Type: String
+
+  VpnSecurityGroup:
+    Default: ''
+    Description: 'VPN Security Group ID (Note: only enable
+      this to allow RDS access over the VPN connection)'
+    Type: String
+
+  VpcId:
+    Description: 'VPC ID to place security groups'
+    Type: 'AWS::EC2::VPC::Id'
+
+
+Conditions:
+
+  VpnAccessEnabled: !Not
+    - !Equals [!Ref VpnSecurityGroup, '']
+
+
+Resources:
+
+  RdsClientSecurityGroup:
+    Properties:
+      GroupName: !Sub '${Application}-${Environment}-rds-clients'
+      GroupDescription: !Sub 'RDS Client Security Group for all client servers
+        in ${Application} ${Environment} environment'
+      SecurityGroupEgress:
+        - {CidrIp: 0.0.0.0/0, FromPort: '0', IpProtocol: '-1', ToPort: '65535'}
+      Tags:
+        - Key: Name
+          Value: !Sub '${Application}-${Environment}-rds-clients'
+      VpcId: !Ref VpcId
+    Type: AWS::EC2::SecurityGroup
+
+  RdsServerSecurityGroup:
+    Properties:
+      GroupName: !Sub '${Application}-${Environment}-rds-server'
+      GroupDescription: !Sub 'RDS Server Security Group for
+        ${Application} ${Environment} environment'
+      SecurityGroupEgress:
+        - {CidrIp: 0.0.0.0/0, FromPort: '0', IpProtocol: '-1', ToPort: '65535'}
+      SecurityGroupIngress:
+        - FromPort: !Ref DbPort
+          IpProtocol: tcp
+          SourceSecurityGroupId: !Ref RdsClientSecurityGroup
+          ToPort: !Ref DbPort
+      Tags:
+        - Key: Name
+          Value: !Sub '${Application}-${Environment}-rds-server'
+      VpcId: !Ref VpcId
+    Type: AWS::EC2::SecurityGroup
+
+  VpnSgIngress:
+    Condition: VpnAccessEnabled
+    Properties:
+      FromPort: !Ref DbPort
+      GroupId: !Ref RdsServerSecurityGroup
+      IpProtocol: tcp
+      SourceSecurityGroupId: !Ref VpnSecurityGroup
+      ToPort: !Ref DbPort
+    Type: AWS::EC2::SecurityGroupIngress
+
+Outputs:
+
+  RdsClientSecurityGroupId:
+    Description: The ID of the RDS client security group
+    Export: {'Name': !Sub '${AWS::StackName}-RdsClientSecurityGroupId'}
+    Value: !GetAtt RdsClientSecurityGroup.GroupId
+
+  RdsServerSecurityGroupId:
+    Description: The ID of the RDS server security group
+    Export: {'Name': !Sub '${AWS::StackName}-RdsServerSecurityGroupId'}
+    Value: !GetAtt RdsServerSecurityGroup.GroupId

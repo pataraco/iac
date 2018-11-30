@@ -1,0 +1,287 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Creates a Linux Oracle DB server EC2 Instance'
+
+Parameters:
+  BackupDaily: {Default: 'True', Type: String}
+  BackupWeekly: {Default: 'True', Type: String}
+  DetailedMonitoring: {Default: 'false', Type: String}
+  ImageId: {Type: 'AWS::EC2::Image::Id'}
+  InstanceProfile: {Type: String}
+  InstanceName: {Type: String}
+  InstanceType: {Type: String}
+  KeyName: {Type: String}
+  SecurityGroupIds: {Type: 'List<AWS::EC2::SecurityGroup::Id>'}
+  SubnetId: {Type: String}
+  # disk drive sizes
+  DriveSizeA: {Default: 0, Type: Number}
+  # EBS volumes [f-p]
+  # https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/device_naming.html
+  DriveSizeF: {Default: 0, Type: Number}
+  DriveSizeG: {Default: 0, Type: Number}
+  DriveSizeH: {Default: 0, Type: Number}
+  DriveSizeI: {Default: 0, Type: Number}
+  DriveSizeJ: {Default: 0, Type: Number}
+  DriveSizeK: {Default: 0, Type: Number}
+  DriveSizeL: {Default: 0, Type: Number}
+  DriveSizeM: {Default: 0, Type: Number}
+  DriveSizeN: {Default: 0, Type: Number}
+  DriveSizeO: {Default: 0, Type: Number}
+  DriveSizeP: {Default: 0, Type: Number}
+
+Conditions:
+  AddDriveF: !Not [!Equals [!Ref DriveSizeF, 0]]
+  AddDriveG: !Not [!Equals [!Ref DriveSizeG, 0]]
+  AddDriveH: !Not [!Equals [!Ref DriveSizeH, 0]]
+  AddDriveI: !Not [!Equals [!Ref DriveSizeI, 0]]
+  AddDriveJ: !Not [!Equals [!Ref DriveSizeJ, 0]]
+  AddDriveK: !Not [!Equals [!Ref DriveSizeK, 0]]
+  AddDriveL: !Not [!Equals [!Ref DriveSizeL, 0]]
+  AddDriveM: !Not [!Equals [!Ref DriveSizeM, 0]]
+  AddDriveN: !Not [!Equals [!Ref DriveSizeN, 0]]
+  AddDriveO: !Not [!Equals [!Ref DriveSizeO, 0]]
+  AddDriveP: !Not [!Equals [!Ref DriveSizeP, 0]]
+
+Resources:
+  Instance:
+    Metadata:
+      AWS::CloudFormation::Init:
+        configSets:
+          Config:
+            - set_hostname
+            - install_packages
+            - install_aws_cli
+            - configure_filesystems
+        set_hostname:
+          files:
+            /var/lib/cloud/scripts/set_hostname.sh:
+              content: !Sub |
+                #!/bin/bash
+
+                /bin/echo ${InstanceName} > /etc/hostname
+                systemctl restart systemd-hostnamed
+          commands:
+            01_set_hostname:
+              command: /bin/bash /var/lib/cloud/scripts/set_hostname.sh
+        install_packages:
+          # install some more required packages
+          packages:
+            yum:
+              jq: []
+              nvme-cli: []
+              lvm2: []
+        install_aws_cli:
+          files:
+            /var/lib/cloud/scripts/install_aws_cli.sh:
+              content: !Sub |
+                #!/bin/bash
+
+                # get and install pip
+                cd /tmp
+                curl -O https://bootstrap.pypa.io/get-pip.py
+                python get-pip.py
+
+                # install pip aws cli
+                pip install --upgrade awscli
+          commands:
+            01_set_hostname:
+              command: bash /var/lib/cloud/scripts/install_aws_cli.sh
+        configure_filesystems:
+          files:
+            /etc/fstab.additions:
+              # create additional entries to /etc/fstab
+              content: |
+                /dev/mapper/vglocal-swap         swap      swap   defaults                        0 0
+                /dev/mapper/vglocal-tmp          /tmp      ext4   defaults,nosuid,nodev           1 2
+                /dev/mapper/vglocal-log          /var/log  ext4   defaults                        1 2
+                /dev/mapper/vglocal-u01          /u01      ext4   defaults                        0 0
+                /dev/mapper/vgdata-data          /data     ext4   defaults,acl,_netdev            0 0
+                /dev/mapper/vgbackup-backup      /Backups  ext4   defaults                        0 0
+            /var/lib/cloud/scripts/configure_filesystems.sh:
+              content: |
+                #!/bin/bash
+
+                REGION=$1
+
+                # get drive mappings
+                # map devices to volumes
+                eval declare -A volumes=($(nvme list | awk '$1~/^\/dev\/nvme/ {print "["$1"]="$2}' | sed 's/vol/vol-/;s:/dev/::'))
+                # map volumes to ebs drives
+                declare -A ebs
+                for dev in ${!volumes[@]}; do
+                   name=$(basename $(aws ec2 describe-volumes --region $REGION --volume-ids ${volumes[$dev]} | jq -r .Volumes[].Attachments[].Device))
+                   ebs[$name]=$dev
+                done
+
+                # add additional entries to /etc/fstab
+                cat /etc/fstab.additions >> /etc/fstab
+
+                # tempfs - following should not be needed
+                # # check if enabled
+                # systemctl is-enabled tmp.mount
+                # # enable it
+                # systemctl enable tmp.mount
+
+                # create local filesystems
+                pvcreate /dev/${ebs[sdf]}
+                vgcreate vglocal /dev/${ebs[sdf]}
+                # swap
+                lvcreate -L 70G -n /dev/mapper/vglocal-swap vglocal
+                mkswap /dev/mapper/vglocal-swap
+                swapon -va
+                # /tmp
+                lvcreate -L 10G -n /dev/mapper/vglocal-tmp vglocal
+                mkfs -t ext4 /dev/mapper/vglocal-tmp
+                mkdir /tmp_mnt
+                mount /dev/mapper/vglocal-tmp /tmp_mnt
+                mv /tmp/* /tmp_mnt
+                umount /tmp_mnt
+                mount /tmp
+                # /var/log
+                lvcreate -L 30G -n /dev/mapper/vglocal-log vglocal
+                mkfs -t ext4 /dev/mapper/vglocal-log
+                mount /dev/mapper/vglocal-log /tmp_mnt
+                mv /var/log/* /tmp_mnt
+                umount /tmp_mnt
+                mount /var/log
+                # /u01
+                lvcreate -L 350G -n /dev/mapper/vglocal-u01 vglocal
+                mkfs -t ext4 /dev/mapper/vglocal-u01
+                mkdir /u01
+                mount /u01
+
+                # create backups filesystem
+                pvcreate /dev/${ebs[sdl]}
+                vgcreate vgbackup /dev/${ebs[sdl]}
+                lvcreate -l 100%FREE -n /dev/mapper/vgbackup-backup vgbackup
+                mkfs -t ext4 /dev/mapper/vgbackup-backup
+                mkdir /Backups
+                mount /Backups
+
+                # create database filesystem
+                pvcreate /dev/${ebs[sdh]}
+                pvcreate /dev/${ebs[sdi]}
+                pvcreate /dev/${ebs[sdj]}
+                pvcreate /dev/${ebs[sdk]}
+                vgcreate vgdata /dev/${ebs[sdh]} /dev/${ebs[sdi]} /dev/${ebs[sdj]} /dev/${ebs[sdk]}
+                lvcreate -L 1800G -n /dev/mapper/vgdata-data vgdata
+                mkfs -t ext4 /dev/mapper/vgdata-data
+                mount /data
+
+                # create arch filesystem
+                mkfs -t ext4 /dev/${ebs[sdg]}
+                echo "/dev/${ebs[sdg]} /arch ext4 defaults,_netdev 0 0" >> /etc/fstab
+                mkdir /arch
+                mount /arch
+          commands:
+            01_configure_filesystems:
+              command: !Sub 'bash /var/lib/cloud/scripts/configure_filesystems.sh ${AWS::Region}'
+    Properties:
+      BlockDeviceMappings:
+        - DeviceName: '/dev/sda1'
+          Ebs: {DeleteOnTermination: true, VolumeSize: !Ref DriveSizeA, VolumeType: gp2}
+        - !If
+          - AddDriveF
+          - DeviceName: '/dev/sdf'
+            Ebs: {DeleteOnTermination: true, Encrypted: true, VolumeSize: !Ref DriveSizeF, VolumeType: gp2}
+          - !Ref AWS::NoValue
+        - !If
+          - AddDriveG
+          - DeviceName: '/dev/sdg'
+            Ebs: {DeleteOnTermination: true, Encrypted: true, VolumeSize: !Ref DriveSizeG, VolumeType: gp2}
+          - !Ref AWS::NoValue
+        - !If
+          - AddDriveH
+          - DeviceName: '/dev/sdh'
+            Ebs: {DeleteOnTermination: true, Encrypted: true, VolumeSize: !Ref DriveSizeH, VolumeType: gp2}
+          - !Ref AWS::NoValue
+        - !If
+          - AddDriveI
+          - DeviceName: '/dev/sdi'
+            Ebs: {DeleteOnTermination: true, Encrypted: true, VolumeSize: !Ref DriveSizeI, VolumeType: gp2}
+          - !Ref AWS::NoValue
+        - !If
+          - AddDriveJ
+          - DeviceName: '/dev/sdj'
+            Ebs: {DeleteOnTermination: true, Encrypted: true, VolumeSize: !Ref DriveSizeJ, VolumeType: gp2}
+          - !Ref AWS::NoValue
+        - !If
+          - AddDriveK
+          - DeviceName: '/dev/sdk'
+            Ebs: {DeleteOnTermination: true, Encrypted: true, VolumeSize: !Ref DriveSizeK, VolumeType: gp2}
+          - !Ref AWS::NoValue
+        - !If
+          - AddDriveL
+          - DeviceName: '/dev/sdl'
+            Ebs: {DeleteOnTermination: true, Encrypted: true, VolumeSize: !Ref DriveSizeL, VolumeType: gp2}
+          - !Ref AWS::NoValue
+        - !If
+          - AddDriveM
+          - DeviceName: '/dev/sdm'
+            Ebs: {DeleteOnTermination: true, Encrypted: true, VolumeSize: !Ref DriveSizeM, VolumeType: gp2}
+          - !Ref AWS::NoValue
+        - !If
+          - AddDriveN
+          - DeviceName: '/dev/sdn'
+            Ebs: {DeleteOnTermination: true, Encrypted: true, VolumeSize: !Ref DriveSizeN, VolumeType: gp2}
+          - !Ref AWS::NoValue
+        - !If
+          - AddDriveO
+          - DeviceName: '/dev/sdo'
+            Ebs: {DeleteOnTermination: true, Encrypted: true, VolumeSize: !Ref DriveSizeO, VolumeType: gp2}
+          - !Ref AWS::NoValue
+        - !If
+          - AddDriveP
+          - DeviceName: '/dev/sdp'
+            Ebs: {DeleteOnTermination: true, Encrypted: true, VolumeSize: !Ref DriveSizeP, VolumeType: gp2}
+          - !Ref AWS::NoValue
+      IamInstanceProfile: !Ref InstanceProfile
+      ImageId: !Ref ImageId
+      InstanceType: !Ref InstanceType
+      KeyName: !Ref KeyName
+      Monitoring: !Ref DetailedMonitoring
+      SecurityGroupIds: !Ref SecurityGroupIds
+      SubnetId: !Ref SubnetId
+      Tags:
+        - {Key: BackupDaily, Value: !Ref BackupDaily}
+        - {Key: BackupWeekly, Value: !Ref BackupWeekly}
+        - {Key: Monitoring, Value: Enabled}
+        - {Key: Name, Value: !Ref InstanceName}
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+
+          # set some global vars
+          EPEL_SRC="https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm"
+          EPEL_TMP="/tmp/epel.rpm"
+          AWS_CFN_SRC="https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-latest.amzn1.noarch.rpm"
+          AWS_CFN_TMP="/tmp/aws-cfn.rpm"
+
+          # get wget to get some required RPMs
+          yum install -y wget
+
+          # get the required RPMs
+          wget -O $EPEL_TMP $EPEL_SRC        # needed for aws cfn bootstrap
+          wget -O $AWS_CFN_TMP $AWS_CFN_SRC  # installs cfn-init
+
+          # install some required packages
+          yum install -y $EPEL_TMP
+          yum install -y $AWS_CFN_TMP
+
+          # symlink cfnbootstrap so that cfn-init can import it
+          # (installed by aws-cfn-bootstrap-latest RPM)
+          ln -s /usr/local/lib/python2.7/site-packages/cfnbootstrap /usr/lib/python2.7/site-packages/cfnbootstrap
+
+          # run the configs
+          /opt/aws/bin/cfn-init -v \
+             --configsets Config \
+             --region ${AWS::Region} \
+             --resource Instance \
+             --stack ${AWS::StackId}
+    Type: AWS::EC2::Instance
+
+Outputs:
+  InstanceAvailabilityZone: {Value: !GetAtt Instance.AvailabilityZone}
+  InstanceId: {Value: !Ref Instance}
+  InstancePrivateDnsName: {Value: !GetAtt Instance.PrivateDnsName}
+  InstancePrivateIp: {Value: !GetAtt Instance.PrivateIp}

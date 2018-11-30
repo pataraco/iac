@@ -1,0 +1,1190 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Creates AWS CloudWatch alarms to send notifications to the
+  specified SNS topic if/when thier thresholds have been breached'
+
+
+Parameters:
+
+  AlarmNameCpu:
+    Description: 'Name to give the CPU high usage alarm'
+    Type: String
+  AlarmNameDisk:
+    Description: 'Name to give the low Disk space free alarm'
+    Type: String
+  AlarmNameMem:
+    Description: 'Name to give the low Memory available alarm'
+    Type: String
+  AlarmNameNet:
+    Description: 'Name to give the Netork low traffic alarm'
+    Type: String
+  InstanceIdAo1Ad1: {Type: 'AWS::EC2::Instance::Id'}
+  InstanceIdAo2Ad2: {Type: 'AWS::EC2::Instance::Id'}
+  InstanceIdArcGisFileServer: {Type: 'AWS::EC2::Instance::Id'}
+  InstanceIdArcGisMonitor: {Type: 'AWS::EC2::Instance::Id'}
+  InstanceIdArcGisPrimary: {Type: 'AWS::EC2::Instance::Id'}
+  InstanceIdArcGisSecondary: {Type: 'AWS::EC2::Instance::Id'}
+  InstanceIdArcGisSiem: {Type: 'AWS::EC2::Instance::Id'}
+  InstanceIdMobilitics: {Type: 'AWS::EC2::Instance::Id'}
+  InstanceIdPaloAltoA: {Type: 'AWS::EC2::Instance::Id'}
+  InstanceIdPaloAltoB: {Type: 'AWS::EC2::Instance::Id'}
+  InstanceIdPm1Ad1: {Type: 'AWS::EC2::Instance::Id'}
+  InstanceIdPm2Ad2: {Type: 'AWS::EC2::Instance::Id'}
+  ThresholdCpu:
+    Description: 'CPU Usage (%) threshold to alert on (load &)'
+    Type: String
+  ThresholdDiskWarn:
+    Description: 'Warning (1st) Disk Usage threshold to alert on (% remaining)'
+    Type: String
+  ThresholdDiskCrit:
+    Description: 'Critical (2nd) Disk Usage threshold to alert on (% remaining)'
+    Type: String
+  ThresholdMemC4L: {Type: String}
+  ThresholdMemC54XL: {Type: String}
+  ThresholdMemM44XL: {Type: String}
+  ThresholdMemM5XL: {Type: String}
+  ThresholdMemR4L: {Type: String}
+  ThresholdMemR4XL: {Type: String}
+  ThresholdMemT2L: {Type: String}
+  ThresholdNet:
+    Description: 'Network traffic threshold to alert on (bytes)'
+    Type: String
+  SnsTopicArnAll:
+    Description: 'SNS topic ARN to send All alarms notifications to'
+    Type: String
+  SnsTopicArnArcGis:
+    Description: 'SNS topic ARN to send ArcGIS alarms notifications to'
+    Type: String
+
+
+Resources:
+
+  # Alarms grouped by Instance
+  # --- begin ---
+  CloudWatchAlarmAo1Ad01USPDX01PWDCL001Cpu:
+    Properties:
+      AlarmName: !Sub 'AO1-AD01-USPDX01PWDCL001-${AlarmNameCpu}'
+      Dimensions: [{Name: InstanceId, Value: !Ref InstanceIdAo1Ad1}]
+      # common settings below: common_cpu_usage_cw_alarm_props
+      AlarmActions: [!Ref SnsTopicArnAll]
+      AlarmDescription: Alert when instance CPU usage is above threshold
+      ComparisonOperator: GreaterThanThreshold
+      EvaluationPeriods: 2
+      MetricName: CPUUtilization
+      Namespace: AWS/EC2
+      OKActions: [!Ref SnsTopicArnAll]
+      Period: 60
+      Statistic: Average
+      Threshold: !Ref ThresholdCpu
+      TreatMissingData: ignore
+      Unit: Percent
+    Type: 'AWS::CloudWatch::Alarm'
+
+  CloudWatchAlarmAo1Ad01USPDX01PWDCL001Mem:
+    Properties:
+      AlarmName: !Sub 'AO1-AD01-USPDX01PWDCL001-${AlarmNameMem}'
+      Dimensions: [{Name: InstanceId, Value: !Ref InstanceIdAo1Ad1}]
+      Threshold: !Ref ThresholdMemR4L
+      # common settings below: common_mem_avail_cw_alarm_props
+      AlarmActions: [!Ref SnsTopicArnAll]
+      AlarmDescription: Alert when instance Mem available is below threshold
+      ComparisonOperator: LessThanThreshold
+      EvaluationPeriods: 2
+      MetricName: Available Memory
+      Namespace: Windows/Default
+      OKActions: [!Ref SnsTopicArnAll]
+      Period: 60
+      Statistic: Average
+      TreatMissingData: ignore
+      Unit: Megabytes
+    Type: 'AWS::CloudWatch::Alarm'
+
+  CloudWatchAlarmAo1Ad01USPDX01PWDCL001WarnDiskC:
+    Properties:
+      AlarmName: !Sub 'AO1-AD01-USPDX01PWDCL001-Warning-Drive-C-${AlarmNameDisk}'
+      Dimensions: [{Name: InstanceId, Value: !Ref InstanceIdAo1Ad1}]
+      MetricName: C.FreeDiskPercent
+      Threshold: !Ref ThresholdDiskWarn
+      # common settings below: common_disk_space_cw_alarm_props
+      AlarmActions: [!Ref SnsTopicArnAll]
+      AlarmDescription: Alert when instance Disk Space available is below threshold
+      ComparisonOperator: LessThanThreshold
+      EvaluationPeriods: 2
+      Namespace: Windows/Default
+      OKActions: [!Ref SnsTopicArnAll]
+      Period: 60
+      Statistic: Average
+      TreatMissingData: ignore
+      Unit: Percent
+    Type: 'AWS::CloudWatch::Alarm'
+
+  CloudWatchAlarmAo1Ad01USPDX01PWDCL001CritDiskC:
+    Properties:
+      AlarmName: !Sub 'AO1-AD01-USPDX01PWDCL001-Critical-Drive-C-${AlarmNameDisk}'
+      Dimensions: [{Name: InstanceId, Value: !Ref InstanceIdAo1Ad1}]
+      MetricName: C.FreeDiskPercent
+      Threshold: !Ref ThresholdDiskCrit
+      # common settings below: common_disk_space_cw_alarm_props
+      AlarmActions: [!Ref SnsTopicArnAll]
+      AlarmDescription: Alert when instance Disk Space available is below threshold
+      ComparisonOperator: LessThanThreshold
+      EvaluationPeriods: 2
+      Namespace: Windows/Default
+      OKActions: [!Ref SnsTopicArnAll]
+      Period: 60
+      Statistic: Average
+      TreatMissingData: ignore
+      Unit: Percent
+    Type: 'AWS::CloudWatch::Alarm'
+  # ---- end ----
+
+  # --- begin ---
+  CloudWatchAlarmAo2Ad02USPDX01PWDCL002Cpu:
+    Properties:
+      AlarmName: !Sub 'AO2-AD02-USPDX01PWDCL002-${AlarmNameCpu}'
+      Dimensions: [{Name: InstanceId, Value: !Ref InstanceIdAo2Ad2}]
+      # common settings below: common_cpu_usage_cw_alarm_props
+      AlarmActions: [!Ref SnsTopicArnAll]
+      AlarmDescription: Alert when instance CPU usage is above threshold
+      ComparisonOperator: GreaterThanThreshold
+      EvaluationPeriods: 2
+      MetricName: CPUUtilization
+      Namespace: AWS/EC2
+      OKActions: [!Ref SnsTopicArnAll]
+      Period: 60
+      Statistic: Average
+      Threshold: !Ref ThresholdCpu
+      TreatMissingData: ignore
+      Unit: Percent
+    Type: 'AWS::CloudWatch::Alarm'
+
+  CloudWatchAlarmAo2Ad02USPDX01PWDCL002Mem:
+    Properties:
+      AlarmName: !Sub 'AO2-AD02-USPDX01PWDCL002-${AlarmNameMem}'
+      Dimensions: [{Name: InstanceId, Value: !Ref InstanceIdAo2Ad2}]
+      Threshold: !Ref ThresholdMemR4L
+      # common settings below: common_mem_avail_cw_alarm_props
+      AlarmActions: [!Ref SnsTopicArnAll]
+      AlarmDescription: Alert when instance Mem available is below threshold
+      ComparisonOperator: LessThanThreshold
+      EvaluationPeriods: 2
+      MetricName: Available Memory
+      Namespace: Windows/Default
+      OKActions: [!Ref SnsTopicArnAll]
+      Period: 60
+      Statistic: Average
+      TreatMissingData: ignore
+      Unit: Megabytes
+    Type: 'AWS::CloudWatch::Alarm'
+
+  CloudWatchAlarmAo2Ad02USPDX01PWDCL002WarnDiskC:
+    Properties:
+      AlarmName: !Sub 'AO2-AD02-USPDX01PWDCL002-Warning-Drive-C-${AlarmNameDisk}'
+      Dimensions: [{Name: InstanceId, Value: !Ref InstanceIdAo2Ad2}]
+      MetricName: C.FreeDiskPercent
+      Threshold: !Ref ThresholdDiskWarn
+      # common settings below: common_disk_space_cw_alarm_props
+      AlarmActions: [!Ref SnsTopicArnAll]
+      AlarmDescription: Alert when instance Disk Space available is below threshold
+      ComparisonOperator: LessThanThreshold
+      EvaluationPeriods: 2
+      Namespace: Windows/Default
+      OKActions: [!Ref SnsTopicArnAll]
+      Period: 60
+      Statistic: Average
+      TreatMissingData: ignore
+      Unit: Percent
+    Type: 'AWS::CloudWatch::Alarm'
+
+  CloudWatchAlarmAo2Ad02USPDX01PWDCL002CritDiskC:
+    Properties:
+      AlarmName: !Sub 'AO2-AD02-USPDX01PWDCL002-Critical-Drive-C-${AlarmNameDisk}'
+      Dimensions: [{Name: InstanceId, Value: !Ref InstanceIdAo2Ad2}]
+      MetricName: C.FreeDiskPercent
+      Threshold: !Ref ThresholdDiskCrit
+      # common settings below: common_disk_space_cw_alarm_props
+      AlarmActions: [!Ref SnsTopicArnAll]
+      AlarmDescription: Alert when instance Disk Space available is below threshold
+      ComparisonOperator: LessThanThreshold
+      EvaluationPeriods: 2
+      Namespace: Windows/Default
+      OKActions: [!Ref SnsTopicArnAll]
+      Period: 60
+      Statistic: Average
+      TreatMissingData: ignore
+      Unit: Percent
+    Type: 'AWS::CloudWatch::Alarm'
+  # ---- end ----
+
+  # --- begin ---
+  CloudWatchAlarmPm1Ad1Cpu:
+    Properties:
+      AlarmName: !Sub 'USWS202PWDCP01-${AlarmNameCpu}'
+      Dimensions: [{Name: InstanceId, Value: !Ref InstanceIdPm1Ad1}]
+      # common settings below: common_cpu_usage_cw_alarm_props
+      AlarmActions: [!Ref SnsTopicArnAll]
+      AlarmDescription: Alert when instance CPU usage is above threshold
+      ComparisonOperator: GreaterThanThreshold
+      EvaluationPeriods: 2
+      MetricName: CPUUtilization
+      Namespace: AWS/EC2
+      OKActions: [!Ref SnsTopicArnAll]
+      Period: 60
+      Statistic: Average
+      Threshold: !Ref ThresholdCpu
+      TreatMissingData: ignore
+      Unit: Percent
+    Type: 'AWS::CloudWatch::Alarm'
+
+  CloudWatchAlarmPm1Ad1Mem:
+    Properties:
+      AlarmName: !Sub 'USWS202PWDCP01-${AlarmNameMem}'
+      Dimensions: [{Name: InstanceId, Value: !Ref InstanceIdPm1Ad1}]
+      Threshold: !Ref ThresholdMemR4L
+      # common settings below: common_mem_avail_cw_alarm_props
+      AlarmActions: [!Ref SnsTopicArnAll]
+      AlarmDescription: Alert when instance Mem available is below threshold
+      ComparisonOperator: LessThanThreshold
+      EvaluationPeriods: 2
+      MetricName: Available Memory
+      Namespace: Windows/Default
+      OKActions: [!Ref SnsTopicArnAll]
+      Period: 60
+      Statistic: Average
+      TreatMissingData: ignore
+      Unit: Megabytes
+    Type: 'AWS::CloudWatch::Alarm'
+
+  CloudWatchAlarmPm1Ad1WarnDiskC:
+    Properties:
+      AlarmName: !Sub 'USWS202PWDCP01-Warning-Drive-C-${AlarmNameDisk}'
+      Dimensions: [{Name: InstanceId, Value: !Ref InstanceIdPm1Ad1}]
+      MetricName: C.FreeDiskPercent
+      Threshold: !Ref ThresholdDiskWarn
+      # common settings below: common_disk_space_cw_alarm_props
+      AlarmActions: [!Ref SnsTopicArnAll]
+      AlarmDescription: Alert when instance Disk Space available is below threshold
+      ComparisonOperator: LessThanThreshold
+      EvaluationPeriods: 2
+      Namespace: Windows/Default
+      OKActions: [!Ref SnsTopicArnAll]
+      Period: 60
+      Statistic: Average
+      TreatMissingData: ignore
+      Unit: Percent
+    Type: 'AWS::CloudWatch::Alarm'
+
+  CloudWatchAlarmPm1Ad1CritDiskC:
+    Properties:
+      AlarmName: !Sub 'USWS202PWDCP01-Critical-Drive-C-${AlarmNameDisk}'
+      Dimensions: [{Name: InstanceId, Value: !Ref InstanceIdPm1Ad1}]
+      MetricName: C.FreeDiskPercent
+      Threshold: !Ref ThresholdDiskCrit
+      # common settings below: common_disk_space_cw_alarm_props
+      AlarmActions: [!Ref SnsTopicArnAll]
+      AlarmDescription: Alert when instance Disk Space available is below threshold
+      ComparisonOperator: LessThanThreshold
+      EvaluationPeriods: 2
+      Namespace: Windows/Default
+      OKActions: [!Ref SnsTopicArnAll]
+      Period: 60
+      Statistic: Average
+      TreatMissingData: ignore
+      Unit: Percent
+    Type: 'AWS::CloudWatch::Alarm'
+  # ---- end ----
+
+  # --- begin ---
+  CloudWatchAlarmPm2Ad2Cpu:
+    Properties:
+      AlarmName: !Sub 'Pm2Ad2-${AlarmNameCpu}'
+      Dimensions: [{Name: InstanceId, Value: !Ref InstanceIdPm2Ad2}]
+      # common settings below: common_cpu_usage_cw_alarm_props
+      AlarmActions: [!Ref SnsTopicArnAll]
+      AlarmDescription: Alert when instance CPU usage is above threshold
+      ComparisonOperator: GreaterThanThreshold
+      EvaluationPeriods: 2
+      MetricName: CPUUtilization
+      Namespace: AWS/EC2
+      OKActions: [!Ref SnsTopicArnAll]
+      Period: 60
+      Statistic: Average
+      Threshold: !Ref ThresholdCpu
+      TreatMissingData: ignore
+      Unit: Percent
+    Type: 'AWS::CloudWatch::Alarm'
+
+  CloudWatchAlarmPm2Ad2Mem:
+    Properties:
+      AlarmName: !Sub 'Pm2Ad2-${AlarmNameMem}'
+      Dimensions: [{Name: InstanceId, Value: !Ref InstanceIdPm2Ad2}]
+      Threshold: !Ref ThresholdMemR4L
+      # common settings below: common_mem_avail_cw_alarm_props
+      AlarmActions: [!Ref SnsTopicArnAll]
+      AlarmDescription: Alert when instance Mem available is below threshold
+      ComparisonOperator: LessThanThreshold
+      EvaluationPeriods: 2
+      MetricName: Available Memory
+      Namespace: Windows/Default
+      OKActions: [!Ref SnsTopicArnAll]
+      Period: 60
+      Statistic: Average
+      TreatMissingData: ignore
+      Unit: Megabytes
+    Type: 'AWS::CloudWatch::Alarm'
+
+  CloudWatchAlarmPm2Ad2WarnDiskC:
+    Properties:
+      AlarmName: !Sub 'Pm2Ad2-Warning-Drive-C-${AlarmNameDisk}'
+      Dimensions: [{Name: InstanceId, Value: !Ref InstanceIdPm2Ad2}]
+      MetricName: C.FreeDiskPercent
+      Threshold: !Ref ThresholdDiskWarn
+      # common settings below: common_disk_space_cw_alarm_props
+      AlarmActions: [!Ref SnsTopicArnAll]
+      AlarmDescription: Alert when instance Disk Space available is below threshold
+      ComparisonOperator: LessThanThreshold
+      EvaluationPeriods: 2
+      Namespace: Windows/Default
+      OKActions: [!Ref SnsTopicArnAll]
+      Period: 60
+      Statistic: Average
+      TreatMissingData: ignore
+      Unit: Percent
+    Type: 'AWS::CloudWatch::Alarm'
+
+  CloudWatchAlarmPm2Ad2CritDiskC:
+    Properties:
+      AlarmName: !Sub 'Pm2Ad2-Critical-Drive-C-${AlarmNameDisk}'
+      Dimensions: [{Name: InstanceId, Value: !Ref InstanceIdPm2Ad2}]
+      MetricName: C.FreeDiskPercent
+      Threshold: !Ref ThresholdDiskCrit
+      # common settings below: common_disk_space_cw_alarm_props
+      AlarmActions: [!Ref SnsTopicArnAll]
+      AlarmDescription: Alert when instance Disk Space available is below threshold
+      ComparisonOperator: LessThanThreshold
+      EvaluationPeriods: 2
+      Namespace: Windows/Default
+      OKActions: [!Ref SnsTopicArnAll]
+      Period: 60
+      Statistic: Average
+      TreatMissingData: ignore
+      Unit: Percent
+    Type: 'AWS::CloudWatch::Alarm'
+  # ---- end ----
+
+  # --- begin ---
+  CloudWatchAlarmArcGisSiemCpu:
+    Properties:
+      AlarmName: !Sub 'ArcGIS-SIEM-USWS202PWCON01-${AlarmNameCpu}'
+      Dimensions: [{Name: InstanceId, Value: !Ref InstanceIdArcGisSiem}]
+      # common settings below: common_cpu_usage_cw_alarm_props
+      AlarmActions: [!Ref SnsTopicArnAll, !Ref SnsTopicArnArcGis]
+      AlarmDescription: Alert when instance CPU usage is above threshold
+      ComparisonOperator: GreaterThanThreshold
+      EvaluationPeriods: 2
+      MetricName: CPUUtilization
+      Namespace: AWS/EC2
+      OKActions: [!Ref SnsTopicArnAll, !Ref SnsTopicArnArcGis]
+      Period: 60
+      Statistic: Average
+      Threshold: !Ref ThresholdCpu
+      TreatMissingData: ignore
+      Unit: Percent
+    Type: 'AWS::CloudWatch::Alarm'
+
+  CloudWatchAlarmArcGisSiemMem:
+    Properties:
+      AlarmName: !Sub 'ArcGIS-SIEM-USWS202PWCON01-${AlarmNameMem}'
+      Dimensions: [{Name: InstanceId, Value: !Ref InstanceIdArcGisSiem}]
+      Threshold: !Ref ThresholdMemC54XL
+      # common settings below: common_mem_avail_cw_alarm_props
+      AlarmActions: [!Ref SnsTopicArnAll, !Ref SnsTopicArnArcGis]
+      AlarmDescription: Alert when instance Mem available is below threshold
+      ComparisonOperator: LessThanThreshold
+      EvaluationPeriods: 2
+      MetricName: Available Memory
+      Namespace: Windows/Default
+      OKActions: [!Ref SnsTopicArnAll, !Ref SnsTopicArnArcGis]
+      Period: 60
+      Statistic: Average
+      TreatMissingData: ignore
+      Unit: Megabytes
+    Type: 'AWS::CloudWatch::Alarm'
+
+  CloudWatchAlarmArcGisSiemWarnDiskC:
+    Properties:
+      AlarmName: !Sub 'ArcGIS-SIEM-USWS202PWCON01-Warning-Drive-C-${AlarmNameDisk}'
+      Dimensions: [{Name: InstanceId, Value: !Ref InstanceIdArcGisSiem}]
+      MetricName: C.FreeDiskPercent
+      Threshold: !Ref ThresholdDiskWarn
+      # common settings below: common_disk_space_cw_alarm_props
+      AlarmActions: [!Ref SnsTopicArnAll, !Ref SnsTopicArnArcGis]
+      AlarmDescription: Alert when instance Disk Space available is below threshold
+      ComparisonOperator: LessThanThreshold
+      EvaluationPeriods: 2
+      Namespace: Windows/Default
+      OKActions: [!Ref SnsTopicArnAll, !Ref SnsTopicArnArcGis]
+      Period: 60
+      Statistic: Average
+      TreatMissingData: ignore
+      Unit: Percent
+    Type: 'AWS::CloudWatch::Alarm'
+
+  CloudWatchAlarmArcGisSiemCritDiskC:
+    Properties:
+      AlarmName: !Sub 'ArcGIS-SIEM-USWS202PWCON01-Critical-Drive-C-${AlarmNameDisk}'
+      Dimensions: [{Name: InstanceId, Value: !Ref InstanceIdArcGisSiem}]
+      MetricName: C.FreeDiskPercent
+      Threshold: !Ref ThresholdDiskCrit
+      # common settings below: common_disk_space_cw_alarm_props
+      AlarmActions: [!Ref SnsTopicArnAll, !Ref SnsTopicArnArcGis]
+      AlarmDescription: Alert when instance Disk Space available is below threshold
+      ComparisonOperator: LessThanThreshold
+      EvaluationPeriods: 2
+      Namespace: Windows/Default
+      OKActions: [!Ref SnsTopicArnAll, !Ref SnsTopicArnArcGis]
+      Period: 60
+      Statistic: Average
+      TreatMissingData: ignore
+      Unit: Percent
+    Type: 'AWS::CloudWatch::Alarm'
+
+  CloudWatchAlarmArcGisSiemWarnDiskD:
+    Properties:
+      AlarmName: !Sub 'ArcGIS-SIEM-USWS202PWCON01-Warning-Drive-D-${AlarmNameDisk}'
+      Dimensions: [{Name: InstanceId, Value: !Ref InstanceIdArcGisSiem}]
+      MetricName: D.FreeDiskPercent
+      Threshold: !Ref ThresholdDiskWarn
+      # common settings below: common_disk_space_cw_alarm_props
+      AlarmActions: [!Ref SnsTopicArnAll, !Ref SnsTopicArnArcGis]
+      AlarmDescription: Alert when instance Disk Space available is below threshold
+      ComparisonOperator: LessThanThreshold
+      EvaluationPeriods: 2
+      Namespace: Windows/Default
+      OKActions: [!Ref SnsTopicArnAll, !Ref SnsTopicArnArcGis]
+      Period: 60
+      Statistic: Average
+      TreatMissingData: ignore
+      Unit: Percent
+    Type: 'AWS::CloudWatch::Alarm'
+
+  CloudWatchAlarmArcGisSiemCritDiskD:
+    Properties:
+      AlarmName: !Sub 'ArcGIS-SIEM-USWS202PWCON01-Critical-Drive-D-${AlarmNameDisk}'
+      Dimensions: [{Name: InstanceId, Value: !Ref InstanceIdArcGisSiem}]
+      MetricName: D.FreeDiskPercent
+      Threshold: !Ref ThresholdDiskCrit
+      # common settings below: common_disk_space_cw_alarm_props
+      AlarmActions: [!Ref SnsTopicArnAll, !Ref SnsTopicArnArcGis]
+      AlarmDescription: Alert when instance Disk Space available is below threshold
+      ComparisonOperator: LessThanThreshold
+      EvaluationPeriods: 2
+      Namespace: Windows/Default
+      OKActions: [!Ref SnsTopicArnAll, !Ref SnsTopicArnArcGis]
+      Period: 60
+      Statistic: Average
+      TreatMissingData: ignore
+      Unit: Percent
+    Type: 'AWS::CloudWatch::Alarm'
+  # ---- end ----
+
+  # --- begin ---
+  CloudWatchAlarmArcGisMonitorUSWS201PAGMW001Cpu:
+    Properties:
+      AlarmName: !Sub 'ArcGIS-Monitor-USWS201PAGMW001-${AlarmNameCpu}'
+      Dimensions: [{Name: InstanceId, Value: !Ref InstanceIdArcGisMonitor}]
+      # common settings below: common_cpu_usage_cw_alarm_props
+      AlarmActions: [!Ref SnsTopicArnAll, !Ref SnsTopicArnArcGis]
+      AlarmDescription: Alert when instance CPU usage is above threshold
+      ComparisonOperator: GreaterThanThreshold
+      EvaluationPeriods: 2
+      MetricName: CPUUtilization
+      Namespace: AWS/EC2
+      OKActions: [!Ref SnsTopicArnAll, !Ref SnsTopicArnArcGis]
+      Period: 60
+      Statistic: Average
+      Threshold: !Ref ThresholdCpu
+      TreatMissingData: ignore
+      Unit: Percent
+    Type: 'AWS::CloudWatch::Alarm'
+
+  CloudWatchAlarmArcGisMonitorUSWS201PAGMW001Mem:
+    Properties:
+      AlarmName: !Sub 'ArcGIS-Monitor-USWS201PAGMW001-${AlarmNameMem}'
+      Dimensions: [{Name: InstanceId, Value: !Ref InstanceIdArcGisMonitor}]
+      Threshold: !Ref ThresholdMemM5XL
+      # common settings below: common_mem_avail_cw_alarm_props
+      AlarmActions: [!Ref SnsTopicArnAll, !Ref SnsTopicArnArcGis]
+      AlarmDescription: Alert when instance Mem available is below threshold
+      ComparisonOperator: LessThanThreshold
+      EvaluationPeriods: 2
+      MetricName: Available Memory
+      Namespace: Windows/Default
+      OKActions: [!Ref SnsTopicArnAll, !Ref SnsTopicArnArcGis]
+      Period: 60
+      Statistic: Average
+      TreatMissingData: ignore
+      Unit: Megabytes
+    Type: 'AWS::CloudWatch::Alarm'
+
+  CloudWatchAlarmArcGisMonitorUSWS201PAGMW001WarnDiskC:
+    Properties:
+      AlarmName: !Sub 'ArcGIS-Monitor-USWS201PAGMW001-Warning-Drive-C-${AlarmNameDisk}'
+      Dimensions: [{Name: InstanceId, Value: !Ref InstanceIdArcGisMonitor}]
+      MetricName: C.FreeDiskPercent
+      Threshold: !Ref ThresholdDiskWarn
+      # common settings below: common_disk_space_cw_alarm_props
+      AlarmActions: [!Ref SnsTopicArnAll, !Ref SnsTopicArnArcGis]
+      AlarmDescription: Alert when instance Disk Space available is below threshold
+      ComparisonOperator: LessThanThreshold
+      EvaluationPeriods: 2
+      Namespace: Windows/Default
+      OKActions: [!Ref SnsTopicArnAll, !Ref SnsTopicArnArcGis]
+      Period: 60
+      Statistic: Average
+      TreatMissingData: ignore
+      Unit: Percent
+    Type: 'AWS::CloudWatch::Alarm'
+
+  CloudWatchAlarmArcGisMonitorUSWS201PAGMW001CritDiskC:
+    Properties:
+      AlarmName: !Sub 'ArcGIS-Monitor-USWS201PAGMW001-Critical-Drive-C-${AlarmNameDisk}'
+      Dimensions: [{Name: InstanceId, Value: !Ref InstanceIdArcGisMonitor}]
+      MetricName: C.FreeDiskPercent
+      Threshold: !Ref ThresholdDiskCrit
+      # common settings below: common_disk_space_cw_alarm_props
+      AlarmActions: [!Ref SnsTopicArnAll, !Ref SnsTopicArnArcGis]
+      AlarmDescription: Alert when instance Disk Space available is below threshold
+      ComparisonOperator: LessThanThreshold
+      EvaluationPeriods: 2
+      Namespace: Windows/Default
+      OKActions: [!Ref SnsTopicArnAll, !Ref SnsTopicArnArcGis]
+      Period: 60
+      Statistic: Average
+      TreatMissingData: ignore
+      Unit: Percent
+    Type: 'AWS::CloudWatch::Alarm'
+
+  CloudWatchAlarmArcGisMonitorUSWS201PAGMW001WarnDiskD:
+    Properties:
+      AlarmName: !Sub 'ArcGIS-Monitor-USWS201PAGMW001-Warning-Drive-D-${AlarmNameDisk}'
+      Dimensions: [{Name: InstanceId, Value: !Ref InstanceIdArcGisMonitor}]
+      MetricName: D.FreeDiskPercent
+      Threshold: !Ref ThresholdDiskWarn
+      # common settings below: common_disk_space_cw_alarm_props
+      AlarmActions: [!Ref SnsTopicArnAll, !Ref SnsTopicArnArcGis]
+      AlarmDescription: Alert when instance Disk Space available is below threshold
+      ComparisonOperator: LessThanThreshold
+      EvaluationPeriods: 2
+      Namespace: Windows/Default
+      OKActions: [!Ref SnsTopicArnAll, !Ref SnsTopicArnArcGis]
+      Period: 60
+      Statistic: Average
+      TreatMissingData: ignore
+      Unit: Percent
+    Type: 'AWS::CloudWatch::Alarm'
+
+  CloudWatchAlarmArcGisMonitorUSWS201PAGMW001CritDiskD:
+    Properties:
+      AlarmName: !Sub 'ArcGIS-Monitor-USWS201PAGMW001-Critical-Drive-D-${AlarmNameDisk}'
+      Dimensions: [{Name: InstanceId, Value: !Ref InstanceIdArcGisMonitor}]
+      MetricName: D.FreeDiskPercent
+      Threshold: !Ref ThresholdDiskCrit
+      # common settings below: common_disk_space_cw_alarm_props
+      AlarmActions: [!Ref SnsTopicArnAll, !Ref SnsTopicArnArcGis]
+      AlarmDescription: Alert when instance Disk Space available is below threshold
+      ComparisonOperator: LessThanThreshold
+      EvaluationPeriods: 2
+      Namespace: Windows/Default
+      OKActions: [!Ref SnsTopicArnAll, !Ref SnsTopicArnArcGis]
+      Period: 60
+      Statistic: Average
+      TreatMissingData: ignore
+      Unit: Percent
+    Type: 'AWS::CloudWatch::Alarm'
+  # ---- end ----
+
+  # --- begin ---
+  CloudWatchAlarmPaloAltoACpu:
+    Properties:
+      AlarmName: !Sub 'PaloAlto-A-${AlarmNameCpu}'
+      Dimensions: [{Name: InstanceId, Value: !Ref InstanceIdPaloAltoA}]
+      # common settings below: common_cpu_usage_cw_alarm_props
+      AlarmActions: [!Ref SnsTopicArnAll]
+      AlarmDescription: Alert when instance CPU usage is above threshold
+      ComparisonOperator: GreaterThanThreshold
+      EvaluationPeriods: 2
+      MetricName: CPUUtilization
+      Namespace: AWS/EC2
+      OKActions: [!Ref SnsTopicArnAll]
+      Period: 60
+      Statistic: Average
+      Threshold: !Ref ThresholdCpu
+      TreatMissingData: ignore
+      Unit: Percent
+    Type: 'AWS::CloudWatch::Alarm'
+
+  CloudWatchAlarmPaloAltoANetIn:
+    Properties:
+      AlarmDescription: >
+        Alert when instance Network traffic in (bytes received) is below threshold
+      AlarmName: !Sub 'PaloAlto-A-${AlarmNameNet}-IN'
+      Dimensions: [{Name: InstanceId, Value: !Ref InstanceIdPaloAltoA}]
+      MetricName: NetworkIn
+      # common settings below: common_cpu_usage_cw_alarm_props
+      AlarmActions: [!Ref SnsTopicArnAll]
+      ComparisonOperator: LessThanThreshold
+      EvaluationPeriods: 2
+      Namespace: AWS/EC2
+      OKActions: [!Ref SnsTopicArnAll]
+      Period: 60
+      Statistic: Average
+      Threshold: !Ref ThresholdNet
+      TreatMissingData: ignore
+      Unit: Bytes
+    Type: 'AWS::CloudWatch::Alarm'
+
+  CloudWatchAlarmPaloAltoANetOut:
+    Properties:
+      AlarmDescription: >
+        Alert when instance Network traffic out (bytes sent) is below threshold
+      AlarmName: !Sub 'PaloAlto-A-${AlarmNameNet}-OUT'
+      Dimensions: [{Name: InstanceId, Value: !Ref InstanceIdPaloAltoA}]
+      MetricName: NetworkOut
+      # common settings below: common_cpu_usage_cw_alarm_props
+      AlarmActions: [!Ref SnsTopicArnAll]
+      ComparisonOperator: LessThanThreshold
+      EvaluationPeriods: 2
+      Namespace: AWS/EC2
+      OKActions: [!Ref SnsTopicArnAll]
+      Period: 60
+      Statistic: Average
+      Threshold: !Ref ThresholdNet
+      TreatMissingData: ignore
+      Unit: Bytes
+    Type: 'AWS::CloudWatch::Alarm'
+  # ---- end ----
+
+  # --- begin ---
+  CloudWatchAlarmPaloAltoBCpu:
+    Properties:
+      AlarmName: !Sub 'PaloAlto-B-${AlarmNameCpu}'
+      Dimensions: [{Name: InstanceId, Value: !Ref InstanceIdPaloAltoB}]
+      # common settings below: common_cpu_usage_cw_alarm_props
+      AlarmActions: [!Ref SnsTopicArnAll]
+      AlarmDescription: Alert when instance CPU usage is above threshold
+      ComparisonOperator: GreaterThanThreshold
+      EvaluationPeriods: 2
+      MetricName: CPUUtilization
+      Namespace: AWS/EC2
+      OKActions: [!Ref SnsTopicArnAll]
+      Period: 60
+      Statistic: Average
+      Threshold: !Ref ThresholdCpu
+      TreatMissingData: ignore
+      Unit: Percent
+    Type: 'AWS::CloudWatch::Alarm'
+
+  CloudWatchAlarmPaloAltoBNetIn:
+    Properties:
+      AlarmDescription: >
+        Alert when instance Network traffic in (bytes received) is below threshold
+      AlarmName: !Sub 'PaloAlto-B-${AlarmNameNet}-IN'
+      Dimensions: [{Name: InstanceId, Value: !Ref InstanceIdPaloAltoB}]
+      MetricName: NetworkIn
+      # common settings below: common_cpu_usage_cw_alarm_props
+      AlarmActions: [!Ref SnsTopicArnAll]
+      ComparisonOperator: LessThanThreshold
+      EvaluationPeriods: 2
+      Namespace: AWS/EC2
+      OKActions: [!Ref SnsTopicArnAll]
+      Period: 60
+      Statistic: Average
+      Threshold: !Ref ThresholdNet
+      TreatMissingData: ignore
+      Unit: Bytes
+    Type: 'AWS::CloudWatch::Alarm'
+
+  CloudWatchAlarmPaloAltoBNetOut:
+    Properties:
+      AlarmDescription: >
+        Alert when instance Network traffic out (bytes sent) is below threshold
+      AlarmName: !Sub 'PaloAlto-B-${AlarmNameNet}-OUT'
+      Dimensions: [{Name: InstanceId, Value: !Ref InstanceIdPaloAltoB}]
+      MetricName: NetworkOut
+      # common settings below: common_cpu_usage_cw_alarm_props
+      AlarmActions: [!Ref SnsTopicArnAll]
+      ComparisonOperator: LessThanThreshold
+      EvaluationPeriods: 2
+      Namespace: AWS/EC2
+      OKActions: [!Ref SnsTopicArnAll]
+      Period: 60
+      Statistic: Average
+      Threshold: !Ref ThresholdNet
+      TreatMissingData: ignore
+      Unit: Bytes
+    Type: 'AWS::CloudWatch::Alarm'
+  # ---- end ----
+
+  # --- begin ---
+  CloudWatchAlarmMobiliticsCpu:
+    Properties:
+      AlarmName: !Sub 'Mobilitics-${AlarmNameCpu}'
+      Dimensions: [{Name: InstanceId, Value: !Ref InstanceIdMobilitics}]
+      # common settings below: common_cpu_usage_cw_alarm_props
+      AlarmActions: [!Ref SnsTopicArnAll]
+      AlarmDescription: Alert when instance CPU usage is above threshold
+      ComparisonOperator: GreaterThanThreshold
+      EvaluationPeriods: 2
+      MetricName: CPUUtilization
+      Namespace: AWS/EC2
+      OKActions: [!Ref SnsTopicArnAll]
+      Period: 60
+      Statistic: Average
+      Threshold: !Ref ThresholdCpu
+      TreatMissingData: ignore
+      Unit: Percent
+    Type: 'AWS::CloudWatch::Alarm'
+
+  CloudWatchAlarmMobiliticsMem:
+    Properties:
+      AlarmName: !Sub 'Mobilitics-${AlarmNameMem}'
+      Dimensions: [{Name: InstanceId, Value: !Ref InstanceIdMobilitics}]
+      Threshold: !Ref ThresholdMemT2L
+      # common settings below: common_mem_avail_cw_alarm_props
+      AlarmActions: [!Ref SnsTopicArnAll]
+      AlarmDescription: Alert when instance Mem available is below threshold
+      ComparisonOperator: LessThanThreshold
+      EvaluationPeriods: 2
+      MetricName: Available Memory
+      Namespace: Windows/Default
+      OKActions: [!Ref SnsTopicArnAll]
+      Period: 60
+      Statistic: Average
+      TreatMissingData: ignore
+      Unit: Megabytes
+    Type: 'AWS::CloudWatch::Alarm'
+
+  CloudWatchAlarmMobiliticsWarnDiskC:
+    Properties:
+      AlarmName: !Sub 'Mobilitics-Warning-Drive-C-${AlarmNameDisk}'
+      Dimensions: [{Name: InstanceId, Value: !Ref InstanceIdMobilitics}]
+      MetricName: C.FreeDiskPercent
+      Threshold: !Ref ThresholdDiskWarn
+      # common settings below: common_disk_space_cw_alarm_props
+      AlarmActions: [!Ref SnsTopicArnAll]
+      AlarmDescription: Alert when instance Disk Space available is below threshold
+      ComparisonOperator: LessThanThreshold
+      EvaluationPeriods: 2
+      Namespace: Windows/Default
+      OKActions: [!Ref SnsTopicArnAll]
+      Period: 60
+      Statistic: Average
+      TreatMissingData: ignore
+      Unit: Percent
+    Type: 'AWS::CloudWatch::Alarm'
+
+  CloudWatchAlarmMobiliticsCritDiskC:
+    Properties:
+      AlarmName: !Sub 'Mobilitics-Critical-Drive-C-${AlarmNameDisk}'
+      Dimensions: [{Name: InstanceId, Value: !Ref InstanceIdMobilitics}]
+      MetricName: C.FreeDiskPercent
+      Threshold: !Ref ThresholdDiskCrit
+      # common settings below: common_disk_space_cw_alarm_props
+      AlarmActions: [!Ref SnsTopicArnAll]
+      AlarmDescription: Alert when instance Disk Space available is below threshold
+      ComparisonOperator: LessThanThreshold
+      EvaluationPeriods: 2
+      Namespace: Windows/Default
+      OKActions: [!Ref SnsTopicArnAll]
+      Period: 60
+      Statistic: Average
+      TreatMissingData: ignore
+      Unit: Percent
+    Type: 'AWS::CloudWatch::Alarm'
+
+  CloudWatchAlarmMobiliticsWarnDiskD:
+    Properties:
+      AlarmName: !Sub 'Mobilitics-Warning-Drive-D-${AlarmNameDisk}'
+      Dimensions: [{Name: InstanceId, Value: !Ref InstanceIdMobilitics}]
+      MetricName: D.FreeDiskPercent
+      Threshold: !Ref ThresholdDiskWarn
+      # common settings below: common_disk_space_cw_alarm_props
+      AlarmActions: [!Ref SnsTopicArnAll]
+      AlarmDescription: Alert when instance Disk Space available is below threshold
+      ComparisonOperator: LessThanThreshold
+      EvaluationPeriods: 2
+      Namespace: Windows/Default
+      OKActions: [!Ref SnsTopicArnAll]
+      Period: 60
+      Statistic: Average
+      TreatMissingData: ignore
+      Unit: Percent
+    Type: 'AWS::CloudWatch::Alarm'
+
+  CloudWatchAlarmMobiliticsCritDiskD:
+    Properties:
+      AlarmName: !Sub 'Mobilitics-Critical-Drive-D-${AlarmNameDisk}'
+      Dimensions: [{Name: InstanceId, Value: !Ref InstanceIdMobilitics}]
+      MetricName: D.FreeDiskPercent
+      Threshold: !Ref ThresholdDiskCrit
+      # common settings below: common_disk_space_cw_alarm_props
+      AlarmActions: [!Ref SnsTopicArnAll]
+      AlarmDescription: Alert when instance Disk Space available is below threshold
+      ComparisonOperator: LessThanThreshold
+      EvaluationPeriods: 2
+      Namespace: Windows/Default
+      OKActions: [!Ref SnsTopicArnAll]
+      Period: 60
+      Statistic: Average
+      TreatMissingData: ignore
+      Unit: Percent
+    Type: 'AWS::CloudWatch::Alarm'
+  # ---- end ----
+
+  # --- begin ---
+  CloudWatchAlarmArcGisFileServerCpu:
+    Properties:
+      AlarmName: !Sub 'ArcGIS-FileServer-${AlarmNameCpu}'
+      Dimensions: [{Name: InstanceId, Value: !Ref InstanceIdArcGisFileServer}]
+      # common settings below: common_cpu_usage_cw_alarm_props
+      AlarmActions: [!Ref SnsTopicArnAll, !Ref SnsTopicArnArcGis]
+      AlarmDescription: Alert when instance CPU usage is above threshold
+      ComparisonOperator: GreaterThanThreshold
+      EvaluationPeriods: 2
+      MetricName: CPUUtilization
+      Namespace: AWS/EC2
+      OKActions: [!Ref SnsTopicArnAll, !Ref SnsTopicArnArcGis]
+      Period: 60
+      Statistic: Average
+      Threshold: !Ref ThresholdCpu
+      TreatMissingData: ignore
+      Unit: Percent
+    Type: 'AWS::CloudWatch::Alarm'
+
+  CloudWatchAlarmArcGisFileServerMem:
+    Properties:
+      AlarmName: !Sub 'ArcGIS-FileServer-${AlarmNameMem}'
+      Dimensions: [{Name: InstanceId, Value: !Ref InstanceIdArcGisFileServer}]
+      Threshold: !Ref ThresholdMemC4L
+      # common settings below: common_mem_avail_cw_alarm_props
+      AlarmActions: [!Ref SnsTopicArnAll, !Ref SnsTopicArnArcGis]
+      AlarmDescription: Alert when instance Mem available is below threshold
+      ComparisonOperator: LessThanThreshold
+      EvaluationPeriods: 2
+      MetricName: Available Memory
+      Namespace: Windows/Default
+      OKActions: [!Ref SnsTopicArnAll, !Ref SnsTopicArnArcGis]
+      Period: 60
+      Statistic: Average
+      TreatMissingData: ignore
+      Unit: Megabytes
+    Type: 'AWS::CloudWatch::Alarm'
+
+  CloudWatchAlarmArcGisFileServerWarnDiskC:
+    Properties:
+      AlarmName: !Sub 'ArcGIS-FileServer-Warning-Drive-C-${AlarmNameDisk}'
+      Dimensions: [{Name: InstanceId, Value: !Ref InstanceIdArcGisFileServer}]
+      MetricName: C.FreeDiskPercent
+      Threshold: !Ref ThresholdDiskWarn
+      # common settings below: common_disk_space_cw_alarm_props
+      AlarmActions: [!Ref SnsTopicArnAll, !Ref SnsTopicArnArcGis]
+      AlarmDescription: Alert when instance Disk Space available is below threshold
+      ComparisonOperator: LessThanThreshold
+      EvaluationPeriods: 2
+      Namespace: Windows/Default
+      OKActions: [!Ref SnsTopicArnAll, !Ref SnsTopicArnArcGis]
+      Period: 60
+      Statistic: Average
+      TreatMissingData: ignore
+      Unit: Percent
+    Type: 'AWS::CloudWatch::Alarm'
+
+  CloudWatchAlarmArcGisFileServerCritDiskC:
+    Properties:
+      AlarmName: !Sub 'ArcGIS-FileServer-Critical-Drive-C-${AlarmNameDisk}'
+      Dimensions: [{Name: InstanceId, Value: !Ref InstanceIdArcGisFileServer}]
+      MetricName: C.FreeDiskPercent
+      Threshold: !Ref ThresholdDiskCrit
+      # common settings below: common_disk_space_cw_alarm_props
+      AlarmActions: [!Ref SnsTopicArnAll, !Ref SnsTopicArnArcGis]
+      AlarmDescription: Alert when instance Disk Space available is below threshold
+      ComparisonOperator: LessThanThreshold
+      EvaluationPeriods: 2
+      Namespace: Windows/Default
+      OKActions: [!Ref SnsTopicArnAll, !Ref SnsTopicArnArcGis]
+      Period: 60
+      Statistic: Average
+      TreatMissingData: ignore
+      Unit: Percent
+    Type: 'AWS::CloudWatch::Alarm'
+
+  CloudWatchAlarmArcGisFileServerWarnDiskD:
+    Properties:
+      AlarmName: !Sub 'ArcGIS-FileServer-Warning-Drive-D-${AlarmNameDisk}'
+      Dimensions: [{Name: InstanceId, Value: !Ref InstanceIdArcGisFileServer}]
+      MetricName: D.FreeDiskPercent
+      Threshold: !Ref ThresholdDiskWarn
+      # common settings below: common_disk_space_cw_alarm_props
+      AlarmActions: [!Ref SnsTopicArnAll, !Ref SnsTopicArnArcGis]
+      AlarmDescription: Alert when instance Disk Space available is below threshold
+      ComparisonOperator: LessThanThreshold
+      EvaluationPeriods: 2
+      Namespace: Windows/Default
+      OKActions: [!Ref SnsTopicArnAll, !Ref SnsTopicArnArcGis]
+      Period: 60
+      Statistic: Average
+      TreatMissingData: ignore
+      Unit: Percent
+    Type: 'AWS::CloudWatch::Alarm'
+
+  CloudWatchAlarmArcGisFileServerCritDiskD:
+    Properties:
+      AlarmName: !Sub 'ArcGIS-FileServer-Critical-Drive-D-${AlarmNameDisk}'
+      Dimensions: [{Name: InstanceId, Value: !Ref InstanceIdArcGisFileServer}]
+      MetricName: D.FreeDiskPercent
+      Threshold: !Ref ThresholdDiskCrit
+      # common settings below: common_disk_space_cw_alarm_props
+      AlarmActions: [!Ref SnsTopicArnAll, !Ref SnsTopicArnArcGis]
+      AlarmDescription: Alert when instance Disk Space available is below threshold
+      ComparisonOperator: LessThanThreshold
+      EvaluationPeriods: 2
+      Namespace: Windows/Default
+      OKActions: [!Ref SnsTopicArnAll, !Ref SnsTopicArnArcGis]
+      Period: 60
+      Statistic: Average
+      TreatMissingData: ignore
+      Unit: Percent
+    Type: 'AWS::CloudWatch::Alarm'
+  # ---- end ----
+
+  # --- begin ---
+  CloudWatchAlarmArcGisPrimaryCpu:
+    Properties:
+      AlarmName: !Sub 'ArcGIS-Primary-${AlarmNameCpu}'
+      Dimensions: [{Name: InstanceId, Value: !Ref InstanceIdArcGisPrimary}]
+      # common settings below: common_cpu_usage_cw_alarm_props
+      AlarmActions: [!Ref SnsTopicArnAll, !Ref SnsTopicArnArcGis]
+      AlarmDescription: Alert when instance CPU usage is above threshold
+      ComparisonOperator: GreaterThanThreshold
+      EvaluationPeriods: 2
+      MetricName: CPUUtilization
+      Namespace: AWS/EC2
+      OKActions: [!Ref SnsTopicArnAll, !Ref SnsTopicArnArcGis]
+      Period: 60
+      Statistic: Average
+      Threshold: !Ref ThresholdCpu
+      TreatMissingData: ignore
+      Unit: Percent
+    Type: 'AWS::CloudWatch::Alarm'
+
+  CloudWatchAlarmArcGisPrimaryMem:
+    Properties:
+      AlarmName: !Sub 'ArcGIS-Primary-${AlarmNameMem}'
+      Dimensions: [{Name: InstanceId, Value: !Ref InstanceIdArcGisPrimary}]
+      Threshold: !Ref ThresholdMemR4XL
+      # common settings below: common_mem_avail_cw_alarm_props
+      AlarmActions: [!Ref SnsTopicArnAll, !Ref SnsTopicArnArcGis]
+      AlarmDescription: Alert when instance Mem available is below threshold
+      ComparisonOperator: LessThanThreshold
+      EvaluationPeriods: 2
+      MetricName: Available Memory
+      Namespace: Windows/Default
+      OKActions: [!Ref SnsTopicArnAll, !Ref SnsTopicArnArcGis]
+      Period: 60
+      Statistic: Average
+      TreatMissingData: ignore
+      Unit: Megabytes
+    Type: 'AWS::CloudWatch::Alarm'
+
+  CloudWatchAlarmArcGisPrimaryWarnDiskC:
+    Properties:
+      AlarmName: !Sub 'ArcGIS-Primary-Warning-Drive-C-${AlarmNameDisk}'
+      Dimensions: [{Name: InstanceId, Value: !Ref InstanceIdArcGisPrimary}]
+      MetricName: C.FreeDiskPercent
+      Threshold: !Ref ThresholdDiskWarn
+      # common settings below: common_disk_space_cw_alarm_props
+      AlarmActions: [!Ref SnsTopicArnAll, !Ref SnsTopicArnArcGis]
+      AlarmDescription: Alert when instance Disk Space available is below threshold
+      ComparisonOperator: LessThanThreshold
+      EvaluationPeriods: 2
+      Namespace: Windows/Default
+      OKActions: [!Ref SnsTopicArnAll, !Ref SnsTopicArnArcGis]
+      Period: 60
+      Statistic: Average
+      TreatMissingData: ignore
+      Unit: Percent
+    Type: 'AWS::CloudWatch::Alarm'
+
+  CloudWatchAlarmArcGisPrimaryCritDiskC:
+    Properties:
+      AlarmName: !Sub 'ArcGIS-Primary-Critical-Drive-C-${AlarmNameDisk}'
+      Dimensions: [{Name: InstanceId, Value: !Ref InstanceIdArcGisPrimary}]
+      MetricName: C.FreeDiskPercent
+      Threshold: !Ref ThresholdDiskCrit
+      # common settings below: common_disk_space_cw_alarm_props
+      AlarmActions: [!Ref SnsTopicArnAll, !Ref SnsTopicArnArcGis]
+      AlarmDescription: Alert when instance Disk Space available is below threshold
+      ComparisonOperator: LessThanThreshold
+      EvaluationPeriods: 2
+      Namespace: Windows/Default
+      OKActions: [!Ref SnsTopicArnAll, !Ref SnsTopicArnArcGis]
+      Period: 60
+      Statistic: Average
+      TreatMissingData: ignore
+      Unit: Percent
+    Type: 'AWS::CloudWatch::Alarm'
+
+  CloudWatchAlarmArcGisPrimaryWarnDiskD:
+    Properties:
+      AlarmName: !Sub 'ArcGIS-Primary-Warning-Drive-D-${AlarmNameDisk}'
+      Dimensions: [{Name: InstanceId, Value: !Ref InstanceIdArcGisPrimary}]
+      MetricName: D.FreeDiskPercent
+      Threshold: !Ref ThresholdDiskWarn
+      # common settings below: common_disk_space_cw_alarm_props
+      AlarmActions: [!Ref SnsTopicArnAll, !Ref SnsTopicArnArcGis]
+      AlarmDescription: Alert when instance Disk Space available is below threshold
+      ComparisonOperator: LessThanThreshold
+      EvaluationPeriods: 2
+      Namespace: Windows/Default
+      OKActions: [!Ref SnsTopicArnAll, !Ref SnsTopicArnArcGis]
+      Period: 60
+      Statistic: Average
+      TreatMissingData: ignore
+      Unit: Percent
+    Type: 'AWS::CloudWatch::Alarm'
+
+  CloudWatchAlarmArcGisPrimaryCritDiskD:
+    Properties:
+      AlarmName: !Sub 'ArcGIS-Primary-Critical-Drive-D-${AlarmNameDisk}'
+      Dimensions: [{Name: InstanceId, Value: !Ref InstanceIdArcGisPrimary}]
+      MetricName: D.FreeDiskPercent
+      Threshold: !Ref ThresholdDiskCrit
+      # common settings below: common_disk_space_cw_alarm_props
+      AlarmActions: [!Ref SnsTopicArnAll, !Ref SnsTopicArnArcGis]
+      AlarmDescription: Alert when instance Disk Space available is below threshold
+      ComparisonOperator: LessThanThreshold
+      EvaluationPeriods: 2
+      Namespace: Windows/Default
+      OKActions: [!Ref SnsTopicArnAll, !Ref SnsTopicArnArcGis]
+      Period: 60
+      Statistic: Average
+      TreatMissingData: ignore
+      Unit: Percent
+    Type: 'AWS::CloudWatch::Alarm'
+  # ---- end ----
+
+  # --- begin ---
+  CloudWatchAlarmArcGisSecondaryCpu:
+    Properties:
+      AlarmName: !Sub 'ArcGIS-Secondary-${AlarmNameCpu}'
+      Dimensions: [{Name: InstanceId, Value: !Ref InstanceIdArcGisSecondary}]
+      # common settings below: common_cpu_usage_cw_alarm_props
+      AlarmActions: [!Ref SnsTopicArnAll, !Ref SnsTopicArnArcGis]
+      AlarmDescription: Alert when instance CPU usage is above threshold
+      ComparisonOperator: GreaterThanThreshold
+      EvaluationPeriods: 2
+      MetricName: CPUUtilization
+      Namespace: AWS/EC2
+      OKActions: [!Ref SnsTopicArnAll, !Ref SnsTopicArnArcGis]
+      Period: 60
+      Statistic: Average
+      Threshold: !Ref ThresholdCpu
+      TreatMissingData: ignore
+      Unit: Percent
+    Type: 'AWS::CloudWatch::Alarm'
+
+  CloudWatchAlarmArcGisSecondaryMem:
+    Properties:
+      AlarmName: !Sub 'ArcGIS-Secondary-${AlarmNameMem}'
+      Dimensions: [{Name: InstanceId, Value: !Ref InstanceIdArcGisSecondary}]
+      Threshold: !Ref ThresholdMemR4XL
+      # common settings below: common_mem_avail_cw_alarm_props
+      AlarmActions: [!Ref SnsTopicArnAll, !Ref SnsTopicArnArcGis]
+      AlarmDescription: Alert when instance Mem available is below threshold
+      ComparisonOperator: LessThanThreshold
+      EvaluationPeriods: 2
+      MetricName: Available Memory
+      Namespace: Windows/Default
+      OKActions: [!Ref SnsTopicArnAll, !Ref SnsTopicArnArcGis]
+      Period: 60
+      Statistic: Average
+      TreatMissingData: ignore
+      Unit: Megabytes
+    Type: 'AWS::CloudWatch::Alarm'
+
+  CloudWatchAlarmArcGisSecondaryWarnDiskC:
+    Properties:
+      AlarmName: !Sub 'ArcGIS-Secondary-Warning-Drive-C-${AlarmNameDisk}'
+      Dimensions: [{Name: InstanceId, Value: !Ref InstanceIdArcGisSecondary}]
+      MetricName: C.FreeDiskPercent
+      Threshold: !Ref ThresholdDiskWarn
+      # common settings below: common_disk_space_cw_alarm_props
+      AlarmActions: [!Ref SnsTopicArnAll, !Ref SnsTopicArnArcGis]
+      AlarmDescription: Alert when instance Disk Space available is below threshold
+      ComparisonOperator: LessThanThreshold
+      EvaluationPeriods: 2
+      Namespace: Windows/Default
+      OKActions: [!Ref SnsTopicArnAll, !Ref SnsTopicArnArcGis]
+      Period: 60
+      Statistic: Average
+      TreatMissingData: ignore
+      Unit: Percent
+    Type: 'AWS::CloudWatch::Alarm'
+
+  CloudWatchAlarmArcGisSecondaryCritDiskC:
+    Properties:
+      AlarmName: !Sub 'ArcGIS-Secondary-Critical-Drive-C-${AlarmNameDisk}'
+      Dimensions: [{Name: InstanceId, Value: !Ref InstanceIdArcGisSecondary}]
+      MetricName: C.FreeDiskPercent
+      Threshold: !Ref ThresholdDiskCrit
+      # common settings below: common_disk_space_cw_alarm_props
+      AlarmActions: [!Ref SnsTopicArnAll, !Ref SnsTopicArnArcGis]
+      AlarmDescription: Alert when instance Disk Space available is below threshold
+      ComparisonOperator: LessThanThreshold
+      EvaluationPeriods: 2
+      Namespace: Windows/Default
+      OKActions: [!Ref SnsTopicArnAll, !Ref SnsTopicArnArcGis]
+      Period: 60
+      Statistic: Average
+      TreatMissingData: ignore
+      Unit: Percent
+    Type: 'AWS::CloudWatch::Alarm'
+
+  CloudWatchAlarmArcGisSecondaryWarnDiskD:
+    Properties:
+      AlarmName: !Sub 'ArcGIS-Secondary-Warning-Drive-D-${AlarmNameDisk}'
+      Dimensions: [{Name: InstanceId, Value: !Ref InstanceIdArcGisSecondary}]
+      MetricName: D.FreeDiskPercent
+      Threshold: !Ref ThresholdDiskWarn
+      # common settings below: common_disk_space_cw_alarm_props
+      AlarmActions: [!Ref SnsTopicArnAll, !Ref SnsTopicArnArcGis]
+      AlarmDescription: Alert when instance Disk Space available is below threshold
+      ComparisonOperator: LessThanThreshold
+      EvaluationPeriods: 2
+      Namespace: Windows/Default
+      OKActions: [!Ref SnsTopicArnAll, !Ref SnsTopicArnArcGis]
+      Period: 60
+      Statistic: Average
+      TreatMissingData: ignore
+      Unit: Percent
+    Type: 'AWS::CloudWatch::Alarm'
+
+  CloudWatchAlarmArcGisSecondaryCritDiskD:
+    Properties:
+      AlarmName: !Sub 'ArcGIS-Secondary-Critical-Drive-D-${AlarmNameDisk}'
+      Dimensions: [{Name: InstanceId, Value: !Ref InstanceIdArcGisSecondary}]
+      MetricName: D.FreeDiskPercent
+      Threshold: !Ref ThresholdDiskCrit
+      # common settings below: common_disk_space_cw_alarm_props
+      AlarmActions: [!Ref SnsTopicArnAll, !Ref SnsTopicArnArcGis]
+      AlarmDescription: Alert when instance Disk Space available is below threshold
+      ComparisonOperator: LessThanThreshold
+      EvaluationPeriods: 2
+      Namespace: Windows/Default
+      OKActions: [!Ref SnsTopicArnAll, !Ref SnsTopicArnArcGis]
+      Period: 60
+      Statistic: Average
+      TreatMissingData: ignore
+      Unit: Percent
+    Type: 'AWS::CloudWatch::Alarm'
+    # ---- end ----

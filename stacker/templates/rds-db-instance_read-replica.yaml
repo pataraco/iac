@@ -1,0 +1,162 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Creates an Amazon Relational Database Service
+  (Amazon RDS) DB instance'
+
+
+Parameters:
+
+  Application:
+    Description: 'Name of application for which database will be used'
+    Type: String
+
+  DBInstanceClass:
+    Default: db.t2.micro
+    Description: 'Instance type to use for the DB instance'
+    Type: String
+
+  DBInstanceIdentifier:
+    Description: 'A name for the DB instance'
+    Type: String
+
+  DBParameterGroupName:
+    Description: 'Name of an existing DB parameter group name to use'
+    Type: String
+
+  DBSubnetGroupName:
+    Description: 'DB Subnet Group'
+    Type: String
+
+  Engine:
+    Description: 'The type of database engine to use'
+    Type: String
+
+  EngineVersion:
+    Description: 'The version number of the database engine to use'
+    Type: String
+
+  Environment:
+    Default: Dev
+    Description: 'Name of Environment'
+    Type: String
+
+  Iops:
+    Default: 0
+    Description: 'The number of I/O operations per second (IOPS) that
+      the database provisions. The value must be equal to or greater
+      than 1000 (optional)'
+    Type: Number
+
+  KmsKeyId:
+    Default: ''
+    Description: 'ARN for the AWS Key Management Service (KMS) key -
+      Blank uses an AWS managed KMS key or none if encryption not enabled'
+    Type: String
+
+  LicenseModel:
+    Description: 'License model information for this RDS DB instance'
+    Type: String
+
+  Port:
+    Description: 'The port for the instance'
+    Type: String
+
+  PubliclyAccessible:
+    AllowedValues: ['true', 'false']
+    Default: 'false'
+    Description: 'Indicates whether or not the DB instance is
+      publicly accessible.
+      true - creates an instance with a publicly resolvable DNS name,
+      which resolves to a public IP address.
+      false - creates an internal instance with a DNS name
+      that resolves to a private IP address.'
+    Type: String
+
+  SourceDBInstanceIdentifier:
+    Description: 'ID of the source DB instance'
+    Type: String
+
+  SourceRegion:
+    Default: undefined
+    Description: 'Specific region of source DB instance if different from
+      read replica (optional)'
+    Type: String
+
+  StorageType:
+    AllowedValues: ['standard', 'gp2', 'io1']
+    Description: 'Specifies the storage type to be associated with
+      the DB instance'
+    Type: String
+
+  VPCSecurityGroups:
+    Description: 'List of VPC security group IDs for DB'
+    Type: 'List<AWS::EC2::SecurityGroup::Id>'
+
+
+Conditions:
+
+  IopsSpecified: !Not
+    - !Or
+      - !Equals [!Ref Iops, '']
+      - !Equals [!Ref Iops, 0]
+
+  KmsKeySpecified: !Not
+    - !Equals [!Ref KmsKeyId, '']
+
+  SourceRegionSpecified: !Not
+    - !Or
+      - !Equals [!Ref SourceRegion, '']
+      - !Equals [!Ref SourceRegion, undefined]
+
+
+Resources:
+
+  RdsDatabaseReadReplica:
+    Properties:
+      DBInstanceClass: !Ref DBInstanceClass
+      DBInstanceIdentifier: !Ref DBInstanceIdentifier
+      DBParameterGroupName: !Ref DBParameterGroupName
+      DBSubnetGroupName: !Ref DBSubnetGroupName
+      Engine: !Ref Engine
+      EngineVersion: !Ref EngineVersion
+      Iops: !If
+        - IopsSpecified
+        - !Sub '${Iops}'
+        - !Ref 'AWS::NoValue'
+      KmsKeyId: !If
+        - KmsKeySpecified
+        - !Ref KmsKeyId
+        - !Ref 'AWS::NoValue'
+      LicenseModel: !Ref LicenseModel
+      Port: !Ref Port
+      PubliclyAccessible: !Ref PubliclyAccessible
+      SourceDBInstanceIdentifier: !Ref SourceDBInstanceIdentifier
+      SourceRegion: !If
+        - SourceRegionSpecified
+        - !Ref SourceRegion
+        - !Ref 'AWS::NoValue'
+      StorageType: !Ref StorageType
+      Tags:
+        - {Key: Application, Value: !Ref Application}
+        - {Key: Environment, Value: !Ref Environment}
+        - {Key: Name, Value: !Ref DBInstanceIdentifier}
+      VPCSecurityGroups: !Ref VPCSecurityGroups
+    Type: AWS::RDS::DBInstance
+
+
+Outputs:
+
+  RdsReadReplicaEndpoint:
+    Description: The endpoint address of the RDS Read Replica DB instance
+    Export: {'Name': !Sub '${AWS::StackName}-RdsReadReplicaEndpoint'}
+    Value: !GetAtt RdsDatabaseReadReplica.Endpoint.Address
+
+  RdsReadReplicaName:
+    Description: The name of the RDS Read Replica DB instance
+    Export: {'Name': !Sub '${AWS::StackName}-RdsReadReplicaName'}
+    Value: !GetAtt RdsDatabaseReadReplica.Endpoint.Address
+
+  RdsReadReplicaPort:
+    Description: The endpoint port of the RDS DB instance
+    Export: {'Name': !Sub '${AWS::StackName}-RdsReadReplicaPort'}
+    Value: !GetAtt RdsDatabaseReadReplica.Endpoint.Port

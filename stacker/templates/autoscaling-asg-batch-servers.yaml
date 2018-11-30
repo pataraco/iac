@@ -1,0 +1,82 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Creates an Auto Scaling Group for the Batch Servers'
+
+
+Parameters:
+
+  AutoScalingGroupName:
+    Description: 'Name to give AutoScaling Group'
+    Type: String
+
+  Cooldown:
+    Default: 300
+    Description: 'The number of seconds after a scaling activity is completed
+      before any further scaling activities can start'
+    Type: Number
+
+  DesiredCapacity:
+    Default: 1
+    Description: 'Number of desired instances to run'
+    Type: Number
+
+  HealthCheckGracePeriod:
+    Default: 0
+    Description: 'The length of time in seconds after a new EC2 instance comes
+      into service that Auto Scaling starts checking its health'
+    Type: Number
+
+  HealthCheckType:
+    AllowedValues: [EC2, ELB]
+    Default: EC2
+    Description: 'The service you want the health status from, Amazon EC2 or
+      Elastic Load Balancer. Valid values are EC2 or ELB (default: EC2)'
+    Type: String
+
+  InstanceName:
+    Description: 'Name to give Instance'
+    Type: String
+
+  LaunchConfigurationName:
+    Description: 'Specifies the Launch Configuration name'
+    Type: String
+
+  MaxSize:
+    Default: 2
+    Description: 'The maximum size of the Auto Scaling group'
+    Type: Number
+
+  MinSize:
+    Default: 1
+    Description: 'The minimum size of the Auto Scaling group'
+    Type: Number
+
+  SubnetIdList:
+    Description: 'A list subnets to place EC2 intances into (used for
+      VPCZoneIdentifier parameter)'
+    Type: 'List<AWS::EC2::Subnet::Id>'
+
+
+Resources:
+
+  AutoScalingGroup:
+    Properties:
+      Cooldown: !Ref Cooldown
+      DesiredCapacity: !Ref DesiredCapacity
+      HealthCheckGracePeriod: !Ref HealthCheckGracePeriod
+      HealthCheckType: !Ref HealthCheckType
+      LaunchConfigurationName: !Ref LaunchConfigurationName
+      MaxSize: !Ref MaxSize
+      MinSize: !Ref MinSize
+      Tags:
+        - {Key: Name, PropagateAtLaunch: true, Value: !Ref InstanceName}
+      VPCZoneIdentifier: !Ref SubnetIdList
+    Type: AWS::AutoScaling::AutoScalingGroup
+
+
+Outputs:
+
+  AutoScalingGroupName:
+    Description: Name of the Auto Scaling Group
+    Export: {'Name': !Sub '${AWS::StackName}-AutoScalingGroupName'}
+    Value: !Ref AutoScalingGroup

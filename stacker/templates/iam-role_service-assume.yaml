@@ -1,0 +1,68 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Creates an IAM Role that can assume EC2 service
+  and attaches managed policies to it and creates an instance profile of it'
+
+
+Parameters:
+
+  PrincipalService:
+    AllowedPattern: '[a-zA-Z0-9-.]*'
+    Description: 'IAM service (principal) to allow to assume this role'
+    Type: String
+
+  ManagedPolicyArn:
+    Description: 'Managed policy ARNs to attach to this role'
+    Type: String
+
+  RoleName:
+    AllowedPattern: '[a-zA-Z0-9-_+=.@]*'
+    Description: 'IAM role name to create (with EC2 assume role capability)'
+    Type: String
+
+
+Resources:
+
+  IamInstanceProfile:
+    Properties:
+      InstanceProfileName: !Ref IamRole
+      Roles:
+        - !Ref IamRole
+    Type: AWS::IAM::InstanceProfile
+
+  IamRole:
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: ['sts:AssumeRole']
+            Effect: Allow
+            Principal:
+              Service: !Ref PrincipalService
+        Version: '2012-10-17'
+      ManagedPolicyArns:
+        - !Ref ManagedPolicyArn
+      RoleName: !Ref RoleName
+    Type: AWS::IAM::Role
+
+
+Outputs:
+
+  IamInstanceProfileArn:
+    Description: IAM Instance Profile ARN
+    Export: {Name: !Sub '${AWS::StackName}-IamInstanceProfileArn'}
+    Value: !GetAtt IamInstanceProfile.Arn
+
+  IamInstanceProfileName:
+    Description: IAM Instance Profile name
+    Export: {Name: !Sub '${AWS::StackName}-IamInstanceProfileName'}
+    Value: !Ref IamInstanceProfile
+
+  IamRoleArn:
+    Description: 'IAM Role ARN'
+    Export: {Name: !Sub '${AWS::StackName}-IamRoleArn'}
+    Value: !GetAtt IamRole.Arn
+
+  IamRoleName:
+    Description: IAM Role name
+    Export: {Name: !Sub '${AWS::StackName}-IamRoleName'}
+    Value: !Ref IamRole

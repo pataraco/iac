@@ -1,0 +1,34 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Onica Platform - Core - VPN Elastic IP - 1.19.0
+
+
+Parameters:
+
+  CustomerName: {AllowedPattern: '[-_ a-z]*', Default: '', Description: 'The nickname
+      for the new customer. Must be all lowercase letters, should not contain spaces
+      or special characters, nor should it include any part of EnvironmentName.',
+    Type: String}
+
+  EnvironmentName: {Default: common, Description: Name of Environment, Type: String}
+
+Resources:
+  VPNElasticIP:
+    Properties: {Domain: vpc}
+    Type: AWS::EC2::EIP
+
+
+Outputs:
+
+  VpnEipAllocationId:
+    Description: AllocationId of the VPN instance public IP
+    Export:
+      Name: {'Fn::Sub': '${AWS::StackName}-VpnEipAllocationId'}
+    Value:
+      Fn::GetAtt: [VPNElasticIP, AllocationId]
+
+  VpnEipPublicIp:
+    Description: VPN instance public IP
+    Export:
+      Name: {'Fn::Sub': '${AWS::StackName}-VpnEipPublicIp'}
+    Value: {Ref: VPNElasticIP}

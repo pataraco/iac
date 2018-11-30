@@ -1,0 +1,70 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Creates an EC2 Security Group and ingress rules for an Oracle DB
+  server to allow traffic from various servers security groups'
+
+
+Parameters:
+
+  GroupDescription:
+    Description: 'A description of the security group'
+    Type: String
+
+  GroupName:
+    Description: 'A name for the security group'
+    Type: String
+
+  SourceSgId1: {Description: 'Security Group ID to allow access', Type: String}
+  SourceSgId2: {Default: '', Type: String}
+  SourceSgId3: {Default: '', Type: String}
+  SourceSgId4: {Default: '', Type: String}
+  SourceSgId5: {Default: '', Type: String}
+
+  VpcId:
+    Description: 'VPC ID to create the Security Group in'
+    Type: AWS::EC2::VPC::Id
+
+
+Conditions:
+
+  AddSrcSecGrp2: !Not [!Equals [!Ref SourceSgId2, '']]
+  AddSrcSecGrp3: !Not [!Equals [!Ref SourceSgId3, '']]
+  AddSrcSecGrp4: !Not [!Equals [!Ref SourceSgId4, '']]
+  AddSrcSecGrp5: !Not [!Equals [!Ref SourceSgId5, '']]
+
+Resources:
+
+  Ec2SecurityGroup:
+    Properties:
+      GroupName: !Ref GroupName
+      GroupDescription: !Ref GroupDescription
+      SecurityGroupIngress:
+        - {FromPort: 1521, ToPort: 1522, IpProtocol: tcp, SourceSecurityGroupId: !Ref SourceSgId1, Description: Oracle DB Access - Source 1}
+        - !If
+          - AddSrcSecGrp2
+          - {FromPort: 1521, ToPort: 1522, IpProtocol: tcp, SourceSecurityGroupId: !Ref SourceSgId2, Description: Oracle DB Access - Source 2}
+          - !Ref AWS::NoValue
+        - !If
+          - AddSrcSecGrp3
+          - {FromPort: 1521, ToPort: 1522, IpProtocol: tcp, SourceSecurityGroupId: !Ref SourceSgId3, Description: Oracle DB Access - Source 3}
+          - !Ref AWS::NoValue
+        - !If
+          - AddSrcSecGrp4
+          - {FromPort: 1521, ToPort: 1522, IpProtocol: tcp, SourceSecurityGroupId: !Ref SourceSgId4, Description: Oracle DB Access - Source 4}
+          - !Ref AWS::NoValue
+        - !If
+          - AddSrcSecGrp5
+          - {FromPort: 1521, ToPort: 1522, IpProtocol: tcp, SourceSecurityGroupId: !Ref SourceSgId5, Description: Oracle DB Access - Source 5}
+          - !Ref AWS::NoValue
+      Tags:
+        - {Key: Name, Value: !Ref GroupName}
+      VpcId: !Ref VpcId
+    Type: AWS::EC2::SecurityGroup
+
+
+Outputs:
+
+  SgId:
+    Description: ID of the Security Group created
+    Export: {'Name': !Sub '${AWS::StackName}-SgId'}
+    Value: !GetAtt Ec2SecurityGroup.GroupId

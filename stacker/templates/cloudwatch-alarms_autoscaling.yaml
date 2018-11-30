@@ -1,0 +1,68 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Creates AWS CloudWatch alarms to send notifications to the
+  specified SNS topic if/when thier thresholds have been breached'
+
+
+Parameters:
+
+  AutoScalingGroupName:
+    Description: 'Name of the Auto Scaling Group to monitor the instances of'
+    Type: String
+
+  ScaleInPolicy:
+    Description: 'Auto Scaling Group scaling policy ARN for scaling in'
+    Type: String
+
+  ScaleOutPolicy:
+    Description: 'Auto Scaling Group scaling policy ARN for scaling out'
+    Type: String
+
+  ThresholdCpuHigh:
+    Description: 'CPU Usage (%) threshold to scale out on (load)'
+    Type: String
+
+  ThresholdCpuLow:
+    Description: 'CPU Usage (%) threshold to scale in on (load)'
+    Type: String
+
+
+Resources:
+
+  WebServerScaleOut:
+    Properties:
+      AlarmActions: [!Ref ScaleOutPolicy]
+      AlarmName: Web Server Scale-Out
+      Dimensions:
+        - Name: AutoScalingGroupName
+          Value: !Ref AutoScalingGroupName
+      AlarmDescription: Scale Out Web Servers when CPU load is above threshold
+      ComparisonOperator: GreaterThanThreshold
+      EvaluationPeriods: 2
+      MetricName: CPUUtilization
+      Namespace: AWS/EC2
+      Period: 60
+      Statistic: Average
+      Threshold: !Ref ThresholdCpuHigh
+      TreatMissingData: ignore
+      Unit: Percent
+    Type: 'AWS::CloudWatch::Alarm'
+
+  WebServerScaleIn:
+    Properties:
+      AlarmActions: [!Ref ScaleInPolicy]
+      AlarmName: Web Server Scale-In
+      Dimensions:
+        - Name: AutoScalingGroupName
+          Value: !Ref AutoScalingGroupName
+      AlarmDescription: Scale In Web Servers when CPU load is below threshold
+      ComparisonOperator: LessThanThreshold
+      EvaluationPeriods: 2
+      MetricName: CPUUtilization
+      Namespace: AWS/EC2
+      Period: 60
+      Statistic: Average
+      Threshold: !Ref ThresholdCpuLow
+      TreatMissingData: ignore
+      Unit: Percent
+    Type: 'AWS::CloudWatch::Alarm'

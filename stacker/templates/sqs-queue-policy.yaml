@@ -1,0 +1,49 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Creates an AWS SNS topic and some subcriptions'
+
+
+Parameters:
+
+  TopicName:
+    Description: 'Name of the SNS topic'
+    Type: String
+
+  Endpoint1:
+    Description: 'The endpoint 1 to send notifications'
+    Type: String
+
+  Endpoint2:
+    Description: 'The endpoint 2 to send notifications'
+    Type: String
+
+  Protocol1:
+    Description: 'The protocol 1 to use'
+    Type: String
+
+  Protocol2:
+    Description: 'The protocol 2 to use'
+    Type: String
+
+
+Resources:
+
+  SnsTopic:
+    Properties:
+      Subscription:
+        - {Endpoint: !Ref Endpoint1, Protocol: !Ref Protocol1}
+        - {Endpoint: !Ref Endpoint2, Protocol: !Ref Protocol2}
+      TopicName: !Ref TopicName
+    Type: AWS::SNS::Topic
+
+
+Outputs:
+
+  TopicArn:
+    Description: ARN of the SNS topic
+    Export: {'Name': !Sub '${AWS::StackName}-TopicArn'}
+    Value: !Ref SnsTopic
+
+  TopicName:
+    Description: Name of the SNS topic
+    Export: {'Name': !Sub '${AWS::StackName}-TopicName'}
+    Value: !GetAtt SnsTopic.TopicName

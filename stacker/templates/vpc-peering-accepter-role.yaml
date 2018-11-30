@@ -1,0 +1,58 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Creates an IAM Role for accepting a VPC Peering request. The AWS account of the requester VPC assumes this role to accept the peering request in the AWS account of the accepter VPC.'
+
+
+Parameters:
+
+  RequesterVpcAwsAcctNumber:
+    Type: String
+    Description: 'AWS account number of the requester VPC that will assume this role and accept the peering request'
+
+
+Resources:
+
+  Role:
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              AWS:
+                - !Sub arn:aws:iam::${RequesterVpcAwsAcctNumber}:root
+    Type: AWS::IAM::Role
+
+  Policy:
+    Properties:
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Action: ec2:AcceptVpcPeeringConnection
+            Effect: Allow
+            Resource: '*'
+      PolicyName: accept-vpc-peer-connection
+      Roles:
+        - !Ref Role
+    Type: AWS::IAM::Policy
+
+
+Outputs:
+
+  RoleName:
+    Description: 'Name of the IAM Role created'
+    Export: {'Name': !Sub '${AWS::StackName}-RoleName'}
+    Value: !Ref Role
+  PolicyName:
+    Description: 'Name of the IAM Policy created'
+    Export: {'Name': !Sub '${AWS::StackName}-PolicyName'}
+    Value: !Ref Policy
+  RoleArn:
+    Description: 'ARN of the IAM Role created'
+    Export: {'Name': !Sub '${AWS::StackName}-RoleArn'}
+    Value: !GetAtt Role.Arn
+  RoleId:
+    Description: 'ID of the IAM Role created'
+    Export: {'Name': !Sub '${AWS::StackName}-RoleId'}
+    Value: !GetAtt Role.RoleId

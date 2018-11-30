@@ -1,0 +1,148 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Creates ALB Listener Rules and attaches them to
+  the specified listener'
+
+
+Parameters:
+
+  ListenerArn:
+    Description: 'ARN of the Listener to attach to'
+    Type: String
+
+  Rule1Action:
+    Description: 'Action to take for Listening Rule 1. e.g. redirect | forward'
+    Type: String
+
+  Rule1ConditionType:
+    Description: 'Rule 1 condition type. e.g. host-header | path-pattern'
+    Type: String
+
+  Rule1ConditionValues:
+    Description: 'Rule 1 condition values. e.g. *.example.com | /path-test'
+    Type: String
+
+  Rule1TargetGroupArn:
+    Description: 'The target group to send rule 1 matched traffic to'
+    Type: String
+
+  Rule2Action:
+    Description: 'Action to take for Listening Rule 2. e.g. redirect | forward'
+    Type: String
+
+  Rule2ConditionType:
+    Description: 'Rule 2 condition type. e.g. host-header | path-pattern'
+    Type: String
+
+  Rule2ConditionValues:
+    Description: 'Rule 2 condition values. e.g. *.example.com | /path-test'
+    Type: String
+
+  Rule2TargetGroupArn:
+    Description: 'The target group to send rule 2 matched traffic to'
+    Type: String
+
+  # Used for ALB handled redirects (Rule 1 only)
+  HostRedirect:
+    Default: ''
+    Description: 'The hostname to redirect to.
+      This component is not percent-encoded.
+      The hostname can contain #{host}'
+    MaxLength: 128
+    MinLength: 0
+    Type: String
+
+  PathRedirect:
+    Default: ''
+    Description: 'Absolute path to redirect to, starting with the leading "/".
+      This component is not percent-encoded.
+      The path can contain #{host}, #{path}, and #{port}'
+    MaxLength: 128
+    MinLength: 0
+    Type: String
+
+  PortRedirect:
+    Default: ''
+    Description: 'The port to redirect to.
+      You can specify a value from 1 to 65535 or #{port}'
+    Type: String
+
+  ProtocolRedirect:
+    AllowedPattern: '^(HTTPS?|#\{protocol\})$'
+    Default: '#{protocol}'
+    Description: 'The protocol to redirect to.
+      You can specify HTTP, HTTPS, or #{protocol}.
+      You can redirect HTTP to HTTP, HTTP to HTTPS, and HTTPS to HTTPS.
+      You cannot redirect HTTPS to HTTP'
+    Type: String
+
+  QueryRedirect:
+    Default: ''
+    Description: 'The query parameters, URL-encoded when necessary, but not
+      percent-encoded. Do not include the leading "?", as it is automatically
+      added. You can specify any of the reserved keywords'
+    Type: String
+    MaxLength: 128
+    MinLength: 0
+
+  StatusCodeRedirect:
+    AllowedValues: [HTTP_301, HTTP_302]
+    Default: HTTP_302
+    Description: 'The HTTP redirect code to return. The redirect is either
+      permanent (HTTP 301) or temporary (HTTP 302)'
+    Type: String
+
+
+Conditions:
+
+  RedirectionDesired: !Equals [!Ref Rule1Action, redirect]
+
+
+Resources:
+
+  ListenerRule1:
+    Properties:
+      Actions:
+        - !If
+          - RedirectionDesired
+          - RedirectConfig:
+              Host: !Ref HostRedirect
+              Path: !Ref PathRedirect
+              Port: !Ref PortRedirect
+              Protocol: !Ref ProtocolRedirect
+              Query: !Ref QueryRedirect
+              StatusCode: !Ref StatusCodeRedirect
+            Type: redirect
+          - TargetGroupArn: !Ref Rule1TargetGroupArn
+            Type: !Ref Rule1Action
+      Conditions:
+        - Field: !Ref Rule1ConditionType
+          Values: [!Ref Rule1ConditionValues]
+      ListenerArn: !Ref ListenerArn
+      Priority: 1
+    Type: AWS::ElasticLoadBalancingV2::ListenerRule
+
+  ListenerRule2:
+    Properties:
+      Actions:
+        - TargetGroupArn: !Ref Rule2TargetGroupArn
+          Type: !Ref Rule2Action
+      Conditions:
+        - Field: !Ref Rule2ConditionType
+          Values: [!Ref Rule2ConditionValues]
+      ListenerArn: !Ref ListenerArn
+      Priority: 2
+    Type: AWS::ElasticLoadBalancingV2::ListenerRule
+
+
+Outputs:
+
+  ListenerRule1Arn:
+    Description: ARN of the Listener Rule 1
+    Export: {Name: !Sub '${AWS::StackName}-ListenerRule1Arn'}
+    Value: !Ref ListenerRule1
+
+  ListenerRule2Arn:
+    Description: ARN of the Listener Rule 2
+    Export: {Name: !Sub '${AWS::StackName}-ListenerRule2Arn'}
+    Value: !Ref ListenerRule2

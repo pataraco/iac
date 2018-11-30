@@ -1,0 +1,65 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Creates an AWS Application (ALB) or Network (NLB) Elastic Load Balancer'
+
+
+Parameters:
+
+  Name:
+    AllowedPattern: '[a-zA-Z0-9-]*'
+    Description: 'Name of load balancer to create'
+    Type: String
+
+  Scheme:
+    AllowedValues: ['internet-facing', 'internal']
+    Default: internet-facing
+    Description: 'Specify whether the load balancer is Internal or
+      Internet-facing (choices: internal | internet-facing)'
+    Type: String
+
+  SecurityGroups:
+    Description: 'List of Security Group IDs for the load balancer'
+    Type: 'List<AWS::EC2::SecurityGroup::Id>'
+
+  Subnets:
+    Description: 'List of Subnet Ids to attach to the load balancer'
+    Type: 'List<AWS::EC2::Subnet::Id>'
+
+  Type:
+    AllowedValues: [application, network]
+    Default: application
+    Description: 'Specifies the type of load balancer to create.
+      Valid values: application | network. (default: application)'
+    Type: String
+
+
+Resources:
+
+  LoadBalancer:
+    Properties:
+      Name: !Ref Name
+      Scheme: !Ref Scheme
+      SecurityGroups: !Ref SecurityGroups
+      Subnets: !Ref Subnets
+      Tags:
+        - {Key: Name, Value: !Ref Name}
+      Type: !Ref Type
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+
+
+Outputs:
+
+  LbArn:
+    Description: ARN of the load balancer
+    Export: {'Name': !Sub '${AWS::StackName}-LbArn'}
+    Value: !Ref LoadBalancer
+
+  LbDnsName:
+    Description: DNS name of the load balancer
+    Export: {'Name': !Sub '${AWS::StackName}-LbDnsName'}
+    Value: !GetAtt LoadBalancer.DNSName
+
+  LbName:
+    Description: Name of the load balancer
+    Export: {'Name': !Sub '${AWS::StackName}-LbName'}
+    Value: !GetAtt LoadBalancer.LoadBalancerName

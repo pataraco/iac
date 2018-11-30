@@ -1,0 +1,51 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Creates an AWS RDS DB Parameter Group'
+
+
+Parameters:
+
+  Application:
+    Description: 'Name of Application'
+    Type: String
+
+  Environment:
+    Default: Dev
+    Description: 'Name of Environment'
+    Type: String
+
+  Family:
+    Description: 'Name of database family'
+    Type: String
+
+  Name:
+    Description: 'Name of the parameter groun'
+    Type: String
+
+  Parameters:
+    Description: 'Name of database family'
+    Type: String
+
+
+Resources:
+
+  DBParameterGroup:
+    Properties:
+      Description: !Sub 'Custom DB Parameter Group for ${Application}-${Environment}'
+      Family: !Ref Family
+      Parameters:
+        locks: 0
+        max degree of parallelism: 0
+      Tags:
+        - {Key: Application, Value: !Ref Application}
+        - {Key: Environment, Value: !Ref Environment}
+        - {Key: Name, Value: !Ref Name}
+    Type: AWS::RDS::DBParameterGroup
+
+
+Outputs:
+
+  DBParameterGroupName:
+    Description: Name of the DB Parameter Group created
+    Export: {'Name': !Sub '${AWS::StackName}-DBParameterGroupName'}
+    Value: !Ref DBParameterGroup

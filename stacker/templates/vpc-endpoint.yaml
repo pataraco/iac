@@ -1,0 +1,24 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Create VPC Endpoint to S3 Buckets'
+
+Parameters:
+  RouteTableList:
+    Type: CommaDelimitedList
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+
+Resources:
+  VPCEndpointToS3:
+    Properties:
+      RouteTableIds: !Ref RouteTableList
+      ServiceName: !Sub 'com.amazonaws.${AWS::Region}.s3'
+      VpcEndpointType: Gateway
+      VpcId: !Ref VpcId
+    Type: AWS::EC2::VPCEndpoint
+
+Outputs:
+  VPCEndpointToS3:
+    Value: !Ref VPCEndpointToS3
+  VPCEndpointToS3CreationTimestamp:
+    Value: !GetAtt VPCEndpointToS3.CreationTimestamp

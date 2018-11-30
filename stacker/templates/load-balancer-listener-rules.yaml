@@ -1,0 +1,387 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Creates ALB Listener Rules and attaches them to
+  the specified listener'
+
+
+Parameters:
+
+  ListenerArn:
+    Description: 'ARN of the Listener to attach to'
+    Type: String
+
+  # Rule 1 is reserved for specifying either a forward or redirect action
+  Rule1Action:
+    Description: 'Rule action [type].
+      (e.g. authenticate-cognito|fixed-response|forward|redirect)'
+    Type: String
+  Rule1ConditionField:
+    Default: 'host-header'
+    Description: 'Rule condition field. (i.e. host-header|path-pattern)'
+    Type: String
+  Rule1ConditionValues:
+    Description: 'Rule condition values. (e.g. *.example.com|/path-example)'
+    Type: String
+  Rule1TargetGroupArn:
+    Default: ''
+    Description: 'Target group to send matched traffic to'
+    Type: String
+
+  # Used for ALB handled redirects (Rule 1 only)
+  HostRedirect:
+    Default: '#{host}'
+    Description: 'The hostname to redirect to.
+      This component is not percent-encoded.
+      The hostname can contain #{host} (default: #{host})'
+    MaxLength: 128
+    MinLength: 1
+    Type: String
+  PathRedirect:
+    Default: '/#{path}'
+    Description: 'Absolute path to redirect to, starting with the leading "/".
+      This component is not percent-encoded.
+      The path can contain #{host}, #{path}, and #{port} (default: /#{path})'
+    MaxLength: 128
+    MinLength: 1
+    Type: String
+  PortRedirect:
+    Default: '#{port}'
+    Description: 'The port to redirect to.
+      You can specify a value from 1 to 65535 or #{port} (default: #{port})'
+    Type: String
+  ProtocolRedirect:
+    AllowedPattern: '^(HTTPS?|#\{protocol\})$'
+    Default: '#{protocol}'
+    Description: 'The protocol to redirect to.
+      You can specify HTTP, HTTPS, or #{protocol}.
+      You can redirect HTTP to HTTP, HTTP to HTTPS, and HTTPS to HTTPS.
+      You cannot redirect HTTPS to HTTP (default: #{protocol})'
+    Type: String
+  QueryRedirect:
+    Default: '#{query}'
+    Description: 'The query parameters, URL-encoded when necessary, but not
+      percent-encoded. Do not include the leading "?", as it is automatically
+      added. You can specify any of the reserved keywords (default: #{query})'
+    Type: String
+    MaxLength: 128
+    MinLength: 0
+  StatusCodeRedirect:
+    AllowedValues: [HTTP_301, HTTP_302]
+    Default: HTTP_302
+    Description: 'The HTTP redirect code to return. The redirect is either
+      permanent (HTTP 301) or temporary (HTTP 302) (default: HTTP_302)'
+    Type: String
+
+  # Additional (optional) rules
+  Rule2Action: {Default: '', Type: String}
+  Rule2ConditionField: {Default: '', Type: String}
+  Rule2ConditionValues: {Default: '', Type: String}
+  Rule2TargetGroupArn: {Default: '', Type: String}
+
+  Rule3Action: {Default: '', Type: String}
+  Rule3ConditionField: {Default: '', Type: String}
+  Rule3ConditionValues: {Default: '', Type: String}
+  Rule3TargetGroupArn: {Default: '', Type: String}
+
+  Rule4Action: {Default: '', Type: String}
+  Rule4ConditionField: {Default: '', Type: String}
+  Rule4ConditionValues: {Default: '', Type: String}
+  Rule4TargetGroupArn: {Default: '', Type: String}
+
+  Rule5Action: {Default: '', Type: String}
+  Rule5ConditionField: {Default: '', Type: String}
+  Rule5ConditionValues: {Default: '', Type: String}
+  Rule5TargetGroupArn: {Default: '', Type: String}
+
+  Rule6Action: {Default: '', Type: String}
+  Rule6ConditionField: {Default: '', Type: String}
+  Rule6ConditionValues: {Default: '', Type: String}
+  Rule6TargetGroupArn: {Default: '', Type: String}
+
+  Rule7Action: {Default: '', Type: String}
+  Rule7ConditionField: {Default: '', Type: String}
+  Rule7ConditionValues: {Default: '', Type: String}
+  Rule7TargetGroupArn: {Default: '', Type: String}
+
+  Rule8Action: {Default: '', Type: String}
+  Rule8ConditionField: {Default: '', Type: String}
+  Rule8ConditionValues: {Default: '', Type: String}
+  Rule8TargetGroupArn: {Default: '', Type: String}
+
+  Rule9Action: {Default: '', Type: String}
+  Rule9ConditionField: {Default: '', Type: String}
+  Rule9ConditionValues: {Default: '', Type: String}
+  Rule9TargetGroupArn: {Default: '', Type: String}
+
+  Rule10Action: {Default: '', Type: String}
+  Rule10ConditionField: {Default: '', Type: String}
+  Rule10ConditionValues: {Default: '', Type: String}
+  Rule10TargetGroupArn: {Default: '', Type: String}
+
+
+Conditions:
+
+  Rule1Redirect: !Equals [!Ref Rule1Action, redirect]
+  Rule1Forward: !Equals [!Ref Rule1Action, forward]
+  Rule2Specified: !Not
+    - !And
+      - !Equals [!Ref Rule2Action, '']
+      - !Equals [!Ref Rule2ConditionField, '']
+      - !Equals [!Ref Rule2ConditionValues, '']
+      - !Equals [!Ref Rule2TargetGroupArn, '']
+  Rule3Specified: !Not
+    - !And
+      - !Equals [!Ref Rule3Action, '']
+      - !Equals [!Ref Rule3ConditionField, '']
+      - !Equals [!Ref Rule3ConditionValues, '']
+      - !Equals [!Ref Rule3TargetGroupArn, '']
+  Rule4Specified: !Not
+    - !And
+      - !Equals [!Ref Rule4Action, '']
+      - !Equals [!Ref Rule4ConditionField, '']
+      - !Equals [!Ref Rule4ConditionValues, '']
+      - !Equals [!Ref Rule4TargetGroupArn, '']
+  Rule5Specified: !Not
+    - !And
+      - !Equals [!Ref Rule5Action, '']
+      - !Equals [!Ref Rule5ConditionField, '']
+      - !Equals [!Ref Rule5ConditionValues, '']
+      - !Equals [!Ref Rule5TargetGroupArn, '']
+  Rule6Specified: !Not
+    - !And
+      - !Equals [!Ref Rule6Action, '']
+      - !Equals [!Ref Rule6ConditionField, '']
+      - !Equals [!Ref Rule6ConditionValues, '']
+      - !Equals [!Ref Rule6TargetGroupArn, '']
+  Rule7Specified: !Not
+    - !And
+      - !Equals [!Ref Rule7Action, '']
+      - !Equals [!Ref Rule7ConditionField, '']
+      - !Equals [!Ref Rule7ConditionValues, '']
+      - !Equals [!Ref Rule7TargetGroupArn, '']
+  Rule8Specified: !Not
+    - !And
+      - !Equals [!Ref Rule8Action, '']
+      - !Equals [!Ref Rule8ConditionField, '']
+      - !Equals [!Ref Rule8ConditionValues, '']
+      - !Equals [!Ref Rule8TargetGroupArn, '']
+  Rule9Specified: !Not
+    - !And
+      - !Equals [!Ref Rule9Action, '']
+      - !Equals [!Ref Rule9ConditionField, '']
+      - !Equals [!Ref Rule9ConditionValues, '']
+      - !Equals [!Ref Rule9TargetGroupArn, '']
+  Rule10Specified: !Not
+    - !And
+      - !Equals [!Ref Rule10Action, '']
+      - !Equals [!Ref Rule10ConditionField, '']
+      - !Equals [!Ref Rule10ConditionValues, '']
+      - !Equals [!Ref Rule10TargetGroupArn, '']
+
+
+Resources:
+
+  ListenerRule1:
+    Properties:
+      Actions:
+        - !If
+          - Rule1Redirect
+          - RedirectConfig:
+              Host: !Ref HostRedirect
+              Path: !Ref PathRedirect
+              Port: !Ref PortRedirect
+              Protocol: !Ref ProtocolRedirect
+              Query: !Ref QueryRedirect
+              StatusCode: !Ref StatusCodeRedirect
+            Type: !Ref Rule1Action
+          - !Ref AWS::NoValue
+        - !If
+          - Rule1Forward
+          - TargetGroupArn: !Ref Rule1TargetGroupArn
+            Type: !Ref Rule1Action
+          - !Ref AWS::NoValue
+      Conditions:
+        - Field: !Ref Rule1ConditionField
+          Values: [!Ref Rule1ConditionValues]
+      ListenerArn: !Ref ListenerArn
+      Priority: 1
+    Type: AWS::ElasticLoadBalancingV2::ListenerRule
+
+  ListenerRule2:
+    Condition: Rule2Specified
+    Properties:
+      Actions:
+        - TargetGroupArn: !Ref Rule2TargetGroupArn
+          Type: !Ref Rule2Action
+      Conditions:
+        - Field: !Ref Rule2ConditionField
+          Values: [!Ref Rule2ConditionValues]
+      ListenerArn: !Ref ListenerArn
+      Priority: 2
+    Type: AWS::ElasticLoadBalancingV2::ListenerRule
+
+  ListenerRule3:
+    Condition: Rule3Specified
+    Properties:
+      Actions:
+        - TargetGroupArn: !Ref Rule3TargetGroupArn
+          Type: !Ref Rule3Action
+      Conditions:
+        - Field: !Ref Rule3ConditionField
+          Values: [!Ref Rule3ConditionValues]
+      ListenerArn: !Ref ListenerArn
+      Priority: 3
+    Type: AWS::ElasticLoadBalancingV2::ListenerRule
+
+  ListenerRule4:
+    Condition: Rule4Specified
+    Properties:
+      Actions:
+        - TargetGroupArn: !Ref Rule4TargetGroupArn
+          Type: !Ref Rule4Action
+      Conditions:
+        - Field: !Ref Rule4ConditionField
+          Values: [!Ref Rule4ConditionValues]
+      ListenerArn: !Ref ListenerArn
+      Priority: 4
+    Type: AWS::ElasticLoadBalancingV2::ListenerRule
+
+  ListenerRule5:
+    Condition: Rule5Specified
+    Properties:
+      Actions:
+        - TargetGroupArn: !Ref Rule5TargetGroupArn
+          Type: !Ref Rule5Action
+      Conditions:
+        - Field: !Ref Rule5ConditionField
+          Values: [!Ref Rule5ConditionValues]
+      ListenerArn: !Ref ListenerArn
+      Priority: 5
+    Type: AWS::ElasticLoadBalancingV2::ListenerRule
+
+  ListenerRule6:
+    Condition: Rule6Specified
+    Properties:
+      Actions:
+        - TargetGroupArn: !Ref Rule6TargetGroupArn
+          Type: !Ref Rule6Action
+      Conditions:
+        - Field: !Ref Rule6ConditionField
+          Values: [!Ref Rule6ConditionValues]
+      ListenerArn: !Ref ListenerArn
+      Priority: 6
+    Type: AWS::ElasticLoadBalancingV2::ListenerRule
+
+  ListenerRule7:
+    Condition: Rule7Specified
+    Properties:
+      Actions:
+        - TargetGroupArn: !Ref Rule7TargetGroupArn
+          Type: !Ref Rule7Action
+      Conditions:
+        - Field: !Ref Rule7ConditionField
+          Values: [!Ref Rule7ConditionValues]
+      ListenerArn: !Ref ListenerArn
+      Priority: 7
+    Type: AWS::ElasticLoadBalancingV2::ListenerRule
+
+  ListenerRule8:
+    Condition: Rule8Specified
+    Properties:
+      Actions:
+        - TargetGroupArn: !Ref Rule8TargetGroupArn
+          Type: !Ref Rule8Action
+      Conditions:
+        - Field: !Ref Rule8ConditionField
+          Values: [!Ref Rule8ConditionValues]
+      ListenerArn: !Ref ListenerArn
+      Priority: 8
+    Type: AWS::ElasticLoadBalancingV2::ListenerRule
+
+  ListenerRule9:
+    Condition: Rule9Specified
+    Properties:
+      Actions:
+        - TargetGroupArn: !Ref Rule9TargetGroupArn
+          Type: !Ref Rule9Action
+      Conditions:
+        - Field: !Ref Rule9ConditionField
+          Values: [!Ref Rule9ConditionValues]
+      ListenerArn: !Ref ListenerArn
+      Priority: 9
+    Type: AWS::ElasticLoadBalancingV2::ListenerRule
+
+  ListenerRule10:
+    Condition: Rule10Specified
+    Properties:
+      Actions:
+        - TargetGroupArn: !Ref Rule10TargetGroupArn
+          Type: !Ref Rule10Action
+      Conditions:
+        - Field: !Ref Rule10ConditionField
+          Values: [!Ref Rule10ConditionValues]
+      ListenerArn: !Ref ListenerArn
+      Priority: 10
+    Type: AWS::ElasticLoadBalancingV2::ListenerRule
+
+
+Outputs:
+
+  ListenerRule1Arn:
+    Description: ARN of the Listener Rule 1
+    Export: {Name: !Sub '${AWS::StackName}-ListenerRule1Arn'}
+    Value: !Ref ListenerRule1
+
+  ListenerRule2Arn:
+    Condition: Rule2Specified
+    Description: ARN of the Listener Rule 2
+    Export: {Name: !Sub '${AWS::StackName}-ListenerRule2Arn'}
+    Value: !Ref ListenerRule2
+
+  ListenerRule3Arn:
+    Condition: Rule3Specified
+    Description: ARN of the Listener Rule 3
+    Export: {Name: !Sub '${AWS::StackName}-ListenerRule3Arn'}
+    Value: !Ref ListenerRule3
+
+  ListenerRule4Arn:
+    Condition: Rule4Specified
+    Description: ARN of the Listener Rule 4
+    Export: {Name: !Sub '${AWS::StackName}-ListenerRule4Arn'}
+    Value: !Ref ListenerRule4
+
+  ListenerRule5Arn:
+    Condition: Rule5Specified
+    Description: ARN of the Listener Rule 5
+    Export: {Name: !Sub '${AWS::StackName}-ListenerRule5Arn'}
+    Value: !Ref ListenerRule5
+
+  ListenerRule6Arn:
+    Condition: Rule6Specified
+    Description: ARN of the Listener Rule 5
+    Export: {Name: !Sub '${AWS::StackName}-ListenerRule6Arn'}
+    Value: !Ref ListenerRule6
+
+  ListenerRule7Arn:
+    Condition: Rule7Specified
+    Description: ARN of the Listener Rule 5
+    Export: {Name: !Sub '${AWS::StackName}-ListenerRule7Arn'}
+    Value: !Ref ListenerRule7
+
+  ListenerRule8Arn:
+    Condition: Rule8Specified
+    Description: ARN of the Listener Rule 5
+    Export: {Name: !Sub '${AWS::StackName}-ListenerRule8Arn'}
+    Value: !Ref ListenerRule8
+
+  ListenerRule9Arn:
+    Condition: Rule9Specified
+    Description: ARN of the Listener Rule 5
+    Export: {Name: !Sub '${AWS::StackName}-ListenerRule9Arn'}
+    Value: !Ref ListenerRule9
+
+  ListenerRule10Arn:
+    Condition: Rule10Specified
+    Description: ARN of the Listener Rule 5
+    Export: {Name: !Sub '${AWS::StackName}-ListenerRule10Arn'}
+    Value: !Ref ListenerRule10

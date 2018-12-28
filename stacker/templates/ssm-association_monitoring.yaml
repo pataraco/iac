@@ -1,0 +1,55 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Associates the custom metrics and log files SSM document in AWS Systems Manager with specifically tagged EC2 instances that need to be monitored'
+
+
+Parameters:
+
+  AssociationName:
+    Description: 'Name of SSM Association'
+    Type: String
+
+  CwLogGroupName:
+    Description: 'Name of CloudWatch Log Group name to send metrics and logs to'
+    Type: String
+
+  DocumentName:
+    Description: 'Name of SSM Document to associate'
+    Type: String
+
+  DocumentVersion:
+    Default: $DEFAULT
+    Description: 'The version of the SSM document to associate with the target ($LATEST, $DEFAULT or version number'
+    Type: String
+
+  Status:
+    AllowedValues: ['Enabled', 'Disabled']
+    Default: Enabled
+    Description: 'Enable or Disable CloudWatch'
+    Type: String
+
+  TagKey:
+    Default: Monitoring
+    Description: 'Tag Key to use to target managed instances to associate the SSM document to'
+    Type: String
+
+  TagValue:
+    Default: Enabled
+    Description: 'Tag Value to use to target managed instances to associate the SSM document to'
+    Type: String
+
+
+Resources:
+
+  SsmAssociation:
+    Type: AWS::SSM::Association
+    Properties:
+      AssociationName: !Ref AssociationName
+      DocumentVersion: !Ref DocumentVersion
+      Name: !Ref DocumentName
+      Parameters:
+        loggroup: [!Ref CwLogGroupName]
+        region: [!Ref "AWS::Region"]
+        status: [!Ref Status]
+      Targets:
+        - Key: !Sub 'tag:${TagKey}'
+          Values: [!Ref TagValue]

@@ -1,0 +1,14 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Creates an AWS WAF Regional Web ACL Association with a resource'
+
+Parameters:
+  ResourceArn: {Type: String}
+  WebACLId: {Type: String}
+
+Resources:
+  WebAclAssociation:
+    Properties:
+      ResourceArn: !Ref ResourceArn
+      WebACLId: !Ref WebACLId
+    Type: AWS::WAFRegional::WebACLAssociation

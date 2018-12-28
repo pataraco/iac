@@ -1,0 +1,206 @@
+---
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Create an AWS EC2 instance for ArcSight ESM (SIEM)
+
+Parameters:
+  BackupDaily:
+    Default: 'True'
+    Description: 'Whether or not to perform Daily backups (True|False)'
+    Type: String
+  BackupWeekly:
+    Default: 'True'
+    Description: 'Whether or not to perform Weekly backups (True|False)'
+    Type: String
+  DetailedMonitoring:
+    AllowedValues: ['false', 'true']
+    Default: false
+    Description: 'Whether or not to enable detailed monitoring (default: false)'
+    Type: String
+  IamInstanceProfile:
+    Description: 'Name of IAM Instance Profile to associate'
+    Type: String
+  ImageId:
+    Description: 'AMI ID for the Instance'
+    Type: String
+  InstanceType:
+    Default: c5.4xlarge
+    Description: 'Type of AWS EC2 instance to create'
+    Type: String
+  KeyName:
+    Description: 'Name of the AWS EC2 key pair'
+    Type: 'AWS::EC2::KeyPair::KeyName'
+  Name:
+    Description: 'Name to tag instance with'
+    Type: String
+  SecurityGroupIds:
+    Description: 'Security Group IDs to assign to the AWS EC2 instance'
+    Type: List<AWS::EC2::SecurityGroup::Id>
+  ServerNetBiosName:
+    Description: 'Computer name of the ArcSight Server (up to 15 characters)'
+    MinLength: '1'
+    MaxLength: '15'
+    Type: String
+  SubnetId:
+    Description: 'ID of the subnet to launch the instance into'
+    Type: AWS::EC2::Subnet::Id
+  TerminationProtection:
+    AllowedValues: ['Yes', 'No']
+    Default: 'Yes'
+    Description: 'Enable termination protection on the EC2 Instances to avoid accidential termination (Yes/No)? (default: No)'
+    Type: String
+  VolumeSizeData:
+    Default: '200'
+    Description: 'The size of the D: Drive in GB'
+    Type: Number
+    ConstraintDescription: 'Must be between 10 and 1024 GB'
+  VolumeSizeRoot:
+    Default: '100'
+    Description: 'The size of the C: Drive in GB'
+    Type: Number
+    ConstraintDescription: 'Must be between 100 and 1024 GB'
+
+Conditions:
+  EnableTerm: !Equals [!Ref TerminationProtection, 'Yes']
+
+Resources:
+  Ec2Instance:
+    Type: AWS::EC2::Instance
+    Metadata:
+      AWS::CloudFormation::Init:
+        configSets:
+          config:
+            - setup
+            - baselinesetup
+        setup:
+          files:
+            c:\cfn\cfn-hup.conf:
+              content:
+                !Join
+                - ''
+                - - "[main]\n"
+                  - stack=
+                  - !Ref AWS::StackName
+                  - "\n"
+                  - region=
+                  - !Ref AWS::Region
+                  - "\n"
+            c:\cfn\hooks.d\cfn-auto-reloader.conf:
+              content:
+                !Join
+                - ''
+                - - "[cfn-auto-reloader-hook]\n"
+                  - 'triggers=post.update'
+                  - 'path=Resources.Ec2Instance.Metadata.AWS::CloudFormation::Init'
+                  - 'action=cfn-init.exe -v -c config -s '
+                  - !Ref AWS::StackId
+                  - " -r Ec2Instance "
+                  - " --region "
+                  - !Ref AWS::Region
+                  - "\n"
+            c:\cfn\scripts\Manage-UAC.ps1:
+              content:
+                !Join
+                - ''
+                - - "$regpath = 'HKLM:Software\\Microsoft\\Windows\\CurrentVersion\\policies\\system'\n"
+                  - "$regname = 'EnableLUA'\n"
+                  - "$currentvalue = (Get-ItemProperty -Path $regpath -Name $regname)\n"
+                  - "$ErrorActionPreference = 'Stop'\n"
+                  - "if ($currentvalue.EnableLUA -eq 1)\n"
+                  - "{\n"
+                  - "Write-Verbose -message \"Disabling User Access Control\" -Verbose\n"
+                  - "New-ItemProperty -Path $regpath -Name $regname -PropertyType DWord -Value 0 -Force\n"
+                  - "}\n"
+                  - "else {\n"
+                  - "Write-Verbose -message \"Enabling User Access Control\" -Verbose\n"
+                  - "New-ItemProperty -Path $regpath -Name $regname -PropertyType DWord -Value 1 -Force\n"
+                  - "}\n"
+            c:\cfn\scripts\Disable-Firewall.ps1:
+              content:
+                !Join
+                - ''
+                - - "Write-Verbose -Message 'Disabling Firewall Domain Profile' -Verbose\n"
+                  - "netsh advfirewall set DomainProfile state off\n"
+                  - "Write-Verbose -Message 'Disabling Firewall Private Profile' -Verbose\n"
+                  - "netsh advfirewall set PrivateProfile state off\n"
+            c:\cfn\scripts\Rename-Computer.ps1:
+              content:
+                !Join
+                - ''
+                - - "try{Rename-Computer -NewName '"
+                  - !Ref ServerNetBiosName
+                  - "'"
+                  - " -Restart -Force -ErrorAction Stop }\n"
+                  - "catch\n"
+                  - "{\n"
+                  - "Write-Host \"An error occured\"\n"
+                  - "Write-Verbose -Message \"$Error[0].Exception\" -Verbose \n"
+                  - "}"
+            c:\cfn\scripts\Restart-Computer.ps1:
+              content:
+                !Join
+                - ''
+                - - "Restart-Computer -Verbose -Force"
+          services:
+            windows:
+              cfn-hup:
+                enabled: 'true'
+                ensureRunning: 'true'
+                files:
+                  - c:\cfn\cfn-hup.conf
+                  - c:\cfn\hooks.d\cfn-auto-reloader.conf
+        baselinesetup:
+          commands:
+            01-update-powershell:
+              command:
+                !Join
+                - ''
+                - - powershell.exe -ExecutionPolicy RemoteSigned -Command c:\cfn\scripts\Update-PowerShell.ps1
+            02-rename-computer:
+              command:
+                !Join
+                - ''
+                - - powershell.exe -ExecutionPolicy RemoteSigned -Command c:\cfn\scripts\Rename-Computer.ps1
+              waitAfterCompletion: 'forever'
+    Properties:
+      BlockDeviceMappings:
+        - DeviceName: /dev/sda1
+          Ebs:
+            DeleteOnTermination: true
+            VolumeSize: !Ref VolumeSizeRoot
+            VolumeType: gp2
+        - DeviceName: /dev/sdd
+          Ebs:
+            DeleteOnTermination: true
+            VolumeSize: !Ref VolumeSizeData
+            VolumeType: gp2
+      DisableApiTermination: !If [EnableTerm, true, false]
+      IamInstanceProfile: !Ref IamInstanceProfile
+      ImageId: !Ref ImageId
+      InstanceType: !Ref InstanceType
+      Monitoring: !Ref DetailedMonitoring
+      KeyName: !Ref KeyName
+      SecurityGroupIds: !Ref SecurityGroupIds
+      SubnetId: !Ref SubnetId
+      Tags:
+        - {Key: BackupDaily, Value: !Ref BackupDaily}
+        - {Key: BackupWeekly, Value: !Ref BackupWeekly}
+        - {Key: Monitoring, Value: Enabled}
+        - {Key: Name, Value: !Ref Name}
+      UserData:
+        Fn::Base64:
+          !Join
+          - ''
+          - - "<script>\n"
+            - 'cfn-init.exe -v -c config -s '
+            - !Ref AWS::StackId
+            - " -r Ec2Instance "
+            - " --region "
+            - !Ref AWS::Region
+            - "\n"
+            - "</script>\n"
+
+Outputs:
+  InstanceId:
+    Description: ID of EC2 Instance created
+    Export: {'Name': !Sub '${AWS::StackName}-InstanceId'}
+    Value: !Ref Ec2Instance

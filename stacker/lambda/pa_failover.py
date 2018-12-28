@@ -396,24 +396,25 @@ def move_eips(from_inst, to_inst, dry_run):
         ' to instance ({to_inst_id})'.format(**locals()))
     verbose_print('attempting to {action}...'.format(**locals()))
     for ni in from_inst.network_interfaces:
-        eip_allocation_ids = get_eip_allocation_ids(
-            from_inst.network_interfaces[ni]['eni_id'])
-        if eip_allocation_ids:
-            to_inst_eni = to_inst.network_interfaces[ni]['eni_id']
-            to_inst_pips = to_inst.network_interfaces[ni]['priv_ips']
-            if len(eip_allocation_ids) == len(to_inst_pips):
-                eain = 0
-                for eip_alloc_id in eip_allocation_ids:
-                    to_inst_pip = to_inst_pips[eain]
-                    attach_eip(eip_alloc_id, to_inst_eni, to_inst_pip, dry_run)
-                    eain += 1
-            else:
-                verbose_print('not able to {action}'.format(**locals()))
-                debug_print(
-                    'destination instance ({to_inst_id}) does not have'
-                    ' matching number of private IPs on'
-                    ' network interface ({to_inst_eni}):'.format(**locals()))
-                sys.exit('exit: not able to {action}'.format(**locals()))
+        if ni != 'eth0':
+            eip_allocation_ids = get_eip_allocation_ids(
+                from_inst.network_interfaces[ni]['eni_id'])
+            if eip_allocation_ids:
+                to_inst_eni = to_inst.network_interfaces[ni]['eni_id']
+                to_inst_pips = to_inst.network_interfaces[ni]['priv_ips']
+                if len(eip_allocation_ids) == len(to_inst_pips):
+                    eain = 0
+                    for eip_alloc_id in eip_allocation_ids:
+                        to_inst_pip = to_inst_pips[eain]
+                        attach_eip(eip_alloc_id, to_inst_eni, to_inst_pip, dry_run)
+                        eain += 1
+                else:
+                    verbose_print('not able to {action}'.format(**locals()))
+                    debug_print(
+                        'destination instance ({to_inst_id}) does not have'
+                        ' matching number of private IPs on'
+                        ' network interface ({to_inst_eni}):'.format(**locals()))
+                    sys.exit('exit: not able to {action}'.format(**locals()))
 
 
 class Ec2Instance(object):

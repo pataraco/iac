@@ -1,0 +1,182 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Creates an AWS Systems Manager SSM Document to export custom metrics and log files from Windows instances to Amazon CloudWatch'
+
+
+Parameters:
+
+  DocumentType:
+    Default: Command
+    Description: 'Type of document to create that relates to the purpose, i.e. running commands, bootstrapping software, or automating tasks (Command, Policy or Automation'
+    Type: String
+
+  Name:
+    Default: default-document-name
+    Description: 'Name to tag SSM document with'
+    Type: String
+
+
+Resources:
+
+  SsmDocument:
+    Type: AWS::SSM::Document
+    Properties:
+      Content: {
+          "schemaVersion":"2.2",
+          "description":"Export metrics and log files from your instances to Amazon CloudWatch.",
+          "parameters":{
+              "loggroup":{
+                "type": "String",
+                "default": "Default-Log-Group",
+                "description": "(Optional) Set the Log Group that the instance will write logs to"
+              },
+              "region":{
+                "type": "String",
+                "default": "us-west-2",
+                "description": "The region that the logs and metrics will go to"
+              },
+              "status":{
+                  "type":"String",
+                  "default":"Enabled",
+                  "description":"(Optional) Enable or disable CloudWatch. Valid values: Enabled | Disabled",
+                  "allowedValues":[
+                      "Enabled",
+                      "Disabled"
+                  ]
+              }
+          },
+          "mainSteps":[
+            {
+              "action": "aws:cloudWatch",
+              "name": "cloudWatch",
+              "precondition":{
+                  "StringEquals":[
+                      "platformType",
+                      "Windows"
+                  ]
+              },
+              "settings":{
+                  "startType":"{{ status }}"
+              },
+              "inputs":{
+                "EngineConfiguration": {
+                  "PollInterval": "00:00:15",
+                  "Components": [{
+                    "Id": "ApplicationEventLog",
+                    "FullName": "AWS.EC2.Windows.CloudWatch.EventLog.EventLogInputComponent,AWS.EC2.Windows.CloudWatch",
+                    "Parameters": {
+                      "LogName": "Application",
+                      "Levels": "1"
+                    }
+                  }, {
+                    "Id": "SystemEventLog",
+                    "FullName": "AWS.EC2.Windows.CloudWatch.EventLog.EventLogInputComponent,AWS.EC2.Windows.CloudWatch",
+                    "Parameters": {
+                      "LogName": "System",
+                      "Levels": "7"
+                    }
+                  }, {
+                    "Id": "SecurityEventLog",
+                    "FullName": "AWS.EC2.Windows.CloudWatch.EventLog.EventLogInputComponent,AWS.EC2.Windows.CloudWatch",
+                    "Parameters": {
+                      "LogName": "Security",
+                      "Levels": "7"
+                    }
+                  }, {
+                    "Id": "IISLog",
+                    "FullName": "AWS.EC2.Windows.CloudWatch.IisLog.IisLogInputComponent,AWS.EC2.Windows.CloudWatch",
+                    "Parameters": {
+                      "LogDirectoryPath": "C:\\inetpub\\logs\\LogFiles\\W3SVC1"
+                    }
+                  }, {
+                    "Id": "PerformanceCounterDiskC",
+                    "FullName": "AWS.EC2.Windows.CloudWatch.PerformanceCounterComponent.PerformanceCounterInputComponent,AWS.EC2.Windows.CloudWatch",
+                    "Parameters": {
+                      "CategoryName": "LogicalDisk",
+                      "CounterName": "% Free Space",
+                      "InstanceName": "C:",
+                      "MetricName": "C.FreeDiskPercent",
+                      "Unit": "Percent",
+                      "DimensionName": "InstanceId",
+                      "DimensionValue": "{instance_id}"
+                    }
+                  }, {
+                    "Id": "PerformanceCounterDiskD",
+                    "FullName": "AWS.EC2.Windows.CloudWatch.PerformanceCounterComponent.PerformanceCounterInputComponent,AWS.EC2.Windows.CloudWatch",
+                    "Parameters": {
+                      "CategoryName": "LogicalDisk",
+                      "CounterName": "% Free Space",
+                      "InstanceName": "D:",
+                      "MetricName": "D.FreeDiskPercent",
+                      "Unit": "Percent",
+                      "DimensionName": "InstanceId",
+                      "DimensionValue": "{instance_id}"
+                    }
+                  }, {
+                    "Id": "PerformanceCounterDiskE",
+                    "FullName": "AWS.EC2.Windows.CloudWatch.PerformanceCounterComponent.PerformanceCounterInputComponent,AWS.EC2.Windows.CloudWatch",
+                    "Parameters": {
+                      "CategoryName": "LogicalDisk",
+                      "CounterName": "% Free Space",
+                      "InstanceName": "E:",
+                      "MetricName": "E.FreeDiskPercent",
+                      "Unit": "Percent",
+                      "DimensionName": "InstanceId",
+                      "DimensionValue": "{instance_id}"
+                    }
+                  }, {
+                    "Id": "PerformanceCounterMemory",
+                    "FullName": "AWS.EC2.Windows.CloudWatch.PerformanceCounterComponent.PerformanceCounterInputComponent,AWS.EC2.Windows.CloudWatch",
+                    "Parameters": {
+                      "CategoryName": "Memory",
+                      "CounterName": "Available MBytes",
+                      "InstanceName": "",
+                      "MetricName": "Available Memory",
+                      "Unit": "Megabytes",
+                      "DimensionName": "InstanceId",
+                      "DimensionValue": "{instance_id}"
+                    }
+                  }, {
+                    "Id": "CloudWatchLogs",
+                    "FullName": "AWS.EC2.Windows.CloudWatch.CloudWatchLogsOutput,AWS.EC2.Windows.CloudWatch",
+                    "Parameters": {
+                      "AccessKey": "",
+                      "SecretKey": "",
+                      "Region": "{{ region }}",
+                      "LogGroup": "{{ loggroup }}",
+                      "LogStream": "{instance_id}"
+                    }
+                  }, {
+                    "Id": "CloudWatch",
+                    "FullName": "AWS.EC2.Windows.CloudWatch.CloudWatch.CloudWatchOutputComponent,AWS.EC2.Windows.CloudWatch",
+                    "Parameters": {
+                      "AccessKey": "",
+                      "SecretKey": "",
+                      "Region": "{{ region }}",
+                      "NameSpace": "Windows/Default"
+                    }
+                  }],
+                  "Flows": {
+                    "Flows": [
+                      "(PerformanceCounterDiskC,PerformanceCounterMemory),CloudWatch",
+                      "(PerformanceCounterDiskD),CloudWatch",
+                      "(PerformanceCounterDiskE),CloudWatch",
+                      "(ApplicationEventLog,SystemEventLog,SecurityEventLog),CloudWatchLogs",
+                      "(IISLog),CloudWatchLogs"
+                    ]
+                  }
+              }
+            }
+          }
+        ]
+      }
+      DocumentType: !Ref DocumentType
+      Tags:
+        - {Key: Name, Value: !Ref Name}
+
+
+Outputs:
+
+  SsmDocumentName:
+    Description: Name of SSM Document created
+    Export: {'Name': !Sub '${AWS::StackName}-SsmDocumentName'}
+    Value: !Ref SsmDocument

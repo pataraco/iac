@@ -22,6 +22,10 @@ Parameters:
   Rule1ConditionValues:
     Description: 'Rule condition values. (e.g. *.example.com|/path-example)'
     Type: String
+  Rule1Priority:
+    Default: 1
+    Description: 'Priority of the rule. (mostly just for redirects)'
+    Type: Number
   Rule1TargetGroupArn:
     Default: ''
     Description: 'Target group to send matched traffic to'
@@ -204,7 +208,7 @@ Resources:
         - Field: !Ref Rule1ConditionField
           Values: [!Ref Rule1ConditionValues]
       ListenerArn: !Ref ListenerArn
-      Priority: 1
+      Priority: !Ref Rule1Priority
     Type: AWS::ElasticLoadBalancingV2::ListenerRule
 
   ListenerRule2:

@@ -5,10 +5,16 @@ Description: 'Creates an Load Balancer Listener'
 
 Parameters:
 
-  AcmCertArn:
+  AcmCertArnDefault:
     Default: ''
     Description: 'ARN of ACM Certificate. (required for HTTPS protocol)'
     Type: String
+
+  # Additional certs to attach to the Listener
+  AcmCertArn2: {Default: '', Type: String}
+  AcmCertArn3: {Default: '', Type: String}
+  AcmCertArn4: {Default: '', Type: String}
+  AcmCertArn5: {Default: '', Type: String}
 
   LbArn:
     Description: 'ARN of Load Balancer'
@@ -38,14 +44,46 @@ Parameters:
 Conditions:
 
   ProtoIsHttps: !Equals [!Ref ListeningProtocol, HTTPS]
+  AddionalCertsToAdd: !Or
+    - !Not [!Equals [!Ref AcmCertArn2, '']]
+    - !Not [!Equals [!Ref AcmCertArn3, '']]
+    - !Not [!Equals [!Ref AcmCertArn4, '']]
+    - !Not [!Equals [!Ref AcmCertArn5, '']]
+  AcmCert2Provided: !Not [!Equals [!Ref AcmCertArn2, '']]
+  AcmCert3Provided: !Not [!Equals [!Ref AcmCertArn3, '']]
+  AcmCert4Provided: !Not [!Equals [!Ref AcmCertArn4, '']]
+  AcmCert5Provided: !Not [!Equals [!Ref AcmCertArn5, '']]
 
 Resources:
+
+  Certificates:
+    Condition: AddionalCertsToAdd
+    Properties:
+      Certificates:
+        - !If
+          - AcmCert2Provided
+          - CertificateArn: !Ref AcmCertArn2
+          - !Ref 'AWS::NoValue'
+        - !If
+          - AcmCert3Provided
+          - CertificateArn: !Ref AcmCertArn3
+          - !Ref 'AWS::NoValue'
+        - !If
+          - AcmCert4Provided
+          - CertificateArn: !Ref AcmCertArn4
+          - !Ref 'AWS::NoValue'
+        - !If
+          - AcmCert5Provided
+          - CertificateArn: !Ref AcmCertArn5
+          - !Ref 'AWS::NoValue'
+      ListenerArn: !Ref LbListener
+    Type: AWS::ElasticLoadBalancingV2::ListenerCertificate
 
   LbListener:
     Properties:
       Certificates: !If
         - ProtoIsHttps
-        - - CertificateArn: !Ref AcmCertArn
+        - - CertificateArn: !Ref AcmCertArnDefault
         - !Ref 'AWS::NoValue'
       DefaultActions:
         - TargetGroupArn: !Ref DefaultTargetGroupArn

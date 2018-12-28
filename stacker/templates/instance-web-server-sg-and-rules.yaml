@@ -1,7 +1,7 @@
 ---
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'Creates an EC2 Security Group and ingress rules for a public
-  ALB to allow all HTTP and HTTPS traffic from the Palo Alto'
+Description: 'Creates an EC2 Security Group and ingress rule for a web server
+  to allow all HTTP and HTTPS traffic from the ALB'
 
 
 Parameters:
@@ -30,8 +30,8 @@ Resources:
       GroupName: !Ref GroupName
       GroupDescription: !Ref GroupDescription
       SecurityGroupIngress:
-        - {FromPort: 80, ToPort: 80, IpProtocol: tcp, SourceSecurityGroupId: !Ref SourceSgId, Description: HTTP from the Palo Altos}
-        - {FromPort: 443, ToPort: 443, IpProtocol: tcp, SourceSecurityGroupId: !Ref SourceSgId, Description: HTTPS from the Palo Altos}
+        - {FromPort: 80, ToPort: 80, IpProtocol: tcp, SourceSecurityGroupId: !Ref SourceSgId, Description: HTTP from the ALB}
+        - {FromPort: 443, ToPort: 443, IpProtocol: tcp, SourceSecurityGroupId: !Ref SourceSgId, Description: HTTPS from the ALB}
       Tags:
         - {Key: Name, Value: !Ref GroupName}
       VpcId: !Ref VpcId

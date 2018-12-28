@@ -1,0 +1,258 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Deploys EC2, RDS, and S3 Bucket
+
+Parameters:
+  BackupDaily:
+    Default: 'True'
+    Description: 'Whether or not to perform Daily backups (True|False)'
+    Type: String
+  BackupWeekly:
+    Default: 'True'
+    Description: 'Whether or not to perform Weekly backups (True|False)'
+    Type: String
+  BucketName:
+    Type: String
+    Description: Name of the S3 Bucket that is created
+  AppName:
+    Type: String
+    Description: Name of the Application launched
+    Default: Mobilitics
+  Environment:
+    Type: String
+    Description: Name of the Environment
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+  InstanceType:
+    Type: String
+    Description: EC2 instance type for Instance
+  EC2SubnetId:
+    Type: AWS::EC2::Subnet::Id
+    Description: Subnet to launch the EC2 instance in
+  ImageId:
+    Type: String
+    Description: EC2 AMI that will be used for the Instance
+  KeyName:
+    Type: AWS::EC2::KeyPair::KeyName
+    Description: Key Pair that will be used to access the instance
+  CVolumeSize:
+    Type: Number
+    Description: Size in GB for the C Drive Volume
+  DVolumeSize:
+    Type: Number
+    Description: Size in GB for the D Drive Volume
+  DBInstanceType:
+    Type: String
+    Description: Instance type for the RDS DB instance
+  DBEngine:
+    Type: String
+    Description: Database Engine type to run
+  DBEngineVersion:
+    Type: String
+    Description: Database Version to run
+  DBParamGroup:
+    Type: String
+    Description: Database parameter Group to use
+  DBSubnets:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: List of Subnets for the Database
+  DBUser:
+    Type: String
+    Description: Username for the Database
+    NoEcho: True
+  DBPass:
+    Type: String
+    Description: Password for the Database
+    NoEcho: True
+  RdpCidrBlock:
+    Type: String
+    Description: Cidr Block that will be used to allow traffic for RDP
+  WebCidrBlock:
+    Type: String
+    Description: Cidr Block that will be used to allow traffic for HTTP/HTTPS
+
+
+Resources:
+  Instance:
+    Type: AWS::EC2::Instance
+    Properties:
+      BlockDeviceMappings:
+        - DeviceName: /dev/sda1
+          Ebs:
+            DeleteOnTermination: True
+            VolumeType: gp2
+            VolumeSize: !Ref CVolumeSize
+        - DeviceName: /dev/sdb
+          Ebs:
+            DeleteOnTermination: True
+            VolumeType: gp2
+            VolumeSize: !Ref DVolumeSize
+      ImageId: !Ref ImageId
+      InstanceType: !Ref InstanceType
+      IamInstanceProfile: !Ref ServerProfile
+      KeyName: !Ref KeyName
+      NetworkInterfaces:
+        - AssociatePublicIpAddress: True
+          DeleteOnTermination: True
+          DeviceIndex: 0
+          GroupSet:
+            - !Ref InstanceSecurityGroup
+            - !Ref RDSClientSecurityGroup
+          SubnetId: !Ref EC2SubnetId
+      Tags:
+        - Key: Name
+          Value: !Join ['-', [!Ref Environment, !Ref AppName, 'instance']]
+        - {Key: AppName, Value: !Ref AppName}
+        - {Key: BackupDaily, Value: !Ref BackupDaily}
+        - {Key: BackupWeekly, Value: !Ref BackupWeekly}
+        - {Key: Env, Value: !Ref Environment}
+
+  InstanceSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow access to the instance
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - FromPort: 80
+          ToPort: 80
+          IpProtocol: tcp
+          CidrIp: !Ref WebCidrBlock
+        - FromPort: 443
+          ToPort: 443
+          IpProtocol: tcp
+          CidrIp: !Ref WebCidrBlock
+        - FromPort: 3389
+          ToPort: 3389
+          IpProtocol: tcp
+          CidrIp: !Ref RdpCidrBlock
+      Tags:
+        - Key: Name
+          Value: !Join ['-', [!Ref Environment, !Ref AppName, 'instance-sg']]
+        - Key: AppName
+          Value: !Ref AppName
+        - Key: Env
+          Value: !Ref Environment
+  RDSServerSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow access to the database from client SG
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - FromPort: 3306
+          ToPort: 3306
+          IpProtocol: tcp
+          SourceSecurityGroupId: !Ref RDSClientSecurityGroup
+      Tags:
+        - Key: Name
+          Value: !Join ['-', [!Ref Environment, !Ref AppName, 'rds-server']]
+        - Key: AppName
+          Value: !Ref AppName
+        - Key: Env
+          Value: !Ref Environment
+  RDSClientSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Used to access RDS database
+      VpcId: !Ref VpcId
+      Tags:
+        - Key: Name
+          Value: !Join ['-', [!Ref Environment, !Ref AppName, 'rds-client']]
+        - Key: AppName
+          Value: !Ref AppName
+        - Key: Env
+          Value: !Ref Environment
+
+  DBSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: Subnet group for an Aurora cluster
+      SubnetIds: !Ref DBSubnets
+      Tags:
+        - Key: Name
+          Value: !Join ['-', [!Ref Environment, !Ref AppName, 'database']]
+        - Key: AppName
+          Value: !Ref AppName
+        - Key: Env
+          Value: !Ref Environment
+
+  DatabaseCluster:
+    Type: AWS::RDS::DBCluster
+    Properties:
+      BackupRetentionPeriod: 14
+      DBSubnetGroupName: !Ref DBSubnetGroup
+      Engine: !Ref DBEngine
+      EngineVersion: !Ref DBEngineVersion
+      DBClusterParameterGroupName: !Ref DBParamGroup
+      MasterUsername: !Ref DBUser
+      MasterUserPassword: !Ref DBPass
+      Port: 3306
+      VpcSecurityGroupIds:
+        - !Ref RDSServerSecurityGroup
+      Tags:
+        - Key: Name
+          Value: !Join ['-', [!Ref Environment, !Ref AppName, 'database']]
+        - Key: AppName
+          Value: !Ref AppName
+        - Key: Env
+          Value: !Ref Environment
+  DatabaseInstance:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      DBClusterIdentifier: !Ref DatabaseCluster
+      DBInstanceClass: !Ref DBInstanceType
+      Engine: !Ref DBEngine
+      Tags:
+        - Key: Name
+          Value: !Join ['-', [!Ref Environment, !Ref AppName, 'database']]
+        - Key: AppName
+          Value: !Ref AppName
+        - Key: Env
+          Value: !Ref Environment
+
+  S3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Ref BucketName
+      Tags:
+        - Key: Name
+          Value: !Ref BucketName
+        - Key: AppName
+          Value: !Ref AppName
+        - Key: Env
+          Value: !Ref Environment
+
+  ServerRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          -
+            Effect: "Allow"
+            Principal:
+              Service:
+                - "ec2.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+      Path: "/"
+      Policies:
+        - PolicyName: s3Access
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              -
+                Effect: "Allow"
+                Action:
+                  - s3:Get*
+                  - s3:HeadBucket
+                  - s3:DeleteObject*
+                  - s3:Put*
+                  - s3:List*
+                Resource:
+                  - !GetAtt S3Bucket.Arn
+                  - !Join ['', [!GetAtt S3Bucket.Arn, '/*']]
+
+  ServerProfile:
+    Type: "AWS::IAM::InstanceProfile"
+    Properties:
+      Roles:
+        - !Ref ServerRole

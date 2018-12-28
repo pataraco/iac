@@ -1,0 +1,236 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Creates an AWS WAF configuration (match sets, rules and web ACL)
+  to identify the Amazon CloudFront web requests to allow, block, or count
+  for ArcGIS'
+
+
+Parameters:
+
+  AppName:
+    Description: 'Name of application'
+    Type: String
+
+  DefaultAction:
+    AllowedValues: ['BLOCK', 'ALLOW', 'COUNT']
+    Default: ALLOW
+    Description: 'The action AWS WAF should take when a request does not match
+      the criteria in any of the rules that are associated with the web ACL'
+    Type: String
+
+  RequestSizeContraint:
+    Description: 'Size (bytes) contraint to filter requests by.
+      Requests for which the body is longer will be filtered'
+    Type: String
+
+
+Resources:
+
+  # IP Blacklisting
+  # create an IP Blacklist to block (IP Match Set)
+  WafIpSetBlacklist:
+    # source: https://www.projecthoneypot.org/list_of_ips.php
+    # grabbed top 25 IPs
+    Type: AWS::WAF::IPSet
+    Properties:
+      Name: !Sub 'Set of blacklisted IP adresses for ${AppName}'
+      IPSetDescriptors:
+        - {Type: IPV4, Value: 176.31.182.86/32}
+        - {Type: IPV4, Value: 192.162.240.162/32}
+        - {Type: IPV4, Value: 5.79.75.135/32}
+        - {Type: IPV4, Value: 202.111.175.31/32}
+        - {Type: IPV4, Value: 103.43.118.200/32}
+        - {Type: IPV4, Value: 109.234.38.85/32}
+        - {Type: IPV4, Value: 93.113.158.10/32}
+        - {Type: IPV4, Value: 110.232.119.5/32}
+        - {Type: IPV4, Value: 77.108.83.244/32}
+        - {Type: IPV4, Value: 77.221.130.45/32}
+        - {Type: IPV4, Value: 198.38.82.38/32}
+        - {Type: IPV4, Value: 62.210.114.182/32}
+        - {Type: IPV4, Value: 77.221.130.19/32}
+        - {Type: IPV4, Value: 82.200.247.241/32}
+        - {Type: IPV4, Value: 117.21.224.251/32}
+        - {Type: IPV4, Value: 194.28.44.10/32}
+        - {Type: IPV4, Value: 93.125.99.83/32}
+        - {Type: IPV4, Value: 194.28.44.35/32}
+        - {Type: IPV4, Value: 111.224.250.131/32}
+        - {Type: IPV4, Value: 37.59.16.222/32}
+        - {Type: IPV4, Value: 109.196.142.11/32}
+        - {Type: IPV4, Value: 190.14.38.228/32}
+        - {Type: IPV4, Value: 61.136.59.69/32}
+        - {Type: IPV4, Value: 193.70.36.102/32}
+
+  # create a rule to block Blacklisted IPs
+  WafRuleIpBlacklist:
+    Type: AWS::WAF::Rule
+    Properties:
+      MetricName: IPBlacklist
+      Name: !Sub 'WAF IP Blacklist Rule for ${AppName}'
+      Predicates:
+        - DataId: !Ref WafIpSetBlacklist
+          Negated: false
+          Type: IPMatch
+
+  # Request Hygiene/Size Constraints
+  #
+  # AWS WAF evaluates only the first 8,192 bytes of the request part that
+  # is specified in a filter. If valid request bodies never exceed 8,192 bytes,
+  # a size constraint condition can be used to catch malicious requests that
+  # might otherwise slip through.
+  #
+  # create a size constraint match set
+  #   Filters requests for which the body is longer than specified bytes.
+  WafSizeConstraintSetLargeBody:
+    Type: AWS::WAF::SizeConstraintSet
+    Properties:
+      Name: !Sub 'WAF Size Constraint Set (large body) for ${AppName}'
+      SizeConstraints:
+        - ComparisonOperator: GT
+          FieldToMatch: {Type: BODY}
+          # Size: '8192'
+          Size: !Ref RequestSizeContraint
+          TextTransformation: NONE
+
+  # create a rule to block large body requests
+  WafRuleSizeContraintLargeBody:
+    Type: AWS::WAF::Rule
+    Properties:
+      MetricName: LargeBody
+      Name: !Sub 'WAF Size Constraint Rule (large body) for ${AppName}'
+      Predicates:
+        - DataId: !Ref WafSizeConstraintSetLargeBody
+          Negated: false
+          Type: SizeConstraint
+
+  # SQL Injection
+  # create a SQL injection match set
+  WafSqlInjectionMatchSet:
+    Type: AWS::WAF::SqlInjectionMatchSet
+    Properties:
+      Name: !Sub 'WAF SQL Injection Match Set for ${AppName}'
+      SqlInjectionMatchTuples:
+        - FieldToMatch: {Type: QUERY_STRING}
+          TextTransformation: URL_DECODE
+        - FieldToMatch: {Type: QUERY_STRING}
+          TextTransformation: HTML_ENTITY_DECODE
+        - FieldToMatch: {Type: BODY}
+          TextTransformation: URL_DECODE
+        - FieldToMatch: {Type: BODY}
+          TextTransformation: HTML_ENTITY_DECODE
+        - FieldToMatch: {Type: URI}
+          TextTransformation: URL_DECODE
+
+  # create a rule to block SQL injections
+  WafRuleSqlInjection:
+    Type: AWS::WAF::Rule
+    Properties:
+      MetricName: SQLInjection
+      Name: !Sub 'WAF SQL Injection Rule for ${AppName}'
+      Predicates:
+        - DataId: !Ref WafSqlInjectionMatchSet
+          Negated: false
+          Type: SqlInjectionMatch
+
+  # Cross Site Scripting (XSS)
+  # create a cross-site scripting (XSS) match set
+  WafXssMatchSet:
+    Type: AWS::WAF::XssMatchSet
+    Properties:
+      Name: !Sub 'WAF Cross-Site Scripting Match Set for ${AppName}'
+      XssMatchTuples:
+        - FieldToMatch: {Type: QUERY_STRING}
+          TextTransformation: URL_DECODE
+        - FieldToMatch: {Type: QUERY_STRING}
+          TextTransformation: HTML_ENTITY_DECODE
+        - FieldToMatch: {Type: BODY}
+          TextTransformation: URL_DECODE
+        - FieldToMatch: {Type: BODY}
+          TextTransformation: HTML_ENTITY_DECODE
+        - FieldToMatch: {Type: URI}
+          TextTransformation: URL_DECODE
+
+  # create a rule to block cross-site scripting
+  WafRuleXss:
+    Type: AWS::WAF::Rule
+    Properties:
+      MetricName: CrossSiteScripting
+      Name: !Sub 'WAF Cross-Site Scripting (XSS) Rule for ${AppName}'
+      Predicates:
+        - DataId: !Ref WafXssMatchSet
+          Negated: false
+          Type: XssMatch
+
+  # create Byte Match Set
+  WafByteMatchSet:
+    Type: AWS::WAF::ByteMatchSet
+    Properties:
+      ByteMatchTuples:
+        - FieldToMatch:
+            # Valid Types: URI, QUERY_STRING, HEADER, METHOD, BODY, SINGLE_QUERY_ARG, ALL_QUERY_ARGS
+            Type: HEADER
+            Data: Referer
+          # Postional Caontraints Valid Values:
+          # EXACTLY, STARTS_WITH, ENDS_WITH, CONTAINS, CONTAINS_WORD
+          PositionalConstraint: CONTAINS
+          TargetString: google.com
+          # Base64 useful for searching for non-printable characters,
+          # i.e. tabs and linefeeds, that attackers include in their requests
+          # TargetStringBase64: 'SGVsbG8gV29ybGQhCgo='
+          TextTransformation: LOWERCASE
+        - FieldToMatch:
+            Type: HEADER
+            Data: User-Agent
+          PositionalConstraint: CONTAINS
+          TargetString: t8abot
+          TextTransformation: LOWERCASE
+        - FieldToMatch:
+            Type: SINGLE_QUERY_ARG
+            Data: UserName
+          PositionalConstraint: CONTAINS
+          TargetString: administrator
+          TextTransformation: LOWERCASE
+      Name: !Sub 'WAF Byte Match Set for ${AppName}'
+
+  # Bots and Probes
+  # create a rule to block byte matched set
+  WafRuleByteMatch:
+    Type: AWS::WAF::Rule
+    Properties:
+      MetricName: ByteMatch
+      Name: !Sub 'WAF Byte Match Rule for ${AppName}'
+      Predicates:
+        - DataId: !Ref WafByteMatchSet
+          Negated: false
+          Type: ByteMatch
+
+  # create the WAF Web ACL
+  WafWebAcl:
+    Type: AWS::WAF::WebACL
+    Properties:
+      DefaultAction: {Type: !Ref DefaultAction}
+      MetricName: !Sub ${AppName}WAF
+      Name: !Sub 'WAF Web ACL for ${AppName}'
+      Rules:
+        - Action: {Type: COUNT}
+          Priority: 1
+          RuleId: {Ref: WafRuleIpBlacklist}
+        - Action: {Type: COUNT}
+          Priority: 2
+          RuleId: {Ref: WafRuleSizeContraintLargeBody}
+        - Action: {Type: COUNT}
+          Priority: 3
+          RuleId: {Ref: WafRuleSqlInjection}
+        - Action: {Type: COUNT}
+          Priority: 4
+          RuleId: {Ref: WafRuleXss}
+        - Action: {Type: COUNT}
+          Priority: 5
+          RuleId: {Ref: WafRuleByteMatch}
+
+
+Outputs:
+
+  WafWebAclId:
+    Description: The ID of the created WAF Web ACL
+    Export: {'Name': !Sub '${AWS::StackName}-WafWebAclId'}
+    Value: !Ref WafWebAcl

@@ -1,0 +1,376 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Creates a CloudFront distribution for ArcGIS
+
+
+Parameters:
+
+  AcmCertificateArn:
+    Description: 'Amazon Resource Name (ARN) of an AWS Certificate
+      Manager (ACM) certificate'
+    Type: String
+
+  Alias:
+    Default: 'undefined'
+    Description: 'A CNAME (alternate domain names) for the
+      distribution (Optional)'
+    Type: String
+
+  AppName:
+    Description: 'Name of application for tagging purposes'
+    Type: String
+
+  Comment:
+    Description: 'Any comments that you want to include about the distribution'
+    MaxLength: 128
+    Type: String
+
+  DefaultRootObject:
+    Default: '/'
+    Description: 'The object (such as index.html) that you want CloudFront to
+      request from your origin when the root URL for your distribution
+      (such as http://example.com/) is requested'
+    Type: String
+
+  DomainName:
+    Description: 'The DNS name of the Amazon Simple Storage Service (S3)
+      bucket or the HTTP server from which CloudFront should get objects
+      for this origin'
+    Type: String
+
+  Enabled:
+    AllowedValues: ['true', 'false']
+    Default: true
+    Description: 'Controls whether the distribution is enabled to accept end
+      user requests for content (true or false)'
+    Type: String
+
+  Environment:
+    Description: 'Name of environment for tagging purposes'
+    Type: String
+
+  ExistingS3LogBucket:
+    Default: 'undefined'
+    Description: 'An existing Amazon S3 bucket name where access logs are to
+      be stored (Optional)'
+    Type: String
+
+  Logging:
+    AllowedValues: ['true', 'false']
+    Default: false
+    Description: 'Enable logging so that CloudFront will log all viewer
+      requests for files in the distribution (true or false)'
+    Type: String
+
+  LogPrefix:
+    Default: 'undefined'
+    Description: 'Prefix for the names of log files (e.g. cf-logs/). Slash is
+      recommended to simplify browsing log files (Optional)'
+    Type: String
+
+  NewS3LogBucket:
+    Default: 'undefined'
+    Description: 'The name of a new Amazon S3 bucket to create where access
+      logs are to be stored (Optional)'
+    Type: String
+
+  OriginId:
+    Description: 'An identifier for the origin. The value of Id must be unique
+      within the distribution'
+    Type: String
+
+  PriceClass:
+    Default: 'PriceClass_100'
+    Description: 'The price class that corresponds with the maximum price that
+      you want to pay for the CloudFront service
+      ("PriceClass_100", "PriceClass_200" or "PriceClass_Alldefault")'
+    Type: String
+
+  WafWebAclId:
+    Description: 'ID of the AWS WAF web ACL to associate with the distribution'
+    Type: String
+
+  # Cache Behaviors 1  (repeat for any additional required)
+
+  AllowedMethods1:
+    Default: 'GET,HEAD'
+    Description: 'HTTP methods that CloudFront processes and forwards to the
+      origin ("GET,HEAD", "GET,HEAD,OPTIONS"
+      or "DELETE,GET,HEAD,OPTIONS,PATCH,POST,PUT")'
+    Type: CommaDelimitedList
+
+  CachedMethods1:
+    Default: 'GET,HEAD'
+    Description: 'HTTP methods for which CloudFront caches
+      responses ("GET,HEAD" or "GET,HEAD,OPTIONS")'
+    Type: CommaDelimitedList
+
+  Compress1:
+    AllowedValues: ['true', 'false']
+    Default: false
+    Description: 'Indicates whether CloudFront automatically compresses
+      certain files for this cache behavior (true or false)'
+    Type: String
+
+  DefaultTTL1:
+    Default: 86400
+    Description: 'Cache Behavior 1: Default time in seconds that objects
+      stay in CloudFront caches'
+    MaxValue: 31536000
+    MinValue: 0
+    Type: Number
+
+  MaxTTL1:
+    Default: 31536000
+    Description: 'Cache Behavior 1: Maximum time in seconds that objects stay
+      in CloudFront caches'
+    MaxValue: 31536000
+    MinValue: 0
+    Type: Number
+
+  MinTTL1:
+    Default: 0
+    Description: 'Cache Behavior 1: Minimum time in seconds that objects stay
+      in CloudFront caches'
+    MaxValue: 31536000
+    MinValue: 0
+    Type: Number
+
+  PathPattern1:
+    Default: '/*'
+    Description: 'The pattern to which this cache behavior applies.
+      (e.g. images/*.jpg)'
+    Type: String
+
+  ViewerProtocolPolicy1:
+    Default: allow-all
+    Description: 'The protocol that viewers can use to access the files in the
+      origin specified by TargetOriginId when a request matches the path
+      pattern in PathPattern ("allow-all", "https-only"
+      or "redirect-to-https")'
+    Type: String
+
+  # Default Cache Behaviors (used if no defined behaviors match)
+
+  AllowedMethodsDefault:
+    Default: 'GET,HEAD'
+    Description: 'HTTP methods that CloudFront processes and forwards to the
+      origin ("GET,HEAD", "GET,HEAD,OPTIONS"
+      or "DELETE,GET,HEAD,OPTIONS,PATCH,POST,PUT")'
+    Type: CommaDelimitedList
+
+  CachedMethodsDefault:
+    Default: 'GET,HEAD'
+    Description: 'HTTP methods for which CloudFront caches responses
+      ("GET,HEAD" or "GET,HEAD,OPTIONS")'
+    Type: CommaDelimitedList
+
+  CompressDefault:
+    AllowedValues: ['true', 'false']
+    Default: false
+    Description: 'Indicates whether CloudFront automatically compresses
+      certain files for this cache behavior (true or false)'
+    Type: String
+
+  DefaultTTLDefault:
+    Default: 86400
+    Description: 'Default Cache Behavior: Default time in seconds that
+      objects stay in CloudFront caches'
+    MaxValue: 31536000
+    MinValue: 0
+    Type: Number
+
+  MaxTTLDefault:
+    Default: 31536000
+    Description: 'Default Cache Behavior: Maximum time in seconds that
+      objects stay in CloudFront caches'
+    MaxValue: 31536000
+    MinValue: 0
+    Type: Number
+
+  MinTTLDefault:
+    Default: 0
+    Description: 'Default Cache Behavior: Minimum time in seconds that
+      objects stay in CloudFront caches'
+    MaxValue: 31536000
+    MinValue: 0
+    Type: Number
+
+  ViewerProtocolPolicyDefault:
+    Default: allow-all
+    Description: 'The protocol that users can use to access the files in the
+      origin that you specified in the TargetOriginId property when the
+      default cache behavior is applied to a
+      request ("allow-all", "https-only" or "redirect-to-https")'
+    Type: String
+
+
+Conditions:
+
+  AliasDefined: !Not [!Equals [!Ref Alias, 'undefined']]
+
+  CreateNewS3Bucket: !And
+    - !Equals [!Ref ExistingS3LogBucket, 'undefined']
+    - !Not [!Equals [!Ref NewS3LogBucket, 'undefined']]
+    - !Equals [!Ref Logging, 'true']
+
+  UseExistingS3Bucket: !And
+    - !Not [!Equals [!Ref ExistingS3LogBucket, 'undefined']]
+    - !Equals [!Ref NewS3LogBucket, 'undefined']
+    - !Equals [!Ref Logging, 'true']
+
+  LogCF: !Or
+    - Condition: CreateNewS3Bucket
+    - Condition: UseExistingS3Bucket
+
+  LogPrefixDefined: !Not [!Equals [!Ref LogPrefix, 'undefined']]
+
+
+Resources:
+
+  # create a new S3 bucket for logging if desired
+  S3Bucket:
+    Type: AWS::S3::Bucket
+    Condition: CreateNewS3Bucket
+    DeletionPolicy: Retain
+    Properties:
+      AccessControl: LogDeliveryWrite
+      BucketName: !Ref NewS3LogBucket
+      LifecycleConfiguration:
+        Rules:
+          -
+            Id: archiveAndDelete
+            Status: Enabled
+            Transitions:
+              -
+                StorageClass: GLACIER
+                TransitionInDays: '30'
+            ExpirationInDays: '730'
+
+  # create the CloudFront distribution
+  CloudFrontDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Aliases:
+          - !If [AliasDefined, !Ref Alias, !Ref 'AWS::NoValue']
+        # ------------
+        # # Using only Default Cache Behaviors for now until specific
+        # # cache behaviors can be determined after extended use
+        # # Saving this section for later use if/when needed
+        # CacheBehaviors:
+        # - AllowedMethods: !Ref AllowedMethods1
+        #     CachedMethods: !Ref CachedMethods1
+        #     Compress: !Ref Compress1
+        #     DefaultTTL: !Ref DefaultTTL1
+        #     MaxTTL: !Ref MaxTTL1
+        #     MinTTL: !Ref MinTTL1
+        #     ForwardedValues:
+        #       Cookies: {Forward: all}  # 'none' or 'whitelist'
+        #       # Cookies:
+        #       #   Forward: whitelist
+        #       #   WhitelistedNames:
+        #       #    - Name1
+        #       #    - Name2
+        #       Headers: ['*']
+        #       QueryString: true  # or false
+        #       # QueryStringCacheKeys:
+        #       #   - String1
+        #     # LambdaFunctionAssociations:
+        #     #   EventType: String
+        #     #   LambdaFunctionARN: String
+        #     PathPattern: !Ref PathPattern1
+        #     SmoothStreaming: false
+        #     TargetOriginId: !Ref OriginId
+        #     # TrustedSigners:
+        #     #   - String
+        #     ViewerProtocolPolicy: !Ref ViewerProtocolPolicy1
+        # ------------
+        Comment: !Ref Comment
+        # CustomErrorResponses:
+        #   ErrorCachingMinTTL: Integer
+        #   ErrorCode: Integer
+        #   ResponseCode: Integer
+        #   ResponsePagePath: String
+        DefaultCacheBehavior:
+          AllowedMethods: !Ref AllowedMethodsDefault
+          CachedMethods: !Ref CachedMethodsDefault
+          Compress: !Ref CompressDefault
+          DefaultTTL: !Ref DefaultTTLDefault
+          MaxTTL: !Ref MaxTTLDefault
+          MinTTL: !Ref MinTTLDefault
+          ForwardedValues:
+            Cookies: {Forward: all}  # or 'none' or 'whitelist'
+            Headers: ['*']
+            QueryString: true  # or false
+          SmoothStreaming: false
+          TargetOriginId: !Ref OriginId
+          ViewerProtocolPolicy: !Ref ViewerProtocolPolicyDefault
+        DefaultRootObject: !Ref DefaultRootObject
+        Enabled: !Ref Enabled
+        # HttpVersion: String   # http1.1 or http2 (default)
+        # IPV6Enabled: Boolean  # default: false
+        Logging: !If
+          - LogCF
+          -
+            Bucket: !If
+              - CreateNewS3Bucket
+              - !Sub ${NewS3LogBucket}.s3.amazonaws.com
+              - !Sub ${ExistingS3LogBucket}.s3.amazonaws.com
+            Prefix: !If [LogPrefixDefined, !Ref LogPrefix, !Ref 'AWS::NoValue']
+          - !Ref 'AWS::NoValue'
+        Origins:
+          -
+            CustomOriginConfig:
+              HTTPPort: '80'
+              HTTPSPort: '443'
+              OriginProtocolPolicy: match-viewer
+              OriginReadTimeout: 60
+              OriginSSLProtocols: ['TLSv1', 'TLSv1.1', 'TLSv1.2']
+            DomainName: !Ref DomainName
+            Id: !Ref OriginId
+            # OriginCustomHeaders:
+            #   HeaderName: String
+            #   HeaderValue: String
+            # OriginPath: String
+        PriceClass: !Ref PriceClass
+        # Restrictions: Specifies who or how viewers can access content
+        ViewerCertificate:
+          AcmCertificateArn: !Ref AcmCertificateArn
+          SslSupportMethod: sni-only
+          MinimumProtocolVersion: TLSv1.1_2016
+        WebACLId: !Ref WafWebAclId
+      Tags:
+        - {Key: AppName, Value: !Ref AppName}
+        - {Key: Environment, Value: !Ref Environment}
+
+
+Outputs:
+
+  CloudFrontDistributionId:
+    Description: The ID of the CloudFront distribution
+    Export: {'Name': !Sub '${AWS::StackName}-CloudFrontDistributionId'}
+    Value: !Ref CloudFrontDistribution
+
+  CloudFrontDomainName:
+    Description: The domain name of the CloudFront distribution
+    Export: {'Name': !Sub '${AWS::StackName}-CloudFrontDomainName'}
+    Value: !GetAtt CloudFrontDistribution.DomainName
+
+  S3BucketName:
+    Condition: CreateNewS3Bucket
+    Description: The name of the newly created S3 Bucket
+    Export: {'Name': !Sub '${AWS::StackName}-S3BucketName'}
+    Value: !Ref S3Bucket
+
+  S3BucketArn:
+    Condition: CreateNewS3Bucket
+    Description: The ARN of the newly created S3 Bucket
+    Export: {'Name': !Sub '${AWS::StackName}-S3BucketArn'}
+    Value: !GetAtt S3Bucket.Arn
+
+  S3BucketDomainName:
+    Condition: CreateNewS3Bucket
+    Description: The DNS domain name of the newly created S3 Bucket
+    Export: {'Name': !Sub '${AWS::StackName}-S3BucketDomainName'}
+    Value: !GetAtt S3Bucket.DomainName

@@ -1,0 +1,43 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Creates an EC2 Security Group and its ingress rule(s)'
+
+Parameters:
+  Description:
+    Description: 'Description of the Security Group'
+    Type: String
+  FromCidr:
+    Description: 'CIDR Block to allow traffic from'
+    Type: String
+  Name:
+    Description: 'Name of Security Group to create'
+    Type: String
+  VpcId:
+    Description: 'VPC ID to create the Security Group in'
+    Type: AWS::EC2::VPC::Id
+
+Resources:
+  SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Ref Name
+      GroupDescription: !Ref Description
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - {FromPort: 135, ToPort: 135, IpProtocol: tcp, CidrIp: !Ref FromCidr, Description: RPC}
+        - {FromPort: 137, ToPort: 138, IpProtocol: udp, CidrIp: !Ref FromCidr, Description: NetBIOS}
+        - {FromPort: 138, ToPort: 139, IpProtocol: tcp, CidrIp: !Ref FromCidr, Description: NetBIOS}
+        - {FromPort: 389, ToPort: 389, IpProtocol: tcp, CidrIp: !Ref FromCidr, Description: LDAP}
+        - {FromPort: 389, ToPort: 389, IpProtocol: udp, CidrIp: !Ref FromCidr, Description: LDAP}
+        - {FromPort: 443, ToPort: 443, IpProtocol: tcp, CidrIp: !Ref FromCidr, Description: HTTPS}
+        - {FromPort: 445, ToPort: 445, IpProtocol: tcp, CidrIp: !Ref FromCidr, Description: SMB}
+        - {FromPort: 27017, ToPort: 27019, IpProtocol: tcp, CidrIp: !Ref FromCidr, Description: MongoDB}
+        # ArcGIS Monitor Specific
+        - {FromPort: 7999, ToPort: 8000, IpProtocol: tcp, CidrIp: !Ref FromCidr, Description: ArcGIS Monitor Administrator}
+      Tags:
+        - {Key: Name, Value: !Ref Name}
+
+Outputs:
+  SgId:
+    Description: 'ID of the Security Group created'
+    Export: {'Name': !Sub '${AWS::StackName}-SgId'}
+    Value: !GetAtt SecurityGroup.GroupId

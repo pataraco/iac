@@ -1,0 +1,52 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Deploys a S3 Bucket for deployment artifacts
+Parameters:
+  BucketName:
+    Type: String
+    Description: Name of the S3 Bucket that is created
+  AppName:
+    Type: String
+    Description: Name of the Application launched
+    Default: Mobilitics
+  Environment:
+    Type: String
+    Description: Name of the Environment
+  KMSKeyId:
+    Type: String
+    Description: KMS key used to encrypt the S3 Bucket
+    Default: ''
+
+Conditions:
+  UseKMSKey: !Not [!Equals [!Ref KMSKeyId, '']]
+
+Resources:
+  DeployBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Ref BucketName
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              KMSMasterKeyID: !If
+                - UseKMSKey
+                - !Ref KMSKeyId
+                - !Ref AWS::NoValue
+              SSEAlgorithm: !If
+                - UseKMSKey
+                - 'aws:kms'
+                - 'AES256'
+      Tags:
+        - Key: Name
+          Value: !Ref BucketName
+        - Key: AppName
+          Value: !Ref AppName
+        - Key: Env
+          Value: !Ref Environment
+
+Outputs:
+  DeploymentBucket:
+    Description: Bucket for deployment artifacts
+    Value: !Ref DeployBucket
+  DeploymentBucketArn:
+    Description: Bucket Arn for deployment artifacts
+    Value: !GetAtt DeployBucket.Arn

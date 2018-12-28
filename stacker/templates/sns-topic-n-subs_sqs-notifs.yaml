@@ -23,9 +23,9 @@ Resources:
     Properties:
       DisplayName: !Ref DisplayName
       Subscription:
-        - Endpoint: praco@onica.com
+        - Endpoint: raco@gmail.com
           Protocol: email
-        - Endpoint: 1-949-636-8923
+        - Endpoint: 1-949-555-1212
           Protocol: sms
         # Lambda function to auto-scale batch servers
         # - Endpoint: arn:aws:lambda:us-east-1:123456789012:function:lambda-name

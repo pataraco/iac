@@ -1,0 +1,86 @@
+---
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Create an AWS EC2 instance for ArcGIS System Monitor
+
+Parameters:
+  BackupDaily:
+    Default: 'True'
+    Description: 'Whether or not to perform Daily backups (True|False)'
+    Type: String
+  BackupWeekly:
+    Default: 'True'
+    Description: 'Whether or not to perform Weekly backups (True|False)'
+    Type: String
+  IamInstanceProfile:
+    Description: Name of instance profile to associate to instance
+    Type: String
+  ImageId:
+    Description: 'AMI ID for the Instance'
+    Type: String
+  InstanceType:
+    Default: c5.4xlarge
+    Description: 'Type of AWS EC2 instance to create'
+    Type: String
+  KeyName:
+    Description: 'Name of the AWS EC2 key pair'
+    Type: 'AWS::EC2::KeyPair::KeyName'
+  Monitoring:
+    AllowedValues: ['false', 'true']
+    Default: false
+    Description: 'Whether or not to enable detailed monitoring (default: false)'
+    Type: String
+  Name:
+    Description: 'Name to tag instance with'
+    Type: String
+  SecurityGroupIds:
+    Description: 'Security Group IDs to assign to the AWS EC2 instance'
+    Type: List<AWS::EC2::SecurityGroup::Id>
+  SubnetId:
+    Description: 'ID of the subnet to launch the instance into'
+    Type: AWS::EC2::Subnet::Id
+  TerminationProtection:
+    AllowedValues: ['Yes', 'No']
+    Default: 'No'
+    Description: 'Enable termination protection on the EC2 Instances to avoid accidential termination (Yes/No)? (default: No)'
+    Type: String
+  VolumeSizeData:
+    Default: '200'
+    Description: 'The size of the D: Drive in GB'
+    Type: Number
+    ConstraintDescription: 'Must be between 10 and 1024 GB'
+  VolumeSizeRoot:
+    Default: '100'
+    Description: 'The size of the C: Drive in GB'
+    Type: Number
+    ConstraintDescription: 'Must be between 100 and 1024 GB'
+
+Conditions:
+  EnableTeminationProtection: !Equals [!Ref TerminationProtection, 'Yes']
+
+Resources:
+  Ec2Instance:
+    Type: AWS::EC2::Instance
+    Properties:
+      BlockDeviceMappings:
+        - DeviceName: /dev/sda1  # System Drive C
+          Ebs: {DeleteOnTermination: true, VolumeType: gp2, VolumeSize: !Ref VolumeSizeRoot}
+        - DeviceName: /dev/sdd  # Data Drive D
+          Ebs: {DeleteOnTermination: true, VolumeType: gp2, VolumeSize: !Ref VolumeSizeData}
+      DisableApiTermination: !If [EnableTeminationProtection, true, false]
+      IamInstanceProfile: !Ref IamInstanceProfile
+      ImageId: !Ref ImageId
+      InstanceType: !Ref InstanceType
+      Monitoring: !Ref Monitoring
+      KeyName: !Ref KeyName
+      SecurityGroupIds: !Ref SecurityGroupIds
+      SubnetId: !Ref SubnetId
+      Tags:
+        - {Key: BackupDaily, Value: !Ref BackupDaily}
+        - {Key: BackupWeekly, Value: !Ref BackupWeekly}
+        - {Key: Name, Value: !Ref Name}
+
+Outputs:
+  InstanceId:
+    Description: ID of EC2 Instance created
+    Export: {'Name': !Sub '${AWS::StackName}-InstanceId'}
+    Value: !Ref Ec2Instance

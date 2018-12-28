@@ -16,7 +16,7 @@ Parameters:
 
   SourceSgId:
     Description: 'Specifies the ID of the EC2 Security Group to allow access'
-    Type: String
+    Type: AWS::EC2::SecurityGroup::Id
 
   VpcId:
     Description: 'VPC ID to create the Security Group in'
@@ -25,7 +25,7 @@ Parameters:
 
 Resources:
 
-  Ec2SecurityGroup:
+  Ec2SecurityGroupPublicAlb:
     Properties:
       GroupName: !Ref GroupName
       GroupDescription: !Ref GroupDescription
@@ -41,6 +41,6 @@ Resources:
 Outputs:
 
   SgId:
-    Description: ID of the Security Group created
+    Description: ID of the Security Group created for the public ALB
     Export: {'Name': !Sub '${AWS::StackName}-SgId'}
-    Value: !GetAtt Ec2SecurityGroup.GroupId
+    Value: !GetAtt Ec2SecurityGroupPublicAlb.GroupId

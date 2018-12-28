@@ -23,8 +23,8 @@ Resources:
     Properties:
       DisplayName: !Ref DisplayName
       Subscription:
-        - {Endpoint: praco@onica.com, Protocol: email}
-        - {Endpoint: 1-949-636-8923, Protocol: sms}
+        - {Endpoint: raco@gmail.com, Protocol: email}
+        - {Endpoint: 1-949-555-1212, Protocol: sms}
       TopicName: !Ref TopicName
     Type: AWS::SNS::Topic
 

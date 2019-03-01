@@ -32,6 +32,7 @@ exec 1>&2  # send STDOUT to STDERR
 readonly THIS_SCRIPT=$(basename $0)
 readonly DEFAULT_REGION="global"
 readonly PROD_ENVS="foo pie prod"   # Environments that require DEPLOY value
+readonly VALID_DEPLOYS="blue green shared"   # Valid options for DEPLOY value
 
 # Usage
 readonly USAGE="\
@@ -40,15 +41,15 @@ options:
   -e|--env ENV                   Environment to deploy [required]
                                  (e.g. qa, pie, prod)
   -d|--deploy DEPLOY             Deployment to launch [conditional]
-                                 (e.g. b|blue, g|green; required for specific environments)
+                                 (blue|green|shared; required for specific environments)
   -r|--region REGION             AWS region to deploy to [optional]
                                  (e.g. us-west-2, us-east-1, etc.; default: $DEFAULT_REGION)
   -m|--module MODULE             Module to deploy to [required]
                                  (e.g. aws-iam-roles, cryt-tier, etc.)
   -v|--vars VARS_SETTINGS_FILE   File containing variable settings [optional]
-                                 (e.g. qa-us-east-1.tfvars; default: ENV-REGION.tfvars)
+                                 (e.g. qa-us-east-1.tfvars; default: MODULE/ENV.tfvars)
   -b|--backend BACKEND_CFG_FILE  File containing backend configuration settings [optional]
-                                 (e.g. backend-qa-us-east-1.tfvars; default: backend-ENV-REGION.tfvars)
+                                 (e.g. backend-qa-us-east-1.tfvars; default: MODULE/ENV-backend.tfvars)
   -h|--help                      Show usage/help (this message)"
 
 # parse command line arguments
@@ -71,6 +72,8 @@ REGION=${REGION:=$DEFAULT_REGION}
 [ -z "$MODULE" ] && { echo "error: missing required module option"; echo "$USAGE"; exit; }
 [ ! -d "$MODULE" ] && { echo "error: module NOT found: $MODULE"; echo "$USAGE"; exit; }
 [[ $PROD_ENVS =~ (^| )$ENV($| ) && -z "$DEPLOY" ]] && { echo "error: deploy option required for environment: $ENV"; echo "$USAGE"; exit; }
+[[ ! $PROD_ENVS =~ (^| )$ENV($| ) && -z "$DEPLOY" ]] && { echo "error: deploy option not applicable for environment: $ENV"; echo "$USAGE"; exit; }
+[[ -n "$DEPLOY" && $VALID_DEPLOYS =~ (^| )$DEPLOY($| ) ]] && { echo "error: invalid deploy option: $DEPLOY"; echo "$USAGE"; exit; }
 # [ -z "$VARS_FILE" ] && VARS_FILE="$ENV-$REGION.tfvars"
 [ -z "$VARS_FILE" ] && VARS_FILE="$ENV.tfvars"
 VARS_FILE="$MODULE/$VARS_FILE"
@@ -99,7 +102,9 @@ echo "
    TF Command:  $TF_CMD
 "
 
-# grab variable settings and set environment variables for use by subsequent commands
+# grab all Terraform variable settings and
+# set environment variables for use by subsequent commands
+# note: this won't work with 'list' and 'map' variable types
 # declare -rx $(sed -n 's/^\([a-zA-Z]*\) = /TF_VAR_\1=/;/^#/! s/"//pg' $VARS_FILE)
 
 # initiatialize backend

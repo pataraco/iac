@@ -15,7 +15,7 @@
 #          not the environment to deploy is prod or non-prod
 #       c. invoke `terraform init` with '-backend-config' options to specify
 #          both the appropiate backend conig file and S3 key setting
-#    3. run terraform COMMAND (if applicable - i.e. a user specified command) 
+#    3. run terraform COMMAND (if applicable - i.e. a user specified command)
 
 # Global Settings/Variables
 # set -x   # enable "debug" mode
@@ -23,12 +23,13 @@ set -e     # exit immediately if a simple command exits with a non-zero status
 exec 3>&1  # create a link to STDOUT for terraform to output to
 exec 1>&2  # send STDOUT to STDERR
 
-readonly BACKEND_SSP="ssp-backend.tfvars"    # backend config for prod
-readonly BACKEND_SSNP="ssnp-backend.tfvars"  # backend config for non prod
-readonly DEFAULT_REGION="global"             # default to global resources
+readonly BACKEND_PD="prod-backend.tfvars"    # backend config for prod
+readonly BACKEND_NP="nonp-backend.tfvars"    # backend config for non prod
+readonly DEFAULT_RESOURCE_REGION="us-west-2" # default region for global deploy
 readonly DEV_ENV="dev"                       # Valid development environment
-readonly NON_PROD_ENVS="bar qa dev"          # Envs that don't allow DEPLOY val
-readonly PROD_ENVS="foo pie prod"            # Envs that require DEPLOY value
+readonly DEPLOY_ENVS="qa prod"               # Envs that require DEPLOY val
+readonly NON_PROD_ENVS="dev nonp"            # Non "prod" environments
+readonly PROD_ENVS="prod"                    # "prod" environments
 readonly THIS_SCRIPT=$(basename $0)          # name of the script invoked
 readonly VALID_DEPLOYS="blue green shared"   # Valid options for DEPLOY value
 
@@ -37,19 +38,19 @@ readonly USAGE="\
 usage: $THIS_SCRIPT [options]
 required options:
   -e | --env ENV                  Environment to deploy
-                                  (non-prod: $PROD_ENVS)
-                                  (prod: $NON_PROD_ENVS)
+                                  (non-prod: $NON_PROD_ENVS)
+                                  (prod: $PROD_ENVS)
   -m | --module MODULE            Module (service) to deploy
                                   (e.g. aws-iam-roles, cryt-tier, etc.)
+  -r | --region REGION            AWS region to deploy
+                                  (e.g. global, us-west-2, us-east-1, etc.)
 conditional options:
   -d | --deploy DEPLOY            Deployment to launch ($VALID_DEPLOYS)
-                                  (required for environments: $PROD_ENVS)
+                                  (required for environments: $DEPLOY_ENVS)
   -v | --vars VARS_SETTINGS_FILE  Variable settings file to use
                                   only available for $DEV_ENV environment
                                   (default: MODULE/ENV.tfvars)
 optional options:
-  -r | --region REGION            AWS region to deploy (default: $DEFAULT_REGION)
-                                  (e.g. us-west-2, us-east-1, etc.)
   -h | --help                     Show usage/help (this message)"
 
 # parse command line arguments
@@ -66,32 +67,27 @@ while [ $# -gt 0 ]; do
 done
 
 # set default variable settings
-REGION=${REGION:=$DEFAULT_REGION}
-[[ $PROD_ENVS =~ (^| )$ENV($| ) ]] && BACKEND_CFG="$MODULE/$BACKEND_SSP"
-[[ $NON_PROD_ENVS =~ (^| )$ENV($| ) ]] && BACKEND_CFG="$MODULE/$BACKEND_SSNP"
-
-# get project from VARS_FILE
-readonly PROJECT=$(
-   grep '^project = ' $VARS_FILE | cut -d'"' -f2 | tr '[A-Z]' '[a-z]')
-[ -z "$PROJECT" ] && {
-   echo "error: project not defined in: $VARS_FILE"; exit; }
+[[ $PROD_ENVS =~ (^| )$ENV($| ) ]] && BACKEND_CFG="$MODULE/$BACKEND_PD"
+[[ $NON_PROD_ENVS =~ (^| )$ENV($| ) ]] && BACKEND_CFG="$MODULE/$BACKEND_NP"
 
 # sanity checks
 [ -z "$ENV" ] && {
    echo "error: missing required ENV option"; echo "$USAGE"; exit; }
 [ -z "$MODULE" ] && {
    echo "error: missing required MODULE option"; echo "$USAGE"; exit; }
+[ -z "$REGION" ] && {
+   echo "error: missing required REGION option"; echo "$USAGE"; exit; }
 [ ! -d "$MODULE" ] && {
    echo "error: module NOT found: $MODULE"; echo "$USAGE"; exit; }
 [[ ! $PROD_ENVS =~ (^| )$ENV($| ) && ! $NON_PROD_ENVS =~ (^| )$ENV($| ) ]] && {
    echo "error: invalid environment: $ENV"; echo "$USAGE"; exit; }
-[[ $PROD_ENVS =~ (^| )$ENV($| ) && -z "$DEPLOY" ]] && {
+[[ $DEPLOY_ENVS =~ (^| )$ENV($| ) && -z "$DEPLOY" ]] && {
    echo "error: DEPLOY required for environment: $ENV"; echo "$USAGE"; exit; }
-[[ ! $PROD_ENVS =~ (^| )$ENV($| ) && -n "$DEPLOY" ]] && {
-   echo "error: deploy option not applicable for environment: $ENV"
+[[ ! $DEPLOY_ENVS =~ (^| )$ENV($| ) && -n "$DEPLOY" ]] && {
+   echo "error: DEPLOY option not applicable for environment: $ENV"
    echo "$USAGE"; exit; }
 [[ -n "$DEPLOY" && ! $VALID_DEPLOYS =~ (^| )$DEPLOY($| ) ]] && {
-   echo "error: invalid deploy option: $DEPLOY"; echo "$USAGE"; exit; }
+   echo "error: invalid DEPLOY option: $DEPLOY"; echo "$USAGE"; exit; }
 if [ -n "$VARS_FILE" -a $ENV != "$DEV_ENV" ]; then
    echo "error: VARS_SETTINGS_FILE option only avail with environment: $DEV_ENV"
    echo "$USAGE"
@@ -106,27 +102,40 @@ fi
 [ ! -e "$BACKEND_CFG" ] && {
    echo "error: backend config NOT found: $BACKEND_CFG"; echo "$USAGE"; exit; }
 
-# configure environment variables for use by module
-declare -rx TF_VAR_region=$REGION
-declare -rx TF_VAR_deploy=${DEPLOY::1}
+# get project from VARS_FILE
+readonly PROJECT=$(
+   grep '^project = ' $VARS_FILE | cut -d'"' -f2 | tr '[A-Z]' '[a-z]')
+[ -z "$PROJECT" ] && {
+   echo "error: project not defined in: $VARS_FILE"; exit; }
 
-# for debugging purposes:
-# TODO: remove all this
-echo "
-debug:
-   Environment (ENV):         $ENV
-   Deploy (DEPLOY):           $DEPLOY
-   Region (REGION):           $REGION
-   Module (MMODULE):          $MODULE
-   Project (TF_VAR_project):  $TF_VAR_project
-   Project (PROJECT):         $PROJECT
-   TFvars file (VARS_FILE):   $VARS_FILE
-   Backend cfg (BACKEND)CFG): $BACKEND_CFG
-   TF Command (TF_CMD):       $TF_CMD
-"
+# configure environment variables for use by module
+if [ "$REGION" == "global" ]; then
+   declare -rx TF_VAR_region=$DEFAULT_RESOURCE_REGION
+else
+   declare -rx TF_VAR_region=$REGION
+fi
+declare -rx TF_VAR_app=$PROJECT
+declare -rx TF_VAR_deploy=${DEPLOY::1}
+declare -rx TF_VAR_colorstack=${DEPLOY}
+declare -rx TF_VAR_env=$ENV
+declare -rx TF_VAR_environment=$(echo $ENV | tr '[a-z]' '[A-Z]')
+
+# # for debugging purposes:
+# # TODO: remove all this
+# echo "
+# debug:
+#    Environment (ENV):         $ENV
+#    Deploy (DEPLOY):           $DEPLOY
+#    Colorstack (COLORSTACK):   $DEPLOY
+#    Region (REGION):           $REGION
+#    Module (MODULE):           $MODULE
+#    Project (PROJECT):         $PROJECT
+#    TFvars file (VARS_FILE):   $VARS_FILE
+#    Backend cfg (BACKEND_CFG): $BACKEND_CFG
+#    TF Command (TF_CMD):       $TF_CMD
+# "
 
 # initiatialize backend
-
 # Backend AWS S3 Bucket Key naming format:
 #   <env>/<region>/[<deploy>/]<state_file_name>.tfstate
 # where:
@@ -134,11 +143,16 @@ debug:
 #  <region>          = AWS region (e.g. us-east-1, us-west-2, etc. or global)
 #  <deploy>          = blue|green|shared
 #  <color>           = b|g
-# e.g. "ssp/us-west-2/shared/bos-ssp-tf-init-us-west-2.tfstate"
-
-STATE_FILE_NAME="$PROJECT-$ENV-$MODULE-${DEPLOY::1}${DEPLOY:+-}$REGION.tfstate"
-S3_KEY="$ENV/$REGION/$DEPLOY${DEPLOY:+/}$STATE_FILE_NAME"
-echo "running: terraform init -reconfigure 
+# e.g. "prod/us-west-2/shared/bos-prod-tf-init-us-west-2.tfstate"
+if [ "$REGION" == "global" ]; then
+   STATE_FILE_NAME="$PROJECT-$ENV-${MODULE##*/}-$REGION.tfstate"
+   S3_KEY="$ENV/$REGION/$STATE_FILE_NAME"
+else
+   STATE_FILE_NAME="$PROJECT-$ENV-${MODULE##*/}-${DEPLOY::1}${DEPLOY:+-}$REGION.tfstate"
+   S3_KEY="$ENV/$REGION/$DEPLOY${DEPLOY:+/}$STATE_FILE_NAME"
+fi
+echo
+echo "running: terraform init -reconfigure
    -backend-config $BACKEND_CFG
    -backend-config key=$S3_KEY
    $MODULE"
@@ -147,8 +161,23 @@ terraform init -reconfigure \
    -backend-config key=$S3_KEY \
    $MODULE
 
-# run terraform command (if applicaable)
+# validate terraform configuration
+echo
+echo "running: terraform validate -var-file $VARS_FILE $MODULE"
+terraform validate -var-file $VARS_FILE $MODULE >&3
+[ $? -ne 0 ] && { echo "error: terraform validation failed"; exit; }
+
+# run terraform command (if applicable)
 if [ -n "$TF_CMD" ]; then
+   echo
    echo "running: terraform $TF_CMD -var-file $VARS_FILE $MODULE"
    terraform $TF_CMD -var-file $VARS_FILE $MODULE >&3
+else
+   echo
+   echo "opening new shell for testing"
+   echo "(for verbose output; export TF_LOG=TRACE)"
+   echo "(for debug output; export TF_LOG=DEBUG)"
+   # export TF_LOG=TRACE
+   unset PROMPT_COMMAND
+   export PS1="\n($(basename $BACKEND_CFG))$S3_KEY\n{TF}$ "; bash --noprofile --norc
 fi

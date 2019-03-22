@@ -1,0 +1,23 @@
+# Common Outputs
+
+output "environment" {
+  description = "The name of the Environment"
+  value = "${var.environment}"
+}
+output "region" {
+  description = "The name of the Region"
+  value = "${var.region}"
+}
+
+
+# Route 53
+
+output "route53_zone_private_id" {
+  description = "The hosted zone ID of the private root domain"
+  value = "${aws_route53_zone.route53_zone_private.zone_id}"
+}
+output "route53_zone_private_name_servers" {
+  description = "The list of name servers of the private root domain"
+  value = "${aws_route53_zone.route53_zone_private.name_servers}"
+}
+

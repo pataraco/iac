@@ -1,0 +1,16 @@
+variable "vpc_name" {
+  description = "VPC Name"
+  default     = ""
+}
+variable "env" {
+  description = "Environment Name"
+  default     = ""
+}
+variable "app" {
+  description = "App Name"
+  default     = ""
+}
+variable "tier" {
+  description = "Tier Name"
+  default     = ""
+}

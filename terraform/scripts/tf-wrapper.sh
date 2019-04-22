@@ -23,15 +23,16 @@ set -e     # exit immediately if a simple command exits with a non-zero status
 exec 3>&1  # create a link to STDOUT for terraform to output to
 exec 1>&2  # send STDOUT to STDERR
 
-readonly BACKEND_PD="prod-backend.tfvars"    # backend config for prod
-readonly BACKEND_NP="nonp-backend.tfvars"    # backend config for non prod
-readonly DEFAULT_RESOURCE_REGION="us-west-2" # default region for global deploy
-readonly DEV_ENV="dev"                       # Valid development environment
-readonly DEPLOY_ENVS="qa prod"               # Envs that require DEPLOY val
-readonly NON_PROD_ENVS="dev nonp"            # Non "prod" environments
-readonly PROD_ENVS="prod"                    # "prod" environments
-readonly THIS_SCRIPT=$(basename $0)          # name of the script invoked
-readonly VALID_DEPLOYS="blue green shared"   # Valid options for DEPLOY value
+readonly BACKEND_SSPD="sspd-backend.tfvars"   # backend config for prod
+readonly BACKEND_SSNP="ssnp-backend.tfvars"   # backend config for non prod
+readonly COMMON_DIR="common"                  # common directory of shared files
+readonly DEFAULT_RESOURCE_REGION="us-west-2"  # default region for global deploy
+readonly DEV_ENV="dev"                        # Valid development environment
+readonly DEPLOY_ENVS="stag prod"              # Envs that require DEPLOY val
+readonly NON_PROD_ENVS="qa dev stag ssnp"     # Non "prod" environments
+readonly PROD_ENVS="prod sspd"                # "prod" environments
+readonly THIS_SCRIPT=$(basename $0)           # name of the script invoked
+readonly VALID_DEPLOYS="blue green shared"    # Valid options for DEPLOY value
 
 # Usage
 readonly USAGE="\
@@ -62,51 +63,65 @@ while [ $# -gt 0 ]; do
       -m|--module) MODULE="$2"    ; shift 2;;
       -r|--region) REGION="$2"    ; shift 2;;
       -v|--vars)   VARS_FILE="$2" ; shift 2;;
+      -*)          echo "error: unknown option: $1"; echo "$USAGE"; exit 1;;
       *)           TF_CMD="$@"    ; break  ;;
    esac
 done
 
 # set default variable settings
-[[ $PROD_ENVS =~ (^| )$ENV($| ) ]] && BACKEND_CFG="$MODULE/$BACKEND_PD"
-[[ $NON_PROD_ENVS =~ (^| )$ENV($| ) ]] && BACKEND_CFG="$MODULE/$BACKEND_NP"
+[[ $PROD_ENVS =~ (^| )$ENV($| ) ]] && BACKEND_CFG="$COMMON_DIR/$BACKEND_SSPD"
+[[ $NON_PROD_ENVS =~ (^| )$ENV($| ) ]] && BACKEND_CFG="$COMMON_DIR/$BACKEND_SSNP"
 
 # sanity checks
 [ -z "$ENV" ] && {
-   echo "error: missing required ENV option"; echo "$USAGE"; exit; }
+   echo "error: missing required ENV option"; echo "$USAGE"; exit 1; }
 [ -z "$MODULE" ] && {
-   echo "error: missing required MODULE option"; echo "$USAGE"; exit; }
+   echo "error: missing required MODULE option"; echo "$USAGE"; exit 1; }
 [ -z "$REGION" ] && {
-   echo "error: missing required REGION option"; echo "$USAGE"; exit; }
+   echo "error: missing required REGION option"; echo "$USAGE"; exit 1; }
 [ ! -d "$MODULE" ] && {
-   echo "error: module NOT found: $MODULE"; echo "$USAGE"; exit; }
+   echo "error: module NOT found: $MODULE"; echo "$USAGE"; exit 1; }
 [[ ! $PROD_ENVS =~ (^| )$ENV($| ) && ! $NON_PROD_ENVS =~ (^| )$ENV($| ) ]] && {
-   echo "error: invalid environment: $ENV"; echo "$USAGE"; exit; }
+   echo "error: invalid environment: $ENV"; echo "$USAGE"; exit 1; }
 [[ $DEPLOY_ENVS =~ (^| )$ENV($| ) && -z "$DEPLOY" ]] && {
-   echo "error: DEPLOY required for environment: $ENV"; echo "$USAGE"; exit; }
+   echo "error: DEPLOY required for environment: $ENV"; echo "$USAGE"; exit 1; }
 [[ ! $DEPLOY_ENVS =~ (^| )$ENV($| ) && -n "$DEPLOY" ]] && {
    echo "error: DEPLOY option not applicable for environment: $ENV"
-   echo "$USAGE"; exit; }
-[[ -n "$DEPLOY" && ! $VALID_DEPLOYS =~ (^| )$DEPLOY($| ) ]] && {
-   echo "error: invalid DEPLOY option: $DEPLOY"; echo "$USAGE"; exit; }
+   echo "$USAGE"; exit 1; }
+[[ -n "$DEPLOY" && ! $VALID_DEPLOYS =~ (^| )$DEPLOY($| ) ]] && 
+   echo "error: invalid DEPLOY option: $DEPLOY" && echo "$USAGE" && exit 1
 if [ -n "$VARS_FILE" -a $ENV != "$DEV_ENV" ]; then
    echo "error: VARS_SETTINGS_FILE option only avail with environment: $DEV_ENV"
    echo "$USAGE"
-   exit
+   exit 1
 else
    VARS_FILE="$MODULE/$ENV.tfvars"
 fi
 [ ! -e "$VARS_FILE" ] && {
-   echo "error: tfvars file NOT found: $VARS_FILE"; echo "$USAGE"; exit; }
+   echo "error: tfvars file NOT found: $VARS_FILE"; echo "$USAGE"; exit 1; }
 [ -z "$BACKEND_CFG" ] && {
-   echo "error: backend config NOT set"; exit; }
+   echo "error: backend config NOT set"; exit 1; }
 [ ! -e "$BACKEND_CFG" ] && {
-   echo "error: backend config NOT found: $BACKEND_CFG"; echo "$USAGE"; exit; }
+   echo "error: backend config NOT found: $BACKEND_CFG"; echo "$USAGE"; exit 1; }
 
 # get project from VARS_FILE
 readonly PROJECT=$(
    grep '^project = ' $VARS_FILE | cut -d'"' -f2 | tr '[A-Z]' '[a-z]')
 [ -z "$PROJECT" ] && {
-   echo "error: project not defined in: $VARS_FILE"; exit; }
+   echo "error: project not defined in: $VARS_FILE"; exit 1; }
+
+# see if this has a statically assigned deployment (not blue or green)
+readonly STATIC_DEPLOY=$(
+   grep '^deploy = ' $VARS_FILE | cut -d'"' -f2 | tr '[A-Z]' '[a-z]')
+[[ -n $STATIC_DEPLOY ]] && [[ ! $DEPLOY == $STATIC_DEPLOY ]] && {
+   echo "error: this stack defines a static deployment of \"$STATIC_DEPLOY\"
+   which does not match your argument of \"$DEPLOY\""; exit 1; }
+
+readonly STATIC_REGION=$(
+   grep '^region = ' $VARS_FILE | cut -d'"' -f2 | tr '[A-Z]' '[a-z]')
+[[ -n $STATIC_REGION ]] && [[ ! $REGION == $STATIC_REGION ]] && {
+   echo "error: this stack defines a static region of \"$STATIC_REGION\"
+   which does not match your argument of \"$REGION\""; exit 1; }
 
 # configure environment variables for use by module
 if [ "$REGION" == "global" ]; then
@@ -143,7 +158,7 @@ declare -rx TF_VAR_environment=$(echo $ENV | tr '[a-z]' '[A-Z]')
 #  <region>          = AWS region (e.g. us-east-1, us-west-2, etc. or global)
 #  <deploy>          = blue|green|shared
 #  <color>           = b|g
-# e.g. "prod/us-west-2/shared/bos-prod-tf-init-us-west-2.tfstate"
+# e.g. "sspd/us-west-2/shared/proj-sspd-tf-init-us-west-2.tfstate"
 if [ "$REGION" == "global" ]; then
    STATE_FILE_NAME="$PROJECT-$ENV-${MODULE##*/}-$REGION.tfstate"
    S3_KEY="$ENV/$REGION/$STATE_FILE_NAME"

@@ -188,11 +188,21 @@ if [ -n "$TF_CMD" ]; then
    echo "running: terraform $TF_CMD -var-file $VARS_FILE $MODULE"
    terraform $TF_CMD -var-file $VARS_FILE $MODULE >&3
 else
+   s3_bucket=$(grep "bucket *= " $BACKEND_CFG | cut -d'"' -f2)
    echo
-   echo "opening new shell for testing"
+   echo "opening new shell for testing (type 'exit' or ^D to quit)"
    echo "(for verbose output; export TF_LOG=TRACE)"
    echo "(for debug output; export TF_LOG=DEBUG)"
-   # export TF_LOG=TRACE
    unset PROMPT_COMMAND
-   export PS1="\n($(basename $BACKEND_CFG))$S3_KEY\n{TF}$ "; bash --noprofile --norc
+   PGRN='\[\e[1;32m\]'   # green (bold)
+   PBLU='\[\e[1;34m\]'   # blue (bold)
+   PCYN='\[\e[1;36m\]'   # cyan (bold)
+   cd $MODULE  # change working directory to the "module" that trying to be launched
+   [ -e .terraform ] && mv .terraform{,.orig.$$}  # save current .terraform directory
+   ln -s ../.terraform  # set up symlink to backend initialized
+   export PS1="\n${PCYN}(state file: s3://$s3_bucket/$S3_KEY)\n${PGRN}[path: \w]\n${PBLU}{TF DEBUG ('exit' to quit)}$ \[\e[m\]"
+   bash --noprofile --norc
+   rm -f .terraform  # remove the symlink
+   [ -e .terraform.orig.$$ ] && mv .terraform{.orig.$$,}  # restore original .terraform directory
+   cd -  # cd back to the original working directory
 fi

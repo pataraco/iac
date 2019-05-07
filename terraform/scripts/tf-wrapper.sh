@@ -17,6 +17,39 @@
 #          both the appropiate backend conig file and S3 key setting
 #    3. run terraform COMMAND (if applicable - i.e. a user specified command)
 
+# Terminology: AWS resources and Terraform configs
+# ------------------------------------------------
+#    common: (EC2 security groups and Terraform variables) [file names]
+#       used by all resources (EC2 and TF configs)
+#
+#    shared: (AWS resources) [deploy setting]
+#       resources used by few/specific resources (DB's, ES, RabbitMQ, KMS,
+#       SG's, Etc.) (only specified/significant when deploying to `pie` and
+#       `prod`, and you'll only see that "shared" designation when deployed to
+#       `pie` and `prod` in the names of the TF state files and the names of
+#       the AWS resources)
+#
+#    global: (region)        [region setting]
+#       refers to whether or not the AWS resource is region specific
+#       (IAM|R53|WAF|CloudFront - no, EC2|S3|VPC|etc. - yes)
+
+# Debug/Investigation/Maintenance Mode
+# ------------------------------------
+#    If a Terraform command (e.g. plan or apply) is not given, this script will
+#    initialize the appropiate S3 backend configuration (S3 bucket & key) and
+#    then change the working directory to the module desired to maintain, then
+#    start a shell to allow the user to perform Terraform debugging,
+#    investigation and maintenance commands (e.g. show and import).
+#    The user will see a prompt showing the:
+#       1. S3 backend configuration state file details (S3 bucket/key)
+#       2. current working directory (highlight the fact that they are now
+#          in the directory of the module to be worked on
+#       3. "TF DEBUG" prompt
+#    At this point one can run, e.g.:
+#       - terraform show    # read and output the Terraform state file
+#       - terraform import  # import existing infrastructure into the state file
+#    To exit this mode, simply type 'exit' and hit [return]
+
 # Global Settings/Variables
 # set -x   # enable "debug" mode
 set -e     # exit immediately if a simple command exits with a non-zero status
@@ -194,15 +227,17 @@ else
    echo "(for verbose output; export TF_LOG=TRACE)"
    echo "(for debug output; export TF_LOG=DEBUG)"
    unset PROMPT_COMMAND
-   PGRN='\[\e[1;32m\]'   # green (bold)
-   PBLU='\[\e[1;34m\]'   # blue (bold)
-   PCYN='\[\e[1;36m\]'   # cyan (bold)
-   cd $MODULE  # change working directory to the "module" that trying to be launched
-   [ -e .terraform ] && mv .terraform{,.orig.$$}  # save current .terraform directory
-   ln -s ../.terraform  # set up symlink to backend initialized
-   export PS1="\n${PCYN}(state file: s3://$s3_bucket/$S3_KEY)\n${PGRN}[path: \w]\n${PBLU}{TF DEBUG ('exit' to quit)}$ \[\e[m\]"
+   PGRN='\[\e[1;32m\]'  # green (bold)
+   PBLU='\[\e[1;34m\]'  # blue (bold)
+   PCYN='\[\e[1;36m\]'  # cyan (bold)
+   PNRM='\[\e[m\]'      # normal
+   EXECED_WD=$(pwd)     # dir where the wrapper was execed from
+   cd $MODULE           # cd to the "module" desired to be launched
+   [ -e .terraform ] && mv .terraform{,.orig.$$}  # save current .terraform dir
+   ln -s $EXECED_WD/.terraform  # set up symlink to backend initialized
+   export PS1="\n${PCYN}(state file: s3://$s3_bucket/$S3_KEY)\n${PGRN}[path: \w]\n${PBLU}{TF DEBUG ('exit' to quit)}$ ${PNRM}"
    bash --noprofile --norc
-   rm -f .terraform  # remove the symlink
+   rm -f .terraform     # remove the symlink
    [ -e .terraform.orig.$$ ] && mv .terraform{.orig.$$,}  # restore original .terraform directory
-   cd -  # cd back to the original working directory
+   cd $EXECED_WD        # cd back to the original working directory
 fi

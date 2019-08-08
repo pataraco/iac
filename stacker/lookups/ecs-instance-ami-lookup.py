@@ -1,4 +1,4 @@
-"""Stacker custom lookup for finding Route53 Hosted Zones"""
+"""Stacker custom lookup for finding AWS recommended ECS EC2 AMI"""
 
 import logging
 from ast import literal_eval

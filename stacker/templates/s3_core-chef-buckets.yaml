@@ -112,4 +112,4 @@ Outputs:
   ChefArtifactsS3BucketDomainName:
     Description: DNS domain name of S3 bucket storing extra/restricted Chef artifacts
     Export: {'Name': !Sub '${AWS::StackName}-ChefArtifactsS3BucketDomainName'}
-    Value: !GetAtt S3BucketChefConfigs.DomainName
+    Value: !GetAtt S3BucketChefArtifacts.DomainName

@@ -1,6 +1,5 @@
 ---
 common_tags: &common_tags
-  AECOM Client: ${aecom_client}
   Application: ${application}
   Billing Contact: ${billing_contact}
   Cost Center: ${cost_center}
@@ -16,7 +15,7 @@ cwsv: &common_web_server_vars
   DnsServer1: ${dns_server_1}
   DnsServer2: ${dns_server_2}
   DomainUserId: ${domain_user_id}
-  DomainUserPw: ${ssmstore ${region}@/windows/domain/aecomonline/${domain_user_id}/password}
+  DomainUserPw: ${ssmstore ${region}@/windows/domain/company/${domain_user_id}/password}
   ImageId: ${golden_win_2012}
   InstanceProfile: ${rxref ${app}-instance-profile::InstanceProfileName}
   KeyName: ${ec2_key_pair_name}

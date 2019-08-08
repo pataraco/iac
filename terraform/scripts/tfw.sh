@@ -83,22 +83,23 @@ PNRM='\[\e[m\]'      # normal
 readonly USAGE="\
 usage: $THIS_SCRIPT [options]
 required options:
-  -e | --env ENV                  Environment to deploy
-                                  (non-prod: $NON_PROD_ENVS)
-                                  (prod: $PROD_ENVS)
-  -m | --module MODULE            Module (service) to deploy
-                                  (e.g. aws-iam-roles, cryt-tier, etc.)
-  -r | --region REGION            AWS region to deploy
-                                  (e.g. global, us-west-2, us-east-1, etc.)
+  -e | --env ENV        Environment to deploy
+                        (non-prod: $NON_PROD_ENVS)
+                        (prod: $PROD_ENVS)
+  -m | --module MODULE  Module (service) to deploy
+                        (e.g. aws-iam-roles, cryt-tier, etc.)
+  -r | --region REGION  AWS region to deploy
+                        (e.g. global, us-west-2, us-east-1, etc.)
 conditional options:
-  -d | --deploy DEPLOY            Deployment to launch ($VALID_DEPLOYS)
-                                  (required for environments: $DEPLOY_ENVS)
-  -v | --vars VARS_SETTINGS_FILE  Variable settings file to use
-                                  only available for $DEV_ENV environment
-                                  (default: MODULE/ENV.tfvars)
+  -d | --deploy DEPLOY  Deployment to launch ($VALID_DEPLOYS)
+                        (required for environments: $DEPLOY_ENVS)
+  -v | --vars VARS_SETTINGS_FILE
+                        Variable settings file to use
+                        only available for $DEV_ENV environment
+                        (default: MODULE/ENV.tfvars)
 optional options:
-  --debug                         Turn on debugging
-  -h | --help                     Show usage/help (this message)"
+  --debug               Turn on debugging
+  -h | --help           Show usage/help (this message)"
 
 
 function usage () {

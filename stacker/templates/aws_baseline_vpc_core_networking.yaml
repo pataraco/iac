@@ -410,7 +410,7 @@ Resources:
     Properties:
       CidrBlock: !Ref VpcCidr
       EnableDnsHostnames: !Ref EnableDnsHostnames
-      EnableDnsSupport: !ref EnableDnsSupport
+      EnableDnsSupport: !Ref EnableDnsSupport
       InstanceTenancy: !Ref InstanceTenancy
       Tags:
         - Key: Name

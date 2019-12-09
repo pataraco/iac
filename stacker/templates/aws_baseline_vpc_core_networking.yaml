@@ -1,6 +1,6 @@
 ---
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'Creates an EC2 VPC, IGW, Nat GWs and their EIPs, Private/Public Subnets, Routes and Routing tables for common core environment'
+Description: 'Creates a baseline VPC and core networking resources (IGW, NAT GWs/EIPs, Private/Public Subnets, Routes and Routing tables) for a common environment'
 
 
 Parameters:

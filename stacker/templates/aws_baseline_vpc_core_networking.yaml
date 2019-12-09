@@ -126,18 +126,39 @@ Resources:
     Condition: CreateNatGw1
     Properties:
       Domain: vpc
+      Tags:
+        - Key: Name
+          Value: !If
+            - VpcNameGiven
+            - !Join ['-', [!Ref VpcName, !Select [0, !GetAZs '']]]
+            - !Join ['-', [!Ref Project, !Ref Environment, !Select [0, !GetAZs '']]]
+        - {Key: VPC, Value: !Ref Ec2Vpc}
     Type: AWS::EC2::EIP
 
   Ec2EipNatGw2:
     Condition: CreateNatGw2
     Properties:
       Domain: vpc
+      Tags:
+        - Key: Name
+          Value: !If
+            - VpcNameGiven
+            - !Join ['-', [!Ref VpcName, !Select [1, !GetAZs '']]]
+            - !Join ['-', [!Ref Project, !Ref Environment, !Select [1, !GetAZs '']]]
+        - {Key: VPC, Value: !Ref Ec2Vpc}
     Type: AWS::EC2::EIP
 
   Ec2EipNatGw3:
     Condition: CreateNatGw3
     Properties:
       Domain: vpc
+      Tags:
+        - Key: Name
+          Value: !If
+            - VpcNameGiven
+            - !Join ['-', [!Ref VpcName, !Select [2, !GetAZs '']]]
+            - !Join ['-', [!Ref Project, !Ref Environment, !Select [2, !GetAZs '']]]
+        - {Key: VPC, Value: !Ref Ec2Vpc}
     Type: AWS::EC2::EIP
 
   Ec2NatGateway1:

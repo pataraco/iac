@@ -1,0 +1,75 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: REST API (created with SAM)
+Parameters:
+  Creator:
+    Type: String
+    Default: patrick.raco@autogravity.com
+  Environment:
+    Type: String
+    Default: dev
+Globals:
+  Function:
+    Environment:
+      Variables:
+        DB_TABLE_NAME:
+          Ref: DynomoDbTable
+    MemorySize: 128
+    Runtime: nodejs12.x
+    Timeout: 5
+Resources:
+  DynomoDbTable:
+    Type: AWS::Serverless::SimpleTable
+    Properties:
+      PrimaryKey:
+        Name: userid
+        Type: String
+      ProvisionedThroughput:
+        ReadCapacityUnits: 1
+        WriteCapacityUnits: 1
+      Tags:
+        Creator:
+          Ref: Creator
+        Environment:
+          Ref: Environment
+  DeleteUser:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: delete.handler
+      Policies: AmazonDynamoDBFullAccess
+      Events:
+        GetUser:
+          Type: Api
+          Properties:
+            Method: delete
+            Path: /user/{userid}
+      CodeUri: s3://ag-devops-sandbox/sam/df88599965af8d5d10614e7422948717
+  GetUser:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: get.handler
+      Policies: AmazonDynamoDBReadOnlyAccess
+      Events:
+        GetUser:
+          Type: Api
+          Properties:
+            Method: get
+            Path: /user/{userid}
+      CodeUri: s3://ag-devops-sandbox/sam/df88599965af8d5d10614e7422948717
+  PutUser:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: put.handler
+      Policies: AmazonDynamoDBFullAccess
+      Events:
+        GetUser:
+          Type: Api
+          Properties:
+            Method: put
+            Path: /user/{userid}
+      CodeUri: s3://ag-devops-sandbox/sam/df88599965af8d5d10614e7422948717
+Outputs:
+  ApiEndpointUrl:
+    Description: API Gateway REST API endpoint URL
+    Value:
+      Fn::Sub: https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/user/

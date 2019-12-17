@@ -1,0 +1,153 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: REST API (created with SAM)
+
+
+Parameters:
+
+  Creator:
+    Default: patrick.raco@autogravity.com
+    Type: String
+
+  Environment:
+    Default: dev
+    Type: String
+
+
+Globals:
+
+  Api:
+    OpenApiVersion: 3.0.1
+    # Cors: '*'
+
+  Function:
+    Environment:
+      Variables:
+        DB_TABLE_NAME: !Ref DynomoDbTable
+    MemorySize: 128
+    Runtime: nodejs12.x
+    Timeout: 5
+
+
+Resources:
+
+  # API [REST] (AWS::ApiGateway::RestApi)
+  #   also defines optional Resource Policy (currently none)
+  ApiGatewayApi:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Description: !Sub 'Sample REST API (${Environment})'
+#     EndpointConfiguration:
+#       Types: !Ref ApiEndpointConfigurationTypes
+      Name: !Sub 'rest-api-${Environment}'
+
+  ApiGatewayApiDeployment:
+    Type: AWS::ApiGateway::Deployment
+    DependsOn:
+      - DeleteUser
+      - GetUser
+      - PutUser
+    Properties:
+      Description: !Sub "RestApi deployment (${Environment})"
+      RestApiId: !Ref ApiGatewayApi
+      StageName: !Ref Environment
+
+  # API Request Validation (AWS::ApiGateway::RequestValidator)
+  ApiRequestValidatorBody:
+    Properties:
+      Name: 'Body'
+      RestApiId: !Ref RestApiGateway
+      ValidateRequestBody: true
+      ValidateRequestParameters: false
+    Type: AWS::ApiGateway::RequestValidator
+
+  ApiRequestValidatorBodyHeadersAndParameters:
+    Properties:
+      Name: 'Body, Headers and Query String Parameters'
+      RestApiId: !Ref RestApiGateway
+      ValidateRequestBody: true
+      ValidateRequestParameters: true
+    Type: AWS::ApiGateway::RequestValidator
+
+  ApiRequestValidatorHeadersAndParameters:
+    Properties:
+      Name: 'Headers and Query String Parameters'
+      RestApiId: !Ref RestApiGateway
+      ValidateRequestBody: false
+      ValidateRequestParameters: true
+    Type: AWS::ApiGateway::RequestValidator
+
+  DynomoDbTable:
+    Type: AWS::Serverless::SimpleTable
+    Properties:
+      PrimaryKey:
+        Name: userid
+        Type: String
+      ProvisionedThroughput:
+        ReadCapacityUnits: 1
+        WriteCapacityUnits: 1
+      # SSESpecification: SSESpecification
+      # TableName: String
+      Tags:
+        Creator: !Ref Creator
+        Environment: !Ref Environment
+
+  DeleteUser:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../lambda
+      Handler: delete.handler
+      Policies: AmazonDynamoDBFullAccess
+      Events:
+        DeleteUser:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGatewayApi
+            Method: delete
+            Path: /user/{userid}
+            RequestParameters:
+              - method.request.header.Authorization:
+                  Required: true
+              - method.request.header.cognito-access-token:
+                  Required: true
+              - method.request.querystring.size:
+                  Required: false
+              - method.request.querystring.page:
+                  Required: true
+              - method.request.path.subscription-code:
+                  Required: true
+
+  GetUser:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../lambda
+      Handler: get.handler
+      Policies: AmazonDynamoDBReadOnlyAccess
+      Events:
+        GetUser:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGatewayApi
+            Method: get
+            Path: /user/{userid}
+
+  PutUser:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../lambda
+      Handler: put.handler
+      Policies: AmazonDynamoDBFullAccess
+      Events:
+        PutUser:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGatewayApi
+            Method: put
+            Path: /user/{userid}
+
+
+Outputs:
+  ApiEndpointUrl:
+    Description: "API Gateway REST API endpoint URL"
+    # Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/user/"
+    Value: !Sub "https://${ApiGatewayApi}.execute-api.${AWS::Region}.amazonaws.com/dev/user/"

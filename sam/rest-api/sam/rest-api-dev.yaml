@@ -1,0 +1,150 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: REST API (created with SAM)
+Parameters:
+  Creator:
+    Default: patrick.raco@autogravity.com
+    Type: String
+  Environment:
+    Default: dev
+    Type: String
+Globals:
+  Api:
+    OpenApiVersion: 3.0.1
+  Function:
+    Environment:
+      Variables:
+        DB_TABLE_NAME:
+          Ref: DynomoDbTable
+    MemorySize: 128
+    Runtime: nodejs12.x
+    Timeout: 5
+Resources:
+  ApiGatewayApi:
+    Type: AWS::Serverless::Api
+    DependsOn:
+    - DeleteUser
+    - GetUser
+    - PutUser
+    Properties:
+      StageName: Dev
+      DefinitionBody:
+        openapi: 3.0.1
+        info:
+          title: REST API - Dev
+          version: '2019-12-05T22:57:00Z'
+        paths:
+          /delete:
+            delete:
+              x-amazon-apigateway-request-validator: Validate query string parameters
+                and headers
+              x-amazon-apigateway-integration:
+                uri:
+                  Fn::Sub: arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${DeleteUser.Arn}/invocations
+          /get:
+            get:
+              x-amazon-apigateway-integration:
+                uri:
+                  Fn::Sub: arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${GetUser.Arn}/invocations
+          /put:
+            put:
+              x-amazon-apigateway-integration:
+                uri:
+                  Fn::Sub: arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PutUser.Arn}/invocations
+        x-amazon-apigateway-request-validators:
+          Validate body:
+            validateRequestParameters: false
+            validateRequestBody: true
+          Validate body, query string parameters, and headers:
+            validateRequestParameters: true
+            validateRequestBody: true
+          Validate query string parameters and headers:
+            validateRequestParameters: true
+            validateRequestBody: false
+        x-amazon-apigateway-binary-media-types:
+        - application/pdf
+  ApiGatewayApiDeployment:
+    Type: AWS::ApiGateway::Deployment
+    DependsOn:
+    - DeleteUser
+    - GetUser
+    - PutUser
+    Properties:
+      Description:
+        Fn::Sub: RestApi deployment (${Environment})
+      RestApiId:
+        Ref: ApiGatewayApi
+      StageName:
+        Ref: Environment
+  DynomoDbTable:
+    Type: AWS::Serverless::SimpleTable
+    Properties:
+      PrimaryKey:
+        Name: userid
+        Type: String
+      ProvisionedThroughput:
+        ReadCapacityUnits: 1
+        WriteCapacityUnits: 1
+      Tags:
+        Creator:
+          Ref: Creator
+        Environment:
+          Ref: Environment
+  DeleteUser:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: s3://ag-devops-sandbox/sam/ad726ebf00936645e9aa22fc7925b13b
+      Handler: delete.handler
+      Policies: AmazonDynamoDBFullAccess
+      Events:
+        DeleteUser:
+          Type: Api
+          Properties:
+            RestApiId:
+              Ref: ApiGatewayApi
+            Method: delete
+            Path: /user/{userid}
+            RequestParameters:
+            - method.request.header.Authorization:
+                Required: true
+            - method.request.header.cognito-access-token:
+                Required: true
+            - method.request.querystring.size:
+                Required: false
+            - method.request.querystring.page:
+                Required: true
+            - method.request.path.subscription-code:
+                Required: true
+  GetUser:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: s3://ag-devops-sandbox/sam/ad726ebf00936645e9aa22fc7925b13b
+      Handler: get.handler
+      Policies: AmazonDynamoDBReadOnlyAccess
+      Events:
+        GetUser:
+          Type: Api
+          Properties:
+            RestApiId:
+              Ref: ApiGatewayApi
+            Method: get
+            Path: /user/{userid}
+  PutUser:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: s3://ag-devops-sandbox/sam/ad726ebf00936645e9aa22fc7925b13b
+      Handler: put.handler
+      Policies: AmazonDynamoDBFullAccess
+      Events:
+        PutUser:
+          Type: Api
+          Properties:
+            RestApiId:
+              Ref: ApiGatewayApi
+            Method: put
+            Path: /user/{userid}
+Outputs:
+  ApiEndpointUrl:
+    Description: API Gateway REST API endpoint URL
+    Value:
+      Fn::Sub: https://${ApiGatewayApi}.execute-api.${AWS::Region}.amazonaws.com/dev/user/

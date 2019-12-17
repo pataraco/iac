@@ -48,7 +48,7 @@ Resources:
       Handler: delete.handler
       Policies: AmazonDynamoDBFullAccess
       Events:
-        GetUser:
+        DeleteUser:
           Type: Api
           Properties:
             Method: delete
@@ -72,7 +72,7 @@ Resources:
       Handler: put.handler
       Policies: AmazonDynamoDBFullAccess
       Events:
-        GetUser:
+        PutUser:
           Type: Api
           Properties:
             Method: put

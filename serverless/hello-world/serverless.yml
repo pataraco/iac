@@ -1,4 +1,23 @@
+# --------------------------------------------
+# Originally created with (and then modified):
+#    $ sls create -t aws-nodejs -p hello-world
+# Tested with:
+#   Lambda Function
+#    $ sls invoke local -f hello
+#    $ sls invoke local -f hello -d '{"Key": "Val"}'
+#   API
+#    $ npm install serverless-offline --save-dev
+#    $ sls offline
+# Deployed with:
+#    $ sls deploy [-s stage] [-r region] [-f function]
+# Removed with:
+#    $ sls remove
+# Logs with:
+#    $ sls logs -f FUNCTION [--startTime 5m] [-t | --tail]
+# --------------------------------------------
 service: hello-world
+plugins:
+  - serverless-offline
 
 provider:
   name: aws
@@ -12,26 +31,50 @@ functions:
   add:
     handler: add.add
     events:
-      - http:  # API Gateway event
+      - http:  # API Gateway event (default: Lambda Proxy)
           path: math/add  # must be double indented
           method: post
+          cors: true
+  body-mapped-add:
+    handler: body-mapped-add.add
+    events:
+      - http:  # API Gateway event
+          path: math/body-mapped-add  # must be double indented
+          method: post
+          integration: lambda    # otherwise, defaults to lambda proxy
+          request:
+            template:
+              # VTL info:
+              # docs.aws.amazon.com/apigateway/latest/developerguide/api-gateway-mapping-template-reference.html
+              application/json: >
+                #set($inputRoot = $input.path('$'))
+                {
+                  "n1": $inputRoot.input.num1,
+                  "n2": $inputRoot.input.num2
+                }
+          response:
+            headers:
+              Access-Control-Allow-Origin: "'*'"
+              Content-Type: "'application/json'"
+            template: >
+              #set($inputRoot = $input.path('$'))
+              {
+                "result": $inputRoot.result
+              }
           cors: true
   hello:
     handler: handler.hello
     memorySize: 128
     timeout: 3
+    vpc:
+      subnetIds:
+        - subnet-cbd08291
+        - subnet-c54a0abc
+      securityGroupIds:
+        - sg-f1b2d781
 
-# --------------------------------------------
 # Original File Below
-# Created with:
-#    $ sls create -t aws-nodejs -p hello-world
-# Tested with:
-#    $ sls invoke local -f hello
-#    $ sls invoke local -f hello -d '{"Key": "Val"}'
-# Deployed with:
-#    $ sls deploy [-s stage] [-r region] [-f function]
-# Removed with:
-#    $ sls remove
+# Created with: $ sls create -t aws-nodejs -p hello-world
 # --------------------------------------------
 # Welcome to Serverless!
 #

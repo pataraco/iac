@@ -10,11 +10,13 @@ phases:
   pre_build:
     commands:
       - echo "Installing source NPM dependencies..."
+      - cd ci-cd/aws/aws-cicd
       - npm install
   build:
     commands:
       - echo "Build started on `date`"
       - echo "Deploying with Serverless Framework..."
+      - cd ci-cd/aws/aws-cicd
       - sls deploy -v -s $ENVIRONMENT
   post_build:
     commands:

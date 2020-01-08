@@ -16,7 +16,6 @@ phases:
     commands:
       - echo "Build started on `date`"
       - echo "Deploying with Serverless Framework..."
-      - cd ci-cd/aws/aws-cicd
       - sls deploy -v -s $ENVIRONMENT
   post_build:
     commands:

@@ -9,6 +9,7 @@ module.exports.logger = async event => {
       {
         message: 'Serverless AWS CI/CD demo',
         version: 'v0.0.1',
+        environment: process.env.ENVIRONMENT,
         timestamp: moment().unix()
       },
       null,

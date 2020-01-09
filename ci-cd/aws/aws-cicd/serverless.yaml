@@ -3,10 +3,12 @@ service: aws-cicd
 provider:
   name: aws
   runtime: nodejs12.x
-  stage: dev
+  stage: ${opt:stage, 'dev'}
   region: us-west-2
   memorySize: 128
   timeout: 3
+  environment:
+    ENVIRONMENT: ${self:provider.stage}
 
 functions:
   logger:
@@ -15,3 +17,6 @@ functions:
       - http:
           path: message
           method: get
+
+resources:
+  Description: 'Creates Serverless resources: Lambda function(s), layer(s) and REST API Gateway'

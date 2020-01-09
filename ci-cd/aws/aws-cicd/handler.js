@@ -1,6 +1,6 @@
 'use strict';
 
-const moment = reuire('moment');
+const moment = require('moment');
 
 module.exports.logger = async event => {
   return {
@@ -8,7 +8,8 @@ module.exports.logger = async event => {
     body: JSON.stringify(
       {
         message: 'Serverless AWS CI/CD demo',
-        version: 'v0.0.0',
+        version: 'v0.1.1',
+        environment: process.env.ENVIRONMENT,
         timestamp: moment().unix()
       },
       null,

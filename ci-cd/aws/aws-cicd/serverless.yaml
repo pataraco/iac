@@ -15,3 +15,6 @@ functions:
       - http:
           path: message
           method: get
+
+resources:
+  Description: 'Creates Serverless resources: Lambda function(s), layer(s) and REST API Gateway'

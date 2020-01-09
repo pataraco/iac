@@ -8,7 +8,7 @@ module.exports.logger = async event => {
     body: JSON.stringify(
       {
         message: 'Serverless AWS CI/CD demo',
-        version: 'v0.0.1',
+        version: 'v0.1.0',
         environment: process.env.ENVIRONMENT,
         timestamp: moment().unix()
       },

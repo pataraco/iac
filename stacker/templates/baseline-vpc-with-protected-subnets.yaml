@@ -2,23 +2,6 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Description: 'Creates VPC base resources across (up to) 3 AZs dynamically (depending on subnet CIDRs provided): 1 VPC, Subnets (public, private, perimeter, protected, management), and NACLs.'
 
-Conditions:
-  cCreatePeriSub1: !Not [!Equals [!Ref pPeriSubAz1, '']]
-  cCreatePeriSub2: !Not [!Equals [!Ref pPeriSubAz2, '']]
-  cCreatePeriSub3: !Not [!Equals [!Ref pPeriSubAz3, '']]
-  cCreatePublSub1: !Not [!Equals [!Ref pPublSubAz1, '']]
-  cCreatePublSub2: !Not [!Equals [!Ref pPublSubAz2, '']]
-  cCreatePublSub3: !Not [!Equals [!Ref pPublSubAz3, '']]
-  cCreateMgmtSub1: !Not [!Equals [!Ref pMgmtSubAz1, '']]
-  cCreateMgmtSub2: !Not [!Equals [!Ref pMgmtSubAz2, '']]
-  cCreateMgmtSub3: !Not [!Equals [!Ref pMgmtSubAz3, '']]
-  cCreatePrivSub1: !Not [!Equals [!Ref pPrivSubAz1, '']]
-  cCreatePrivSub2: !Not [!Equals [!Ref pPrivSubAz2, '']]
-  cCreatePrivSub3: !Not [!Equals [!Ref pPrivSubAz3, '']]
-  cCreateProtSub1: !Not [!Equals [!Ref pProtSubAz1, '']]
-  cCreateProtSub2: !Not [!Equals [!Ref pProtSubAz2, '']]
-  cCreateProtSub3: !Not [!Equals [!Ref pProtSubAz3, '']]
-
 Parameters:
   pVpcCidrBlock:
     Type: String
@@ -94,6 +77,23 @@ Parameters:
   pEnvName:
     Type: String
     Description: 'Environment Name e.g. dev, qa, prod, etc.'
+
+Conditions:
+  cCreatePeriSub1: !Not [!Equals [!Ref pPeriSubAz1, '']]
+  cCreatePeriSub2: !Not [!Equals [!Ref pPeriSubAz2, '']]
+  cCreatePeriSub3: !Not [!Equals [!Ref pPeriSubAz3, '']]
+  cCreatePublSub1: !Not [!Equals [!Ref pPublSubAz1, '']]
+  cCreatePublSub2: !Not [!Equals [!Ref pPublSubAz2, '']]
+  cCreatePublSub3: !Not [!Equals [!Ref pPublSubAz3, '']]
+  cCreateMgmtSub1: !Not [!Equals [!Ref pMgmtSubAz1, '']]
+  cCreateMgmtSub2: !Not [!Equals [!Ref pMgmtSubAz2, '']]
+  cCreateMgmtSub3: !Not [!Equals [!Ref pMgmtSubAz3, '']]
+  cCreatePrivSub1: !Not [!Equals [!Ref pPrivSubAz1, '']]
+  cCreatePrivSub2: !Not [!Equals [!Ref pPrivSubAz2, '']]
+  cCreatePrivSub3: !Not [!Equals [!Ref pPrivSubAz3, '']]
+  cCreateProtSub1: !Not [!Equals [!Ref pProtSubAz1, '']]
+  cCreateProtSub2: !Not [!Equals [!Ref pProtSubAz2, '']]
+  cCreateProtSub3: !Not [!Equals [!Ref pProtSubAz3, '']]
 
 Resources:
   # Create VPC

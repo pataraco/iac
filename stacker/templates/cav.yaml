@@ -221,7 +221,7 @@ Resources:
           Value: !Ref Environment
 
   ServerRole:
-    Type: "AWS::IAM::Role"
+    Type: AWS::IAM::Role
     Properties:
       AssumeRolePolicyDocument:
         Version: "2012-10-17"
@@ -252,7 +252,7 @@ Resources:
                   - !Join ['', [!GetAtt S3Bucket.Arn, '/*']]
 
   ServerProfile:
-    Type: "AWS::IAM::InstanceProfile"
+    Type: AWS::IAM::InstanceProfile
     Properties:
       Roles:
         - !Ref ServerRole

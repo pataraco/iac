@@ -1,4 +1,4 @@
-# Troposphere Blueprints (deployed by Stacker)
+# CloudFormation Templates (deployed by Stacker)
 
 The CloudFormation templates that `stacker` can use can be [found here](../../cloudformation/templates).
 

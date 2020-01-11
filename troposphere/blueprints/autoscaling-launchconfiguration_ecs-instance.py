@@ -6,7 +6,7 @@ from stacker.blueprints.variables.types import (
     CFNString, EC2SecurityGroupIdList
 )
 from troposphere import (
-    autoscaling, Base64, ec2, FindInMap, Join, Output, Ref, Tags, Sub
+    autoscaling, Base64, ec2, FindInMap, Join, Output, Ref
 )
 from utils import standalone_output  # pylint: disable=relative-import
 
@@ -43,6 +43,18 @@ class LaunchConfiguration(Blueprint):
                            ' the instance. The instance profile contains the'
                            ' IAM role',
             'allowed_pattern': '[a-zA-Z0-9-:/]*',
+        },
+        'InstanceMonitoring': {
+            'type': CFNString,
+            'description': 'Indicates whether detailed instance monitoring is'
+                           ' enabled for the Auto Scaling group. When detailed'
+                           ' monitoring is enabled, Amazon CloudWatch'
+                           ' (CloudWatch) generates metrics every minute and'
+                           ' your account is charged a fee. When you disable'
+                           ' detailed monitoring, CloudWatch generates metrics'
+                           ' every 5 minutes (default: false)',
+            'allowed_values': ['false', 'true'],
+            'default': 'false',
         },
         'InstanceType': {
             'type': CFNString,
@@ -102,20 +114,21 @@ class LaunchConfiguration(Blueprint):
         autoscalinglaunchconfiguration = template.add_resource(
             autoscaling.LaunchConfiguration(
                 'AutoScalingLaunchConfiguration',
-                BlockDeviceMappings=[ec2.BlockDeviceMapping(
-                    DeviceName='/dev/sda1',
-                    Ebs=ec2.EBSBlockDevice(
-                        VolumeSize=100
-                    )
-                )],
+                # BlockDeviceMappings=[ec2.BlockDeviceMapping(
+                #     DeviceName='/dev/sda1',
+                #     Ebs=ec2.EBSBlockDevice(
+                #         VolumeSize=100
+                #     )
+                # )],
                 AssociatePublicIpAddress=variables[
                     'AssociatePublicIpAddress'
                 ].ref,
                 IamInstanceProfile=variables['InstanceProfile'].ref,
-                #ImageId=FindInMap(
-                #    'EcsAmiRegionMap', Ref('AWS::Region'), 'AMI'
-                #),
+                # ImageId=FindInMap(
+                #     'EcsAmiRegionMap', Ref('AWS::Region'), 'AMI'
+                # ),
                 ImageId=variables['ImageId'].ref,
+                InstanceMonitoring=variables['InstanceMonitoring'].ref,
                 InstanceType=variables['InstanceType'].ref,
                 KeyName=variables['KeyName'].ref,
                 PlacementTenancy=variables['PlacementTenancy'].ref,
@@ -123,9 +136,11 @@ class LaunchConfiguration(Blueprint):
                 UserData=Base64(Join('', [
                     '#!/bin/bash\n',
                     '\n',
-                    'echo ECS_CLUSTER=',
-                    variables['EcsClusterName'].ref,
-                    ' >> /etc/ecs/ecs.config\n',
+                    'cat >> /etc/ecs/ecs.config << EOF\n',
+                    'ECS_CLUSTER=', variables['EcsClusterName'].ref, '\n',
+                    'ECS_LOGLEVEL=info\n',
+                    'ECS_LOGFILE=/var/log/ecs-agent.log\n',
+                    'EOF\n',
                 ]))
             )
         )
@@ -144,7 +159,7 @@ class LaunchConfiguration(Blueprint):
         self.template.add_description(
             'Creates an Auto Scaling Launch Configuration'
         )
-        self.add_mappings()
+        # self.add_mappings()
         self.add_resources_and_outputs()
 
 

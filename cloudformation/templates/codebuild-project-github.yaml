@@ -1,0 +1,174 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Creates an AWS CodeBuild Project from a GitHub source'
+
+
+Parameters:
+
+  BadgeEnabled:
+    AllowedValues: ['true', 'false']
+    Default: 'false'
+    Description: 'Indicates whether AWS CodeBuild generates a publicly accessible badge images URL for the project (default: false)'
+    Type: String
+
+  BuildSpec:
+    Default: ''
+    Description: 'The build specification for the project. If this value is not provided, then the source code must contain a buildspec file named buildspec.yml at the root level. If this value is provided, it can be either a single string containing the entire build specification, or the path to an alternate buildspec file'
+    Type: String
+
+  Description:
+    Default: 'GitHub sourced CodeBuild project'
+    Description: 'A description that makes the build project easy to identify'
+    Type: String
+
+  Environment:
+    Description: 'Name of Environment'
+    Type: String
+
+  EnvironmentComputeType:
+    AllowedValues: ['BUILD_GENERAL1_SMALL', 'BUILD_GENERAL1_MEDIUM', 'BUILD_GENERAL1_LARGE']
+    Default: 'BUILD_GENERAL1_SMALL'
+    Description: 'The type of compute environment which determines the memory and number of CPU cores the build environment uses. Available values include: BUILD_GENERAL1_SMALL (3 GB/2 vCPUs), BUILD_GENERAL1_MEDIUM (7 GB/4 vCPUs) or BUILD_GENERAL1_LARGE (15 GB/8 vCPUs). (default: BUILD_GENERAL1_SMALL)'
+    Type: String
+
+  EnvironmentImage:
+    Default: 'aws/codebuild/amazonlinux2-x86_64-standard:1.0'
+    Description: 'The image tag or image digest that identifies the Docker image to use for this build project. Use the following formats: registry/repository:tag or registry/repository@digest (e.g. aws/codebuild/standard:2.0) (default: aws/codebuild/amazonlinux2-x86_64-standard:1.0)'
+    Type: String
+
+  EnvironmentType:
+    AllowedValues: ['ARM_CONTAINER', 'LINUX_CONTAINER', 'LINUX_GPU_CONTAINER', 'WINDOWS_CONTAINER']
+    Default: 'LINUX_CONTAINER'
+    Description: 'The type of build environment to use for related builds. (default: LINUX_CONTAINER)'
+    Type: String
+
+  GitCloneDepth:
+    Default: 1
+    Description: 'The depth of history to download. Minimum value is 0. If this value is 0, greater than 25, or not provided, then the full history is downloaded with each build project (default: 1)'
+    MinValue: 0
+    Type: Number
+
+  GitHubLocation:
+    Description: 'For source code in a GitHub repository, the HTTPS clone URL to the repository that contains the source and the build spec file. You must connect your AWS account to your GitHub account using the AWS CodeBuild console'
+    Type: String
+
+  Name:
+    AllowedPattern: '[A-Za-z0-9][A-Za-z0-9\-_]{1,254}'
+    Default: 'not-given'
+    Description: 'The name of the build project. The name must be unique across all of the projects in your AWS account'
+    MinLength: 1
+    MaxLength: 254
+    Type: String
+
+  Project:
+    Default: ''
+    Description: 'Name of the project being deployed'
+    Type: String
+
+  QueuedTimeoutInMinutes:
+    Default: 480
+    Description: 'The number of minutes a build is allowed to be queued before it times out. (default: 480 or 8 hours)'
+    MinValue: 5
+    MaxValue: 480
+    Type: Number
+
+  SourceVersion:
+    Default: ''
+    Description: "A version of the build input to be built for this project. If not specified, the latest version is used. If specified, for GitHub the commit ID, pull request ID, branch name, or tag name that corresponds to the version of the source code you want to build. If a pull request ID is specified, it must use the format pr/pull-request-ID (for example pr/25). If a branch name is specified, the branch's HEAD commit ID is used. If not specified, the default branch's HEAD commit ID is used"
+    Type: String
+
+  TimeoutInMinutes:
+    Default: 60
+    Description: 'How long, in minutes, from 5 to 480 (8 hours), for AWS CodeBuild to wait before timing out any related build that did not get marked as completed. (default: 60 minutes)'
+    MinValue: 5
+    MaxValue: 480
+    Type: Number
+
+
+Conditions:
+
+  ProjectNameGiven: !Not [!Equals [!Ref Name, 'not-given']]
+  BuildSpecGiven: !Not [!Equals [!Ref BuildSpec, '']]
+  SourceVersionGiven: !Not [!Equals [!Ref SourceVersion, '']]
+
+
+Resources:
+
+  IamRoleCodeBuildService:
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Action: 'sts:AssumeRole'
+            Effect: Allow
+            Principal: {Service: 'codebuild.amazonaws.com'}
+      ManagedPolicyArns: ['arn:aws:iam::aws:policy/AdministratorAccess']
+      Description: !Sub 'Allows CodeBuild to build/deploy resources for ${Project} ${Environment}'
+      RoleName: !If
+        - ProjectNameGiven
+        - !Sub 'codebuild-${Name}-service-role'
+        - !Sub 'codebuild-${Project}-${Environment}-service-role'
+    Type: AWS::IAM::Role
+
+  CodeBuildProject:
+    Type: AWS::CodeBuild::Project
+    Properties: 
+      Artifacts: 
+        Type: no_artifacts
+      BadgeEnabled: !Ref BadgeEnabled
+      Description: !Ref Description
+      Environment: 
+        ComputeType: !Ref EnvironmentComputeType
+        EnvironmentVariables: 
+          - Name: ENVIRONMENT
+            Type: PLAINTEXT
+            Value: !Ref Environment
+        Image: !Ref EnvironmentImage
+        ImagePullCredentialsType: CODEBUILD
+        Type: !Ref EnvironmentType
+      LogsConfig: 
+        CloudWatchLogs:
+          Status: ENABLED
+      Name: !If [ProjectNameGiven, !Ref Name, !Sub '${Project}-${Environment}']
+      QueuedTimeoutInMinutes: !Ref QueuedTimeoutInMinutes
+      ServiceRole: !Ref IamRoleCodeBuildService
+      Source: 
+        BuildSpec: !If [BuildSpecGiven, !Ref BuildSpec, !Ref 'AWS::NoValue']
+        GitCloneDepth: !Ref GitCloneDepth
+        Location: !Ref GitHubLocation
+        ReportBuildStatus: true
+        SourceIdentifier: String
+        Type: GITHUB
+      SourceVersion: !If [SourceVersionGiven, !Ref SourceVersion, !Ref 'AWS::NoValue']
+      Tags:
+        - Key: Name
+          Value: !If [ProjectNameGiven, !Ref Name, !Sub '${Project}-${Environment}']
+        # as of 09-jan-2020, CloudFormation tags aren't propagated for this resource type
+        - {Key: Project, Value: !Ref Project}
+        - {Key: Environment, Value: !Ref Environment}
+        - {Key: Provisioner, Value: CloudFormation}
+      TimeoutInMinutes: !Ref TimeoutInMinutes
+      # the CodeBuild project should be triggered by CodePipeline (saving for reference in case desired)
+      # Triggers:
+      #   Webhook: true
+      #   FilterGroups:
+      #     - - Type: EVENT
+      #         Pattern: PUSH
+      #       - Type: HEAD_REF
+      #         Pattern: ^refs/heads/.*
+      #       - Type: FILE_PATH
+      #         Pattern: READ_ME
+      #         ExcludeMatchedPattern: true
+
+
+Outputs:
+
+  CodeBuildProjectName:
+    Description: 'The name of the CodeBuild Project'
+    Export: {'Name': !Sub '${AWS::StackName}-CodeBuildProjectName'}
+    Value: !Ref CodeBuildProject
+
+  CodeBuildProjectArn:
+    Description: 'The ARN of the CodeBuild Project'
+    Export: {'Name': !Sub '${AWS::StackName}-CodeBuildProjectArn'}
+    Value: !GetAtt CodeBuildProject.Arn

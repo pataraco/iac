@@ -1,13 +1,13 @@
 package main
 
 import (
-	"bytes"
-	"context"
-	"encoding/json"
-	"os"
+    "bytes"
+    "context"
+    "encoding/json"
+    "os"
 
-	"github.com/aws/aws-lambda-go/events"
-	"github.com/aws/aws-lambda-go/lambda"
+    "github.com/aws/aws-lambda-go/events"
+    "github.com/aws/aws-lambda-go/lambda"
 )
 
 // Response is of type APIGatewayProxyResponse since we're leveraging the
@@ -18,31 +18,31 @@ type Response events.APIGatewayProxyResponse
 
 // Handler is our lambda handler invoked by the `lambda.Start` function call
 func Handler(ctx context.Context) (Response, error) {
-	var buf bytes.Buffer
+    var buf bytes.Buffer
 
-	body, err := json.Marshal(map[string]interface{}{
-		"message":     "Created with Serverless v1.0! Go (go1.x) function executed successfully!",
-		"environment": os.Getenv("STAGE"),
-		"version":     "0.0.2",
-	})
-	if err != nil {
-		return Response{StatusCode: 404}, err
-	}
-	json.HTMLEscape(&buf, body)
+    body, err := json.Marshal(map[string]interface{}{
+        "message":     "Created with Serverless v1.0! Go (go1.x) function executed successfully!",
+        "environment": os.Getenv("STAGE"),
+        "version":     "0.0.2",
+    })
+    if err != nil {
+        return Response{StatusCode: 404}, err
+    }
+    json.HTMLEscape(&buf, body)
 
-	resp := Response{
-		StatusCode:      200,
-		IsBase64Encoded: false,
-		Body:            buf.String(),
-		Headers: map[string]string{
-			"Content-Type":           "application/json",
-			"X-MyCompany-Func-Reply": "hello-handler",
-		},
-	}
+    resp := Response{
+        StatusCode:      200,
+        IsBase64Encoded: false,
+        Body:            buf.String(),
+        Headers: map[string]string{
+            "Content-Type":           "application/json",
+            "X-MyCompany-Func-Reply": "hello-handler",
+        },
+    }
 
-	return resp, nil
+    return resp, nil
 }
 
 func main() {
-	lambda.Start(Handler)
+    lambda.Start(Handler)
 }

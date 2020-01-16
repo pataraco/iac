@@ -3,7 +3,7 @@ version: 0.2
 phases:
   install:
     runtime-versions:
-      nodjs: 12
+      nodejs: 12
     commands:
       - echo "Installing Serverless..."
       - npm install -g serverless

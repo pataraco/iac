@@ -1,0 +1,45 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Creates an AWS IAM managed policy for Amplify full access besides delete
+
+
+Parameters:
+
+  Environment:
+    Description: 'Name of Environment'
+    Type: String
+
+  Project:
+    Default: ''
+    Description: 'Name of the project being deployed'
+    Type: String
+
+
+Resources:
+
+  IamManagedPolicy:
+    Properties:
+      Description: 'Provides limited access to Amplify [CloudFormation managed]'
+      ManagedPolicyName: !Sub '${Project}-${Environment}-amplify-full-access-no-delete'
+      PolicyDocument:
+        Statement:
+          - Action:
+              - 'amplify:Create*'
+              - 'amplify:Get*'
+              - 'amplify:List*'
+              - 'amplify:StartJob'
+              - 'amplify:StopJob'
+              - 'amplify:Update*'
+            Effect: Allow
+            Resource: ['*']
+            Sid: AmplifyFullAccessNoDelete
+        Version: '2012-10-17'
+    Type: AWS::IAM::ManagedPolicy
+
+
+Outputs:
+
+  IamManagedPolicyArn:
+    Description: Managed policy ARN
+    Export: {Name: !Sub '${AWS::StackName}-IamManagedPolicyArn'}
+    Value: !Ref IamManagedPolicy

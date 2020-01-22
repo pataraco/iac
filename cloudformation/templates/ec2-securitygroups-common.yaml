@@ -1,0 +1,72 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Creates an EC2 Security Group and ingress rule(s) for all resources to allow traffic from AG on-prem'
+
+
+Parameters:
+
+  AgCidr1:
+    Description: 'Private CIDR Block 1'
+    Type: String
+
+  AgCidr2:
+    Description: 'Private CIDR Block 2'
+    Type: String
+
+  AgCidr3:
+    Description: 'Private CIDR Block 3'
+    Type: String
+
+  AgCidr4:
+    Description: 'Private CIDR Block 4'
+    Type: String
+
+  AgCidr5:
+    Description: 'Private CIDR Block 5'
+    Type: String
+
+  AgCidr6:
+    Description: 'Private CIDR Block 6'
+    Type: String
+
+  Environment:
+    Description: 'Name of Environment'
+    Type: String
+
+  Project:
+    Default: ''
+    Description: 'Name of the project being deployed'
+    Type: String
+
+  VpcId:
+    Description: 'VPC ID to create the Security Group in'
+    Type: AWS::EC2::VPC::Id
+
+
+Resources:
+
+  Ec2SecurityGroup:
+    Properties:
+      GroupDescription:
+        !Sub 'Allow traffic from AG on-prem for ${Project} ${Environment}'
+      GroupName: !Sub '${Project}-common-${Environment}'
+      SecurityGroupIngress:
+        - {FromPort: -1, ToPort: -1, IpProtocol: -1, CidrIp: !Ref AgCidr1}
+        - {FromPort: -1, ToPort: -1, IpProtocol: -1, CidrIp: !Ref AgCidr2}
+        - {FromPort: -1, ToPort: -1, IpProtocol: -1, CidrIp: !Ref AgCidr3}
+        - {FromPort: -1, ToPort: -1, IpProtocol: -1, CidrIp: !Ref AgCidr4}
+        - {FromPort: -1, ToPort: -1, IpProtocol: -1, CidrIp: !Ref AgCidr5}
+        - {FromPort: -1, ToPort: -1, IpProtocol: -1, CidrIp: !Ref AgCidr6}
+      Tags:
+        - Key: Name
+          Value: !Sub '${Project}-common-${Environment}'
+      VpcId: !Ref VpcId
+    Type: AWS::EC2::SecurityGroup
+
+
+Outputs:
+
+  SgId:
+    Description: ID of the Security Group created for Private 10 CIDR
+    Export: {'Name': !Sub '${AWS::StackName}-SgId'}
+    Value: !GetAtt Ec2SecurityGroup.GroupId

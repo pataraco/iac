@@ -1,0 +1,81 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Creates API Gateway method (using a model) that defines the parameters and body that clients must send in their requests'
+
+
+Parameters:
+
+  AuthorizationType:
+    Default: 'NONE'
+    Description: 'The authorization type of the method. If you specify the AuthorizerId property, specify CUSTOM for this property.'
+    Type: String
+
+  AuthorizerId:
+    Default: ''
+    Description: 'The authorization type of the method'
+    Type: String
+
+  IntegrationUri:
+    Default: ''
+    Description: 'The backend system that the method calls when it receives a request. The Uniform Resource Identifier (URI) for the backend system integration.  HTTP Type, specify API endpoint URL.  MOCK Type, do not specify this property.  AWS Type, specify an AWS service in this form: arn:aws:apigateway:region:subdomain.service|service:path|action/service_api.'
+    Type: String
+
+  Method:
+    Description: 'The HTTP method that clients use to call this method.'
+    Type: String
+
+  RequestModelName:
+    Description: 'The name of the model to use for the request. The content type is set to: application/json.'
+    Type: String
+
+  RequestValidatorId:
+    Default: ''
+    Description: 'The ID of the associated request validator.'
+    Type: String
+
+  ResourceId:
+    Description: 'The ID of an API Gateway resource. For root resource methods, specify the RestApi root resource ID'
+    Type: String
+
+  RestApiId:
+    Description: 'The ID of the RestApi resource in which API Gateway creates the method.'
+    Type: String
+
+
+Conditions:
+
+  AuthorizerIdGiven: !Not [!Equals [!Ref AuthorizerId, '']]
+  RequestValidatorIdGiven: !Not [!Equals [!Ref RequestValidatorId, '']]
+
+
+Resources:
+
+  ApiMethodModeled:
+    Properties:
+      AuthorizationType: !Ref AuthorizationType
+      AuthorizerId: !If [AuthorizerIdGiven, !Ref AuthorizerId, !Ref 'AWS::NoValue']
+      HttpMethod: !Ref Method
+      Integration:
+        IntegrationHttpMethod: POST
+        IntegrationResponses:
+          - StatusCode: 200
+        Type: AWS_PROXY
+        Uri: !Ref IntegrationUri
+      MethodResponses:
+        - ResponseModels:
+            application/json: Empty
+          StatusCode: 200
+      RequestModels:
+        application/json: !Ref RequestModelName
+      RequestValidatorId: !If [RequestValidatorIdGiven, !Ref RequestValidatorId, !Ref 'AWS::NoValue']
+      ResourceId: !Ref ResourceId
+      RestApiId: !Ref RestApiId
+    Type: AWS::ApiGateway::Method
+
+
+Outputs:
+
+  MethodId:
+    Description: 'ID of the API Method'
+    Export: {'Name': !Sub '${AWS::StackName}-MethodId'}
+    Value: !Ref ApiMethodModeled

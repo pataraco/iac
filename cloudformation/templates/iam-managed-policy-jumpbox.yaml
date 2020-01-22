@@ -1,0 +1,40 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Creates an AWS IAM managed policy for a Jumpox EC2 Instance'
+
+
+Parameters:
+
+  Environment:
+    Description: 'Name of Environment'
+    Type: String
+
+  Project:
+    Description: 'Name of the project being deployed'
+    Type: String
+
+
+Resources:
+
+  IamManagedPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      Description: !Sub 'jumpbox server access for ${Project}-${Environment}'
+      ManagedPolicyName: !Sub 'jumpbox-${Project}-${Environment}'
+      PolicyDocument:
+        Statement:
+          - Sid: LimitedAccessSpecificServices
+            Action:
+              - s3:ListBuckets
+              - s3:ListObjects
+            Effect: Allow
+            Resource: ['*']
+        Version: '2012-10-17'
+
+
+Outputs:
+
+  IamManagedPolicyArn:
+    Description: Managed policy ARN
+    Export: {Name: !Sub '${AWS::StackName}-IamManagedPolicyArn'}
+    Value: !Ref IamManagedPolicy

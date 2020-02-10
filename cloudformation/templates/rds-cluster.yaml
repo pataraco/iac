@@ -173,6 +173,32 @@ Parameters:
     Description: 'The EC2 Subnet IDs for the DB Subnet Group.'
     Type: List<AWS::EC2::Subnet::Id>
 
+  # SSM Parameter Store
+  SsmParamNameDbName:
+    Default: ''
+    Description: 'The name of the SSM Paramter to save the RDS database name. (default: /${Project}/${Environment}/rds/db-name)'
+    Type: String
+
+  SsmParamNameHost:
+    Default: ''
+    Description: 'The name of the SSM Paramter to save the RDS host. (default: /${Project}/${Environment}/rds/host)'
+    Type: String
+
+  SsmParamNamePort:
+    Default: ''
+    Description: 'The name of the SSM Paramter to save the RDS port. (default: /${Project}/${Environment}/rds/port)'
+    Type: String
+
+  SsmParamNameReadEndpoint:
+    Default: ''
+    Description: 'The name of the SSM Paramter to save the RDS read endpoint. (default: /${Project}/${Environment}/rds/read-endpoint)'
+    Type: String
+
+  SsmParamNameWriteEndpoint:
+    Default: ''
+    Description: 'The name of the SSM Paramter to save the RDS write endpoint. (default: /${Project}/${Environment}/rds/write-endpoint)'
+    Type: String
+
 
 Conditions:
 
@@ -193,7 +219,13 @@ Conditions:
   DbNameGiven: !Not [!Equals [!Ref DatabaseName, '']]
   EncryptDb: !Not [!Equals [!Ref KmsKeyId, '']]
   EnhancedMonitoring: !Not [!Equals [!Ref MonitoringInterval, '0']]
+  SsmParamNameDbNameGiven: !Not [!Equals [!Ref SsmParamNameDbName, '']]
+  SsmParamNameHostGiven: !Not [!Equals [!Ref SsmParamNameHost, '']]
+  SsmParamNamePortGiven: !Not [!Equals [!Ref SsmParamNamePort, '']]
+  SsmParamNameReadEndpointGiven: !Not [!Equals [!Ref SsmParamNameReadEndpoint, '']]
+  SsmParamNameWriteEndpointGiven: !Not [!Equals [!Ref SsmParamNameWriteEndpoint, '']]
   UseSnapshot: !Not [!Equals [!Ref SnapshotId, '']]
+
 
 Resources:
 
@@ -355,35 +387,56 @@ Resources:
     Condition: DbNameGiven
     Properties:
       Description: !Sub 'RDS Database Name for ${Project} ${Environment}'
-      Name: !Sub '/${Project}/${Environment}/rds/db-name'
-      Tags:
-        "Name": !Sub '/${Project}/${Environment}/rds/db-name'
+      Name: !If
+        - SsmParamNameDbNameGiven
+        - SsmParamNameDbName
+        - !Sub '/${Project}/${Environment}/rds/db-name'
       Type: String
       Value: !Ref DatabaseName
 
-  SsmParamDbHost:
+  SsmParamHost:
     Type: AWS::SSM::Parameter
     Properties:
       Description: !Sub 'RDS Database Host for ${Project} ${Environment}'
-      Name: !Sub '/${Project}/${Environment}/rds/host'
+      Name: !If
+        - SsmParamNameHostGiven
+        - SsmParamNameHost
+        - !Sub '/${Project}/${Environment}/rds/host'
       Type: String
       Value: !GetAtt RdsDbCluster.Endpoint.Address
 
-  SsmParamWriteEndpoint:
+  SsmParamPort:
     Type: AWS::SSM::Parameter
     Properties:
-      Description: !Sub 'RDS Database Write Endpoint for ${Project} ${Environment}'
-      Name: !Sub '/${Project}/${Environment}/rds/write-endpoint'
+      Description: !Sub 'RDS Database Port for ${Project} ${Environment}'
+      Name: !If
+        - SsmParamNamePortGiven
+        - SsmParamNamePort
+        - !Sub '/${Project}/${Environment}/rds/port'
       Type: String
-      Value: !GetAtt RdsDbCluster.Endpoint.Address
+      Value: !GetAtt RdsDbCluster.Endpoint.Port
 
   SsmParamReadEndpoint:
     Type: AWS::SSM::Parameter
     Properties:
       Description: !Sub 'RDS Database Read Endpoint for ${Project} ${Environment}'
-      Name: !Sub '/${Project}/${Environment}/rds/read-endpoint'
+      Name: !If
+        - SsmParamNameReadEndpointGiven
+        - SsmParamNameReadEndpoint
+        - !Sub '/${Project}/${Environment}/rds/read-endpoint'
       Type: String
       Value: !GetAtt RdsDbCluster.ReadEndpoint.Address
+
+  SsmParamWriteEndpoint:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Description: !Sub 'RDS Database Write Endpoint for ${Project} ${Environment}'
+      Name: !If
+        - SsmParamNameWriteEndpointGiven
+        - SsmParamNameWriteEndpoint
+      Name: !Sub '/${Project}/${Environment}/rds/write-endpoint'
+      Type: String
+      Value: !GetAtt RdsDbCluster.Endpoint.Address
 
 
 Outputs:
@@ -392,21 +445,6 @@ Outputs:
     Description: 'The name of the RDS DB Cluster'
     Export: {'Name': !Sub '${AWS::StackName}-RdsDbClusterName'}
     Value: !Ref RdsDbCluster
-
-  RdsDbClusterEndpoint:
-    Description: 'The connection endpoint for the DB cluster'
-    Export: {'Name': !Sub '${AWS::StackName}-RdsDbClusterEndpoint'}
-    Value: !GetAtt RdsDbCluster.Endpoint.Address
-
-  RdsDbClusterEndpointPort:
-    Description: 'The port number that will accept connections on this DB cluster<Paste>'
-    Export: {'Name': !Sub '${AWS::StackName}-RdsDbClusterEndpointPort'}
-    Value: !GetAtt RdsDbCluster.Endpoint.Port
-
-  RdsDbClusterReadEndpoint:
-    Description: 'The reader endpoint for the DB cluster'
-    Export: {'Name': !Sub '${AWS::StackName}-RdsDbClusterReadEndpoint'}
-    Value: !GetAtt RdsDbCluster.ReadEndpoint.Address
 
   RdsDbInst1:
     Condition: CreateDbInst1
@@ -437,3 +475,23 @@ Outputs:
     Description: 'The name of the RDS Database'
     Export: {'Name': !Sub '${AWS::StackName}-RdsDbName'}
     Value: !Ref DatabaseName
+
+  RdsHost:
+    Description: 'The host (connection) endpoint for the DB cluster'
+    Export: {'Name': !Sub '${AWS::StackName}-RdsHost'}
+    Value: !GetAtt RdsDbCluster.Endpoint.Address
+
+  RdsPort:
+    Description: 'The port number that will accept connections on this DB cluster'
+    Export: {'Name': !Sub '${AWS::StackName}-RdsPort'}
+    Value: !GetAtt RdsDbCluster.Endpoint.Port
+
+  RdsReadEndpoint:
+    Description: 'The reader endpoint for the DB cluster'
+    Export: {'Name': !Sub '${AWS::StackName}-RdsReadEndpoint'}
+    Value: !GetAtt RdsDbCluster.ReadEndpoint.Address
+
+  RdsWriteEndpoint:
+    Description: 'The writer (connection) endpoint for the DB cluster'
+    Export: {'Name': !Sub '${AWS::StackName}-RdsWriteEndpoint'}
+    Value: !GetAtt RdsDbCluster.Endpoint.Address

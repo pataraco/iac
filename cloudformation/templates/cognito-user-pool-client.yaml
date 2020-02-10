@@ -1,0 +1,108 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Creates a Cognito User Pool App Client'
+
+
+Parameters:
+
+  AppClientIdSsmParamName:
+    Default: ''
+    Description: 'The name of the SSM Paramter to save the App Client ID. (default: /${Project}/${Environment}/cognito/user-pool-app-client-id)'
+    Type: String
+
+  AppClientIdSsmParamDesc:
+    Default: ''
+    Description: 'The description of the SSM Paramter to use for the App Client ID. (default: Cognito User Pool App Client ID for ${Project} ${Environment})'
+    Type: String
+
+  AuthFlows:
+    # ALLOW_ADMIN_USER_PASSWORD_AUTH  # Enable admin based user password authentication flow. Replaces ADMIN_NO_SRP_AUTH. With this authentication flow, Cognito receives the password in the request instead of using the SRP (Secure Remote Password protocol) protocol to verify passwords.
+    # ALLOW_CUSTOM_AUTH               # Enable Lambda trigger based authentication.
+    # ALLOW_USER_PASSWORD_AUTH        # Enable user password-based authentication. In this flow, Cognito receives the password in the request instead of using the SRP protocol to verify passwords.
+    # ALLOW_USER_SRP_AUTH             # Enable SRP based authentication.
+    # ALLOW_REFRESH_TOKEN_AUTH        # Enable authflow to refresh tokens.
+    Default: 'none-given'
+    Description: 'The authentication flows that are supported by the user pool clients. Specify a comma delimited list, e.g.: ALLOW_CUSTOM_AUTH, ALLOW_USER_SRP_AUTH. (Valid values: ALLOW_ADMIN_USER_PASSWORD_AUTH, ALLOW_CUSTOM_AUTH, ALLOW_REFRESH_TOKEN_AUTH, ALLOW_USER_PASSWORD_AUTH, ALLOW_USER_SRP_AUTH)'
+    Type: CommaDelimitedList
+
+  Environment:
+    Description: 'Name of Environment'
+    Type: String
+
+  GenerateSecret:
+    AllowedValues: ['true', 'false']
+    Default: 'false'
+    Description: 'Boolean to specify whether you want to generate a secret for the user pool client being created. Update requires replacement (default: false)'
+    Type: String
+
+  Project:
+    Default: ''
+    Description: 'Name of the project being deployed'
+    Type: String
+
+  UserPoolAppClientName:
+    Default: ''
+    Description: 'The name to give the User Pool App Client. (default: ${Project}-${Environment})'
+    Type: String
+
+  UserPoolId:
+    Description: 'The user pool ID for the user pool where you want to create a user pool client'
+    Type: String
+
+
+Conditions:
+
+  UserPoolAppClientNameGiven: !Not [!Equals [!Ref UserPoolAppClientName, '']]
+  AppClientIdSsmParamNameGiven: !Not [!Equals [!Ref AppClientIdSsmParamName, '']]
+  AppClientIdSsmParamDescGiven: !Not [!Equals [!Ref AppClientIdSsmParamDesc, '']]
+  # AuthFlowsGiven: !Not [!Equals [!Select ["0", !Split [",", !Ref AuthFlows]], 'none-given']]
+  AuthFlowsGiven: !Not [!Equals [!Select ["0", !Ref AuthFlows], 'none-given']]
+
+Resources:
+
+  CognitoUserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      ClientName: !If [UserPoolAppClientNameGiven, !Ref UserPoolAppClientName, !Sub '${Project}-${Environment}']
+      # ExplicitAuthFlows: !If [AuthFlowsGiven, !Split [",", !Ref AuthFlows], !Ref 'AWS::NoValue']
+      # ExplicitAuthFlows: !Ref AuthFlows
+      ExplicitAuthFlows: !If [AuthFlowsGiven, !Ref AuthFlows, !Ref 'AWS::NoValue']
+      GenerateSecret: !Ref GenerateSecret  # default: false - requires replacement
+      # RefreshTokenValidity: 30  # default: 30
+      # ReadAttributes: default to none selected and with all not selected the
+      #   attributes become all readable. To limit access, specify desired
+      # ReadAttributes:
+      #   - name
+      # SupportedIdentityProviders: 
+      #   A list of provider names for the identity providers that are supported on
+      #   this client. The following are supported: COGNITO, Facebook, Google
+      #   and LoginWithAmazon.
+      UserPoolId: !Ref UserPoolId
+      # WriteAttributes: default to none selected and with all not selected the
+      #   attributes become all writable. To limit access, specify desired
+      # WriteAttributes:
+      #   - nickname
+
+  SsmParamCognitoUserPoolAppClientId:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Description: !If
+        - AppClientIdSsmParamDescGiven
+        - !Ref AppClientIdSsmParamDesc
+        - !Sub 'Cognito User Pool App Client ID for ${Project} ${Environment}'
+      Name: !If
+        - AppClientIdSsmParamNameGiven
+        - !Ref AppClientIdSsmParamName
+        - !Sub '/${Project}/${Environment}/cognito/user-pool-app-client-id'
+      Tags:
+        "Environment": !Ref Environment
+      Type: String
+      Value: !Ref CognitoUserPoolClient
+
+
+Outputs:
+
+  UserPoolAppClientId:
+    Description: 'The ID of the Amazon Cognito user pool app client'
+    Export: {'Name': !Sub '${AWS::StackName}-UserPoolAppClientId'}
+    Value: !Ref CognitoUserPoolClient

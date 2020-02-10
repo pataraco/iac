@@ -1,0 +1,1451 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Creates an REST AWS API Gateway and related resources'
+
+
+Parameters:
+
+  ApiCustomDomainName:
+    Default: ''
+    Description: 'The custom domain name for your API. Uppercase letters are not supported.'
+    Type: String
+
+  ApiGatewayDescription:
+    Default: ''
+    Description: 'A description for the REST API gateway resource.'
+    Type: String
+
+  ApiEndpointConfigurationTypes:
+    Default: 'EDGE'
+    Description: 'A list of endpoint types of an API or its custom domain name. Valid values include: EDGE: For an edge-optimized API and its custom domain name.  REGIONAL: For a regional API and its custom domain name.  PRIVATE: For a private API. (default: EDGE)'
+    Type: CommaDelimitedList
+
+  ApiGatewayName:
+    Default: ''
+    Description: 'A name for the REST API gateway resource. (default: ${Project}-${Environment})'
+    Type: String
+
+  ApiKeySourceType:
+    Default: 'HEADER'
+    Description: 'The source of the API key for metering requests according to a usage plan. Valid values are: HEADER to read the API key from the X-API-Key header of a request. AUTHORIZER to read the API key from the UsageIdentifierKey from a Lambda authorizer. (default: HEADER)'
+    Type: String
+
+  AuthorizerResultTtl:
+    Default: 300
+    Description: 'The time-to-live (TTL) period, in seconds, that specifies how long API Gateway caches authorizer results. If you specify a value greater than 0, API Gateway caches the authorizer responses. By default, API Gateway sets this property to 300. The maximum value is 3600, or 1 hour.'
+    Type: Number
+
+  AuthorizationHeader:
+    Default: 'Authorization'
+    Description: 'The name of the a custom authorization header that clients submit as part of their requests. Used for COGNITO_USER_POOLS Authorizer types. The IdentitySource (header mapping expression) is in the form: method.request.header.<AuthorizationHeader>. (default: Authorization)'
+    Type: String
+
+  CognitoUserPoolArns:
+    Description: 'A list of the Amazon Cognito user pool Amazon Resource Names (ARNs) to associate with the API authorizer. For more information, see Use Amazon Cognito User Pools in the API Gateway Developer Guide.'
+    Type: CommaDelimitedList
+
+  DomainName:
+    Default: 'example.com'
+    Description: 'The DNS domain name for the project'
+    Type: String
+
+  Environment:
+    Default: testing
+    Description: 'Name of Environment'
+    Type: String
+
+  HostedZoneId:
+    Default: testing
+    Description: 'Name of Environment'
+    Type: String
+
+  LambdaGenerateSignedS3UrlArn:
+    Description: 'The ARN of the generate-signed-s3-url lambda function'
+    Type: String
+
+  LambdaPetsFinderArn:
+    Description: 'The ARN of the Pets-Finder lambda function'
+    Type: String
+
+  LambdaPortalFinderArn:
+    Description: 'The ARN of the portal-Finder lambda function'
+    Type: String
+
+  LambdaOwnerFinderArn:
+    Description: 'The ARN of the Owner-Finder lambda function'
+    Type: String
+
+  Project:
+    Default: ''
+    Description: 'Name of the project being deployed'
+    Type: String
+
+
+Conditions:
+
+  ApiGatewayNameGiven: !Not [!Equals [!Ref ApiGatewayName, '']]
+  ApiGatewayDescGiven: !Not [!Equals [!Ref ApiGatewayDescription, '']]
+  ApiCustomDomainNameGiven: !Not [!Equals [!Ref ApiCustomDomainName, '']]
+
+Resources:
+
+  # API [REST] (AWS::ApiGateway::RestApi)
+  #   also defines optional Resource Policy (currently none)
+  RestApiGateway:
+    Properties:
+      ApiKeySourceType: !Ref ApiKeySourceType
+      Description: !If [ApiGatewayDescGiven, !Ref ApiGatewayDescription, !Sub 'REST API for ${Project} ${Environment}']
+      EndpointConfiguration:
+        Types: !Ref ApiEndpointConfigurationTypes
+      Name: !If [ApiGatewayNameGiven, !Ref ApiGatewayName, !Sub '${Project}-${Environment}']
+      # Policy: Json
+    Type: AWS::ApiGateway::RestApi
+
+  # API Request Validation (AWS::ApiGateway::RequestValidator)
+  ApiRequestValidatorBody:
+    Properties:
+      Name: 'Body'
+      RestApiId: !Ref RestApiGateway
+      ValidateRequestBody: true
+      ValidateRequestParameters: false
+    Type: AWS::ApiGateway::RequestValidator
+
+  ApiRequestValidatorBodyHeadersAndParameters:
+    Properties:
+      Name: 'Body, Headers and Query String Parameters'
+      RestApiId: !Ref RestApiGateway
+      ValidateRequestBody: true
+      ValidateRequestParameters: true
+    Type: AWS::ApiGateway::RequestValidator
+
+  ApiRequestValidatorHeadersAndParameters:
+    Properties:
+      Name: 'Headers and Query String Parameters'
+      RestApiId: !Ref RestApiGateway
+      ValidateRequestBody: false
+      ValidateRequestParameters: true
+    Type: AWS::ApiGateway::RequestValidator
+
+  # API Resources/Methods (AWS::ApiGateway::Resource/AWS::ApiGateway::Method)
+
+  # /Pets  --  RESOURCE
+  ApiResourcePets:
+    Properties:
+      ParentId: !GetAtt RestApiGateway.RootResourceId
+      PathPart: Pets
+      RestApiId: !Ref RestApiGateway
+    Type: AWS::ApiGateway::Resource
+  # /Pets  --  OPTIONS
+  ApiMethodPetsOptions:
+    Properties:
+      Parameters:
+        ResourceId: !Ref ApiResourcePets
+        RestApiId: !Ref RestApiGateway
+      TemplateURL: 'https://cloudformation-stacks.s3.amazonaws.com/templates/api-gateway-method-options.yaml'
+    Type: AWS::CloudFormation::Stack
+
+  # /Pets/upload  --  RESOURCE
+  ApiResourcePetsUpload:
+    Properties:
+      ParentId: !Ref ApiResourcePets
+      PathPart: upload
+      RestApiId: !Ref RestApiGateway
+    Type: AWS::ApiGateway::Resource
+  # /Pets/upload  --  OPTIONS
+  ApiMethodPetsUploadOptions:
+    Properties:
+      Parameters:
+        ResourceId: !Ref ApiResourcePetsUpload
+        RestApiId: !Ref RestApiGateway
+      TemplateURL: 'https://cloudformation-stacks.s3.amazonaws.com/templates/api-gateway-method-options.yaml'
+    Type: AWS::CloudFormation::Stack
+  # /Pets/upload  --  POST
+  ApiMethodPetsUploadPost:
+    Properties:
+      AuthorizationType: NONE
+      HttpMethod: POST
+      Integration:
+        IntegrationHttpMethod: POST
+        IntegrationResponses:
+          - StatusCode: 200
+        Type: AWS_PROXY
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaGenerateSignedS3UrlArn}/invocations'
+      MethodResponses:
+        - ResponseModels:
+            application/json: Empty
+          StatusCode: 200
+      ResourceId: !Ref ApiResourcePetsUpload
+      RestApiId: !Ref RestApiGateway
+    Type: AWS::ApiGateway::Method
+
+  # /Pets/leash  --  RESOURCE
+  ApiResourcePetsAnimal:
+    Properties:
+      ParentId: !Ref ApiResourcePets
+      PathPart: leash
+      RestApiId: !Ref RestApiGateway
+    Type: AWS::ApiGateway::Resource
+  # /Pets/leash  --  OPTIONS
+  ApiMethodPetsAnimalOptions:
+    Properties:
+      Parameters:
+        ResourceId: !Ref ApiResourcePetsAnimal
+        RestApiId: !Ref RestApiGateway
+      TemplateURL: 'https://cloudformation-stacks.s3.amazonaws.com/templates/api-gateway-method-options.yaml'
+    Type: AWS::CloudFormation::Stack
+
+  # /Pets/leash/{leash-id}  --  RESOURCE
+  ApiResourcePetsAnimalId:
+    Properties:
+      ParentId: !Ref ApiResourcePetsAnimal
+      PathPart: '{leash-id}'
+      RestApiId: !Ref RestApiGateway
+    Type: AWS::ApiGateway::Resource
+  # /Pets/leash/{leash-id}  --  GET
+  ApiMethodPetsAnimalIdGet:
+    Properties:
+      Parameters:
+        IntegrationUri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaPetsFinderArn}/invocations'
+        Method: GET
+        ResourceId: !Ref ApiResourcePetsAnimalId
+        RestApiId: !Ref RestApiGateway
+      TemplateURL: 'https://cloudformation-stacks.s3.amazonaws.com/templates/api-gateway-method.yaml'
+    Type: AWS::CloudFormation::Stack
+  # /Pets/leash/{leash-id}  --  OPTIONS
+  ApiMethodPetsAnimalIdOptions:
+    Properties:
+      Parameters:
+        ResourceId: !Ref ApiResourcePetsAnimalId
+        RestApiId: !Ref RestApiGateway
+      TemplateURL: 'https://cloudformation-stacks.s3.amazonaws.com/templates/api-gateway-method-options.yaml'
+    Type: AWS::CloudFormation::Stack
+  # /Pets/leash/{leash-id}  --  POST
+  ApiMethodPetsAnimalIdPost:
+    Properties:
+      AuthorizationType: NONE
+      HttpMethod: POST
+      Integration:
+        IntegrationHttpMethod: POST
+        IntegrationResponses:
+          - StatusCode: 200
+        Type: AWS_PROXY
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaPortalFinderArn}/invocations'
+      MethodResponses:
+        - ResponseModels:
+            application/json: Empty
+          StatusCode: 200
+      RequestModels:
+        application/json: !Ref ApiModelAnimalUpdateInput
+      RequestValidatorId: !Ref ApiRequestValidatorBody
+      ResourceId: !Ref ApiResourcePetsAnimalId
+      RestApiId: !Ref RestApiGateway
+    Type: AWS::ApiGateway::Method
+
+  # /Pets/{chip}  --  RESOURCE
+  ApiResourcePetsChip:
+    Properties:
+      ParentId: !Ref ApiResourcePets
+      PathPart: '{chip}'
+      RestApiId: !Ref RestApiGateway
+    Type: AWS::ApiGateway::Resource
+  # /Pets/{chip}  --  GET
+  ApiMethodPetsChipGet:
+    Properties:
+      Parameters:
+        IntegrationUri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaPetsFinderArn}/invocations'
+        Method: GET
+        ResourceId: !Ref ApiResourcePetsChip
+        RestApiId: !Ref RestApiGateway
+      TemplateURL: 'https://cloudformation-stacks.s3.amazonaws.com/templates/api-gateway-method.yaml'
+    Type: AWS::CloudFormation::Stack
+  # /Pets/{chip}  --  OPTIONS
+  ApiMethodPetsChipOptions:
+    Properties:
+      Parameters:
+        ResourceId: !Ref ApiResourcePetsChip
+        RestApiId: !Ref RestApiGateway
+      TemplateURL: 'https://cloudformation-stacks.s3.amazonaws.com/templates/api-gateway-method-options.yaml'
+    Type: AWS::CloudFormation::Stack
+
+  # /petstore  --  RESOURCE
+  ApiResourcePetStore:
+    Properties:
+      ParentId: !GetAtt RestApiGateway.RootResourceId
+      PathPart: petstore
+      RestApiId: !Ref RestApiGateway
+    Type: AWS::ApiGateway::Resource
+  # TODO: current method uses a lambda that doesn't exist
+  # /petstore  --  GET
+  # ApiMethodPetStoreGet:
+  #   Properties:
+  #     Parameters:
+  #       AuthorizationType: CUSTOM
+  #       AuthorizerId: !Ref ApiGatewayAuthorizer
+  #       IntegrationUri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaPetsFinderArn}/invocations'
+  #       Method: GET
+  #       ResourceId: !Ref ApiResourcePetsChip
+  #       RestApiId: !Ref RestApiGateway
+  #     TemplateURL: 'https://cloudformation-stacks.s3.amazonaws.com/templates/api-gateway-method.yaml'
+  #   Type: AWS::CloudFormation::Stack
+  # /petstore  --  OPTIONS
+  ApiMethodPetStoreOptions:
+    Properties:
+      Parameters:
+        ResourceId: !Ref ApiResourcePetStore
+        RestApiId: !Ref RestApiGateway
+      TemplateURL: 'https://cloudformation-stacks.s3.amazonaws.com/templates/api-gateway-method-options.yaml'
+    Type: AWS::CloudFormation::Stack
+
+  # /petstore/{petstore-id}  --  RESOURCE
+  ApiResourcePetStoreId:
+    Properties:
+      ParentId: !Ref ApiResourcePetStore
+      PathPart: '{petstore-id}'
+      RestApiId: !Ref RestApiGateway
+    Type: AWS::ApiGateway::Resource
+  # /petstore/{petstore-id}  --  OPTIONS
+  ApiMethodPetStoreIdOptions:
+    Properties:
+      Parameters:
+        ResourceId: !Ref ApiResourcePetStoreId
+        RestApiId: !Ref RestApiGateway
+      TemplateURL: 'https://cloudformation-stacks.s3.amazonaws.com/templates/api-gateway-method-options.yaml'
+    Type: AWS::CloudFormation::Stack
+
+  # /petstore/{petstore-id}/Pets  --  RESOURCE
+  ApiResourcePetStoreIdPets:
+    Properties:
+      ParentId: !Ref ApiResourcePetStoreId
+      PathPart: Pets
+      RestApiId: !Ref RestApiGateway
+    Type: AWS::ApiGateway::Resource
+  # /petstore/{petstore-id}/Pets  --  GET
+  ApiMethodPetStoreIdPetsGet:
+    Properties:
+      AuthorizationType: NONE
+      HttpMethod: GET
+      Integration:
+        IntegrationHttpMethod: GET
+        IntegrationResponses:
+          - StatusCode: 200
+        Type: AWS_PROXY
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaPetsFinderArn}/invocations'
+      MethodResponses:
+        - ResponseModels:
+            application/json: Empty
+          StatusCode: 200
+      RequestParameters:
+        method.request.querystring.page: true
+        method.request.querystring.size: true
+      RequestValidatorId: !Ref ApiRequestValidatorHeadersAndParameters
+      ResourceId: !Ref ApiResourcePetStoreIdPets
+      RestApiId: !Ref RestApiGateway
+    Type: AWS::ApiGateway::Method
+  # /petstore/{petstore-id}/Pets  --  OPTIONS
+  ApiMethodPetStoreIdPetsOptions:
+    Properties:
+      Parameters:
+        ResourceId: !Ref ApiResourcePetStoreIdPets
+        RestApiId: !Ref RestApiGateway
+      TemplateURL: 'https://cloudformation-stacks.s3.amazonaws.com/templates/api-gateway-method-options.yaml'
+    Type: AWS::CloudFormation::Stack
+
+  # /petstore/{petstore-id}/adoptions  --  RESOURCE
+  ApiResourcePetStoreIdAdoptions:
+    Properties:
+      ParentId: !Ref ApiResourcePetStoreId
+      PathPart: adoptions
+      RestApiId: !Ref RestApiGateway
+    Type: AWS::ApiGateway::Resource
+  # /petstore/{petstore-id}/adoptions  --  GET
+  ApiMethodPetStoreIdAdoptionsGet:
+    Properties:
+      AuthorizationType: NONE
+      HttpMethod: GET
+      Integration:
+        IntegrationHttpMethod: GET
+        IntegrationResponses:
+          - StatusCode: 200
+        Type: AWS_PROXY
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaPortalFinderArn}/invocations'
+      MethodResponses:
+        - ResponseModels:
+            application/json: Empty
+          StatusCode: 200
+      RequestParameters:
+        method.request.querystring.page: true
+        method.request.querystring.size: true
+      RequestValidatorId: !Ref ApiRequestValidatorBodyHeadersAndParameters
+      ResourceId: !Ref ApiResourcePetStoreIdAdoptions
+      RestApiId: !Ref RestApiGateway
+    Type: AWS::ApiGateway::Method
+  # /petstore/{petstore-id}/adoptions  --  OPTIONS
+  ApiMethodPetStoreIdAdoptionsOptions:
+    Properties:
+      Parameters:
+        ResourceId: !Ref ApiResourcePetStoreIdAdoptions
+        RestApiId: !Ref RestApiGateway
+      TemplateURL: 'https://cloudformation-stacks.s3.amazonaws.com/templates/api-gateway-method-options.yaml'
+    Type: AWS::CloudFormation::Stack
+
+  # /petstore/{petstore-id}/adoptions/{adoption-id}  --  RESOURCE
+  ApiResourcePetStoreIdAdoptionId:
+    Properties:
+      ParentId: !Ref ApiResourcePetStoreIdAdoptions
+      PathPart: '{adoption-id}'
+      RestApiId: !Ref RestApiGateway
+    Type: AWS::ApiGateway::Resource
+  # /petstore/{petstore-id}/adoptions/{adoption-id}  --  GET
+  ApiMethodPetStoreIdAdoptionIdGet:
+    Properties:
+      Parameters:
+        IntegrationUri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaPortalFinderArn}/invocations'
+        Method: GET
+        ResourceId: !Ref ApiResourcePetStoreIdAdoptionId
+        RestApiId: !Ref RestApiGateway
+      TemplateURL: 'https://cloudformation-stacks.s3.amazonaws.com/templates/api-gateway-method.yaml'
+    Type: AWS::CloudFormation::Stack
+  # /petstore/{petstore-id}/adoptions/{adoption-id}  --  OPTIONS
+  ApiMethodPetStoreIdAdoptionIdOptions:
+    Properties:
+      Parameters:
+        ResourceId: !Ref ApiResourcePetStoreIdAdoptionId
+        RestApiId: !Ref RestApiGateway
+      TemplateURL: 'https://cloudformation-stacks.s3.amazonaws.com/templates/api-gateway-method-options.yaml'
+    Type: AWS::CloudFormation::Stack
+
+  # /petstore/{petstore-id}/adoptions/{adoption-id}/decision  --  RESOURCE
+  ApiResourcePetStoreIdAdoptionIdDecision:
+    Properties:
+      ParentId: !Ref ApiResourcePetStoreIdAdoptionId
+      PathPart: decision
+      RestApiId: !Ref RestApiGateway
+    Type: AWS::ApiGateway::Resource
+  # /petstore/{petstore-id}/adoptions/{adoption-id}/decision  --  OPTIONS
+  ApiMethodPetStoreIdAdoptionIdDecisionOptions:
+    Properties:
+      Parameters:
+        ResourceId: !Ref ApiResourcePetStoreIdAdoptionIdDecision
+        RestApiId: !Ref RestApiGateway
+      TemplateURL: 'https://cloudformation-stacks.s3.amazonaws.com/templates/api-gateway-method-options.yaml'
+    Type: AWS::CloudFormation::Stack
+  # /petstore/{petstore-id}/adoptions/{adoption-id}/decision  --  POST
+  ApiMethodPetStoreIdAdoptionIdDecisionPost:
+    Properties:
+      AuthorizationType: NONE
+      HttpMethod: POST
+      Integration:
+        IntegrationHttpMethod: POST
+        IntegrationResponses:
+          - StatusCode: 200
+        Type: AWS_PROXY
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaPortalFinderArn}/invocations'
+      MethodResponses:
+        - ResponseModels:
+            application/json: Empty
+          StatusCode: 200
+      RequestModels:
+        application/json: !Ref ApiModelAdoptionDecisionInput
+      RequestValidatorId: !Ref ApiRequestValidatorBodyHeadersAndParameters
+      ResourceId: !Ref ApiResourcePetStoreIdAdoptionIdDecision
+      RestApiId: !Ref RestApiGateway
+    Type: AWS::ApiGateway::Method
+
+  # /Owner  --  RESOURCE
+  ApiResourceOwner:
+    Properties:
+      ParentId: !GetAtt RestApiGateway.RootResourceId
+      PathPart: Owner
+      RestApiId: !Ref RestApiGateway
+    Type: AWS::ApiGateway::Resource
+  # /Owner  --  OPTIONS
+  ApiMethodOwnerOptions:
+    Properties:
+      Parameters:
+        ResourceId: !Ref ApiResourceOwner
+        RestApiId: !Ref RestApiGateway
+      TemplateURL: 'https://cloudformation-stacks.s3.amazonaws.com/templates/api-gateway-method-options.yaml'
+    Type: AWS::CloudFormation::Stack
+
+  # /Owner/confirm  --  RESOURCE
+  ApiResourceOwnerConfirm:
+    Properties:
+      ParentId: !Ref ApiResourceOwner
+      PathPart: confirm
+      RestApiId: !Ref RestApiGateway
+    Type: AWS::ApiGateway::Resource
+  # /Owner/confirm  --  OPTIONS
+  ApiMethodOwnerConfirmOptions:
+    Properties:
+      Parameters:
+        ResourceId: !Ref ApiResourceOwnerConfirm
+        RestApiId: !Ref RestApiGateway
+      TemplateURL: 'https://cloudformation-stacks.s3.amazonaws.com/templates/api-gateway-method-options.yaml'
+    Type: AWS::CloudFormation::Stack
+  # /Owner/confirm  --  POST
+  ApiMethodOwnerConfirmPost:
+    Properties:
+      Parameters:
+        IntegrationUri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaOwnerFinderArn}/invocations'
+        Method: POST
+        RequestModelName: !Ref ApiModelOwnerConfirmInput
+        RequestValidatorId: !Ref ApiRequestValidatorBody
+        ResourceId: !Ref ApiResourceOwnerConfirm
+        RestApiId: !Ref RestApiGateway
+      TemplateURL: 'https://cloudformation-stacks.s3.amazonaws.com/templates/api-gateway-method-modeled.yaml'
+    Type: AWS::CloudFormation::Stack
+
+  # /Owner/confirm-forgot-password  --  RESOURCE
+  ApiResourceOwnerConfirmForgotPassword:
+    Properties:
+      ParentId: !Ref ApiResourceOwner
+      PathPart: confirm-forgot-password
+      RestApiId: !Ref RestApiGateway
+    Type: AWS::ApiGateway::Resource
+  # /Owner/confirm-forgot-password  --  OPTIONS
+  ApiMethodOwnerConfirmForgotPasswordOptions:
+    Properties:
+      Parameters:
+        ResourceId: !Ref ApiResourceOwnerConfirmForgotPassword
+        RestApiId: !Ref RestApiGateway
+      TemplateURL: 'https://cloudformation-stacks.s3.amazonaws.com/templates/api-gateway-method-options.yaml'
+    Type: AWS::CloudFormation::Stack
+  # /Owner/confirm-forgot-password  --  POST
+  ApiMethodOwnerConfirmForgotPasswordPost:
+    Properties:
+      Parameters:
+        IntegrationUri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaOwnerFinderArn}/invocations'
+        Method: POST
+        RequestModelName: !Ref ApiModelOwnerConfirmForgotPasswordInput
+        RequestValidatorId: !Ref ApiRequestValidatorBody
+        ResourceId: !Ref ApiResourceOwnerConfirmForgotPassword
+        RestApiId: !Ref RestApiGateway
+      TemplateURL: 'https://cloudformation-stacks.s3.amazonaws.com/templates/api-gateway-method-modeled.yaml'
+    Type: AWS::CloudFormation::Stack
+
+  # /Owner/forgot-password  --  RESOURCE
+  ApiResourceOwnerForgotPassword:
+    Properties:
+      ParentId: !Ref ApiResourceOwner
+      PathPart: forgot-password
+      RestApiId: !Ref RestApiGateway
+    Type: AWS::ApiGateway::Resource
+  # /Owner/forgot-password  --  OPTIONS
+  ApiMethodOwnerForgotPasswordOptions:
+    Properties:
+      Parameters:
+        ResourceId: !Ref ApiResourceOwnerForgotPassword
+        RestApiId: !Ref RestApiGateway
+      TemplateURL: 'https://cloudformation-stacks.s3.amazonaws.com/templates/api-gateway-method-options.yaml'
+    Type: AWS::CloudFormation::Stack
+  # /Owner/forgot-password  --  POST
+  ApiMethodOwnerForgotPasswordPost:
+    Properties:
+      Parameters:
+        IntegrationUri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaOwnerFinderArn}/invocations'
+        Method: POST
+        RequestModelName: !Ref ApiModelOwnerForgotPasswordInput
+        RequestValidatorId: !Ref ApiRequestValidatorBody
+        ResourceId: !Ref ApiResourceOwnerForgotPassword
+        RestApiId: !Ref RestApiGateway
+      TemplateURL: 'https://cloudformation-stacks.s3.amazonaws.com/templates/api-gateway-method-modeled.yaml'
+    Type: AWS::CloudFormation::Stack
+
+  # /Owner/login  --  RESOURCE
+  ApiResourceOwnerLogin:
+    Properties:
+      ParentId: !Ref ApiResourceOwner
+      PathPart: login
+      RestApiId: !Ref RestApiGateway
+    Type: AWS::ApiGateway::Resource
+  # /Owner/login  --  OPTIONS
+  ApiMethodOwnerLoginOptions:
+    Properties:
+      Parameters:
+        ResourceId: !Ref ApiResourceOwnerLogin
+        RestApiId: !Ref RestApiGateway
+      TemplateURL: 'https://cloudformation-stacks.s3.amazonaws.com/templates/api-gateway-method-options.yaml'
+    Type: AWS::CloudFormation::Stack
+  # /Owner/login  --  POST
+  ApiMethodOwnerLoginPost:
+    Properties:
+      Parameters:
+        IntegrationUri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaOwnerFinderArn}/invocations'
+        Method: POST
+        RequestModelName: !Ref ApiModelOwnerLoginInput
+        RequestValidatorId: !Ref ApiRequestValidatorBody
+        ResourceId: !Ref ApiResourceOwnerLogin
+        RestApiId: !Ref RestApiGateway
+      TemplateURL: 'https://cloudformation-stacks.s3.amazonaws.com/templates/api-gateway-method-modeled.yaml'
+    Type: AWS::CloudFormation::Stack
+
+  # /Owner/profile  --  RESOURCE
+  ApiResourceOwnerProfile:
+    Properties:
+      ParentId: !Ref ApiResourceOwner
+      PathPart: profile
+      RestApiId: !Ref RestApiGateway
+    Type: AWS::ApiGateway::Resource
+  # /Owner/profile  --  DELETE
+  ApiMethodOwnerProfileDelete:
+    Properties:
+      Parameters:
+        IntegrationUri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaOwnerFinderArn}/invocations'
+        Method: DELETE
+        RequestModelName: !Ref ApiModelDeleteOwnerInput
+        RequestValidatorId: !Ref ApiRequestValidatorBody
+        ResourceId: !Ref ApiResourceOwnerProfile
+        RestApiId: !Ref RestApiGateway
+      TemplateURL: 'https://cloudformation-stacks.s3.amazonaws.com/templates/api-gateway-method-modeled.yaml'
+    Type: AWS::CloudFormation::Stack
+  # /Owner/profile  --  GET
+  ApiMethodOwnerProfileGet:
+    Properties:
+      AuthorizationType: NONE
+      HttpMethod: GET
+      Integration:
+        IntegrationHttpMethod: GET
+        IntegrationResponses:
+          - StatusCode: 200
+        Type: AWS_PROXY
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaOwnerFinderArn}/invocations'
+      MethodResponses:
+        - ResponseModels:
+            application/json: Empty
+          StatusCode: 200
+      RequestParameters:
+        method.request.header.cognito-access-token: true
+      RequestValidatorId: !Ref ApiRequestValidatorHeadersAndParameters
+      ResourceId: !Ref ApiResourceOwnerProfile
+      RestApiId: !Ref RestApiGateway
+    Type: AWS::ApiGateway::Method
+  # /Owner/profile  --  OPTIONS
+  ApiMethodOwnerProfileOptions:
+    Properties:
+      Parameters:
+        ResourceId: !Ref ApiResourceOwnerProfile
+        RestApiId: !Ref RestApiGateway
+      TemplateURL: 'https://cloudformation-stacks.s3.amazonaws.com/templates/api-gateway-method-options.yaml'
+    Type: AWS::CloudFormation::Stack
+  # /Owner/profile  --  POST
+  ApiMethodOwnerProfilePost:
+    Properties:
+      AuthorizationType: NONE
+      HttpMethod: POST
+      Integration:
+        IntegrationHttpMethod: POST
+        IntegrationResponses:
+          - StatusCode: 200
+        Type: AWS_PROXY
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaOwneOwnerollerArn}/invocations'
+      MethodResponses:
+        - ResponseModels:
+            application/json: Empty
+          StatusCode: 200
+      RequestModels:
+        application/json: !Ref ApiModelOwnerProfileUpdateInput
+      RequestParameters:
+        method.request.header.cognito-access-token: true
+      RequestValidatorId: !Ref ApiRequestValidatorBodyHeadersAndParameters
+      ResourceId: !Ref ApiResourceOwnerProfile
+      RestApiId: !Ref RestApiGateway
+    Type: AWS::ApiGateway::Method
+
+  # /Owner/register  -- RESOURCE
+  ApiResourceOwnerRegister:
+    Properties:
+      ParentId: !Ref ApiResourceOwner
+      PathPart: register
+      RestApiId: !Ref RestApiGateway
+    Type: AWS::ApiGateway::Resource
+  # /Owner/register  -- OPTIONS
+  ApiMethodOwnerRegisterOptions:
+    Properties:
+      Parameters:
+        ResourceId: !Ref ApiResourceOwnerRegister
+        RestApiId: !Ref RestApiGateway
+      TemplateURL: 'https://cloudformation-stacks.s3.amazonaws.com/templates/api-gateway-method-options.yaml'
+    Type: AWS::CloudFormation::Stack
+  # /Owner/register  -- POST
+  ApiMethodOwnerRegisterPost:
+    Properties:
+      Parameters:
+        IntegrationUri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaOwnerFinderArn}/invocations'
+        Method: POST
+        RequestModelName: !Ref ApiModelOwnerRegisterInput
+        RequestValidatorId: !Ref ApiRequestValidatorBody
+        ResourceId: !Ref ApiResourceOwnerRegister
+        RestApiId: !Ref RestApiGateway
+      TemplateURL: 'https://cloudformation-stacks.s3.amazonaws.com/templates/api-gateway-method-modeled.yaml'
+    Type: AWS::CloudFormation::Stack
+
+  # /Owner/request-adoption  --  RESOURCE
+  ApiResourceOwnerRequestAdoption:
+    Properties:
+      ParentId: !Ref ApiResourceOwner
+      PathPart: request-adoption
+      RestApiId: !Ref RestApiGateway
+    Type: AWS::ApiGateway::Resource
+  # /Owner/request-adoption  --  OPTIONS
+  ApiMethodOwnerRequestAdoptionOptions:
+    Properties:
+      Parameters:
+        ResourceId: !Ref ApiResourceOwnerRequestAdoption
+        RestApiId: !Ref RestApiGateway
+      TemplateURL: 'https://cloudformation-stacks.s3.amazonaws.com/templates/api-gateway-method-options.yaml'
+    Type: AWS::CloudFormation::Stack
+  # /Owner/request-adoption  --  POST
+  ApiMethodOwnerRequestAdoptionPost:
+    Properties:
+      AuthorizationType: NONE
+      HttpMethod: POST
+      Integration:
+        IntegrationHttpMethod: POST
+        IntegrationResponses:
+          - StatusCode: 200
+        Type: AWS_PROXY
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaOwnerFinderArn}/invocations'
+      MethodResponses:
+        - ResponseModels:
+            application/json: Empty
+          StatusCode: 200
+      RequestModels:
+        application/json: !Ref ApiModelOwnerRequestAdoptionInput
+      RequestParameters:
+        method.request.header.cognito-access-token: true
+      RequestValidatorId: !Ref ApiRequestValidatorBodyHeadersAndParameters
+      ResourceId: !Ref ApiResourceOwnerRequestAdoption
+      RestApiId: !Ref RestApiGateway
+    Type: AWS::ApiGateway::Method
+
+  # /Owner/resend-confirmation-code  --  RESOURCE
+  ApiResourceOwnerResendConfirmationCode:
+    Properties:
+      ParentId: !Ref ApiResourceOwner
+      PathPart: resend-confirmation-code
+      RestApiId: !Ref RestApiGateway
+    Type: AWS::ApiGateway::Resource
+  # /Owner/resend-confirmation-code  --  OPTIONS
+  ApiMethodOwnerResendConfirmationCodeOptions:
+    Properties:
+      Parameters:
+        ResourceId: !Ref ApiResourceOwnerResendConfirmationCode
+        RestApiId: !Ref RestApiGateway
+      TemplateURL: 'https://cloudformation-stacks.s3.amazonaws.com/templates/api-gateway-method-options.yaml'
+    Type: AWS::CloudFormation::Stack
+  # /Owner/resend-confirmation-code  --  POST
+  ApiMethodOwnerResendConfirmationCodePost:
+    Properties:
+      Parameters:
+        IntegrationUri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaOwnerFinderArn}/invocations'
+        Method: POST
+        RequestModelName: !Ref ApiModelOwnerResendConfirmationInput
+        RequestValidatorId: !Ref ApiRequestValidatorBody
+        ResourceId: !Ref ApiResourceOwnerResendConfirmationCode
+        RestApiId: !Ref RestApiGateway
+      TemplateURL: 'https://cloudformation-stacks.s3.amazonaws.com/templates/api-gateway-method-modeled.yaml'
+    Type: AWS::CloudFormation::Stack
+
+  # /Owner/adoption  --  RESOURCE
+  ApiResourceOwnerAdopt:
+    Properties:
+      ParentId: !Ref ApiResourceOwner
+      PathPart: adoption
+      RestApiId: !Ref RestApiGateway
+    Type: AWS::ApiGateway::Resource
+  # /Owner/adoption  --  OPTIONS
+  ApiMethodOwnerAdoptOptions:
+    Properties:
+      Parameters:
+        ResourceId: !Ref ApiResourceOwnerAdopt
+        RestApiId: !Ref RestApiGateway
+      TemplateURL: 'https://cloudformation-stacks.s3.amazonaws.com/templates/api-gateway-method-options.yaml'
+    Type: AWS::CloudFormation::Stack
+  # /Owner/adoption  --  POST
+  ApiMethodOwnerAdoptPost:
+    Properties:
+      AuthorizationType: NONE
+      HttpMethod: POST
+      Integration:
+        IntegrationHttpMethod: POST
+        IntegrationResponses:
+          - StatusCode: 200
+        Type: AWS_PROXY
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaOwnerFinderArn}/invocations'
+      MethodResponses:
+        - ResponseModels:
+            application/json: Empty
+          StatusCode: 200
+      RequestModels:
+        application/json: !Ref ApiModelOwnerAdoptInput
+      RequestParameters:
+        method.request.header.cognito-access-token: true
+      RequestValidatorId: !Ref ApiRequestValidatorBodyHeadersAndParameters
+      ResourceId: !Ref ApiResourceOwnerAdopt
+      RestApiId: !Ref RestApiGateway
+    Type: AWS::ApiGateway::Method
+
+  # /Owner/adoption/{adoption-id}  --  RESOURCE
+  ApiResourceOwnerAdoptionId:
+    Properties:
+      ParentId: !Ref ApiResourceOwnerAdopt
+      PathPart: '{adoption-id}'
+      RestApiId: !Ref RestApiGateway
+    Type: AWS::ApiGateway::Resource
+  # /Owner/adoption/{adoption-id}  --  GET
+  ApiMethodOwnerAdoptionIdGet:
+    Properties:
+      Parameters:
+        IntegrationUri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaOwnerFinderArn}/invocations'
+        Method: GET
+        ResourceId: !Ref ApiResourceOwnerAdoptionId
+        RestApiId: !Ref RestApiGateway
+      TemplateURL: 'https://cloudformation-stacks.s3.amazonaws.com/templates/api-gateway-method.yaml'
+    Type: AWS::CloudFormation::Stack
+  # /Owner/adoption/{adoption-id}  --  OPTIONS
+  ApiMethodOwnerAdoptionIdOptions:
+    Properties:
+      Parameters:
+        ResourceId: !Ref ApiResourceOwnerAdoptionId
+        RestApiId: !Ref RestApiGateway
+      TemplateURL: 'https://cloudformation-stacks.s3.amazonaws.com/templates/api-gateway-method-options.yaml'
+    Type: AWS::CloudFormation::Stack
+
+  # API Deployment/Stage (AWS::ApiGateway::Deployment/Stage)
+  ApiDeployment:
+    # NOTE: all methods must be listed in "DependsOn", or deploy fails
+    DependsOn:
+      - ApiMethodPetsOptions
+      - ApiMethodPetsUploadOptions
+      - ApiMethodPetsUploadPost
+      - ApiMethodPetsAnimalOptions
+      - ApiMethodPetsAnimalIdGet
+      - ApiMethodPetsAnimalIdOptions
+      - ApiMethodPetsAnimalIdPost
+      - ApiMethodPetsChipGet
+      - ApiMethodPetsChipOptions
+      - ApiMethodPetStoreOptions
+      - ApiMethodPetStoreIdOptions
+      - ApiMethodPetStoreIdPetsGet
+      - ApiMethodPetStoreIdPetsOptions
+      - ApiMethodPetStoreIdAdoptionsGet
+      - ApiMethodPetStoreIdAdoptionsOptions
+      - ApiMethodPetStoreIdAdoptionIdGet
+      - ApiMethodPetStoreIdAdoptionIdOptions
+      - ApiMethodPetStoreIdAdoptionIdDecisionOptions
+      - ApiMethodPetStoreIdAdoptionIdDecisionPost
+      - ApiMethodOwnerOptions
+      - ApiMethodOwnerConfirmOptions
+      - ApiMethodOwnerConfirmPost
+      - ApiMethodOwnerConfirmForgotPasswordOptions
+      - ApiMethodOwnerConfirmForgotPasswordPost
+      - ApiMethodOwnerForgotPasswordOptions
+      - ApiMethodOwnerForgotPasswordPost
+      - ApiMethodOwnerLoginOptions
+      - ApiMethodOwnerLoginPost
+      - ApiMethodOwnerProfileDelete
+      - ApiMethodOwnerProfileGet
+      - ApiMethodOwnerProfileOptions
+      - ApiMethodOwnerProfilePost
+      - ApiMethodOwnerRegisterOptions
+      - ApiMethodOwnerRegisterPost
+      - ApiMethodOwnerRequestAdoptionOptions
+      - ApiMethodOwnerRequestAdoptionPost
+      - ApiMethodOwnerResendConfirmationCodeOptions
+      - ApiMethodOwnerResendConfirmationCodePost
+      - ApiMethodOwnerAdoptOptions
+      - ApiMethodOwnerAdoptPost
+      - ApiMethodOwnerAdoptionIdGet
+      - ApiMethodOwnerAdoptionIdOptions
+    Properties:
+      Description: !Sub 'REST API gateway deployment for ${Project} ${Environment}'
+      RestApiId: !Ref RestApiGateway
+      StageDescription:
+        # uncomment to configure default method settings, use 'MethodSettings'
+        #   for specifying settings for specific methods
+        # AccessLogSetting:
+        #   DestinationArn: String
+        #   Format: String
+        # CacheClusterEnabled: Boolean
+        # CacheClusterSize: String
+        # CacheDataEncrypted: Boolean
+        # CacheTtlInSeconds: Integer
+        # CachingEnabled: Boolean
+        # ClientCertificateId: String
+        # DataTraceEnabled: Boolean
+        Description: !Sub 'REST API gateway ${Environment} stage for ${Project}'
+        # DocumentationVersion: String
+        # LoggingLevel: String  # ERROR, INFO
+        # MethodSettings:
+          # list of specific method settings otherwise defaults are used
+        # MetricsEnabled: Boolean
+        Tags:
+          - Key: Name
+            Value: !If [ApiGatewayNameGiven, !Ref ApiGatewayName, !Sub '${Project}-${Environment}']
+        # ThrottlingBurstLimit: 5000  # default: 5000
+        # ThrottlingRateLimit: 10000  # default: 10000
+        # TracingEnabled: Boolean
+        # Variables:
+        #  Key : Value
+      StageName: !Ref Environment
+    Type: AWS::ApiGateway::Deployment
+
+  # API Authorizers (AWS::ApiGateway::Authorizer)
+  ApiGatewayAuthorizer:
+    Properties:
+      AuthorizerResultTtlInSeconds: !Ref AuthorizerResultTtl
+      IdentitySource: !Sub 'method.request.header.${AuthorizationHeader}'
+      Name: !If [ApiGatewayNameGiven, !Sub '${ApiGatewayName}-cognito', !Sub '${Project}-${Environment}-cognito']
+      ProviderARNs: !Ref CognitoUserPoolArns
+      RestApiId: !Ref RestApiGateway
+      Type: COGNITO_USER_POOLS
+    Type: AWS::ApiGateway::Authorizer
+
+  # API Gateway Repsonses (AWS::ApiGateway::GatewayResponse) - (Currently None)
+  # ApiGatewayAuthorizer:
+  #   Properties:
+  #     ResponseParameters:
+  #       Key : Value
+  #     ResponseTemplates:
+  #       Key : Value
+  #     ResponseType: String
+  #     RestApiId: String
+  #     StatusCode: String
+  #   Type: AWS::ApiGateway::GatewayResponse
+
+  # API Models (AWS::ApiGateway::Model)
+
+  ApiModelDeleteUserInput:
+    Properties:
+      ContentType: application/json
+      Description: 'Delete a User and all related information'
+      Name: DeleteUserInput
+      RestApiId: !Ref RestApiGateway
+      Schema: |-
+        {
+          "$schema": "http://json-schema.org/draft-04/schema#",
+          "title": "DeleteUserInput",
+          "type": "object",
+          "properties": {
+              "userName": { "type": "string" }
+          },
+          "required": [
+              "userName"
+          ]
+        }
+    Type: AWS::ApiGateway::Model
+
+  ApiModelAdoptionDecisionInput:
+    Properties:
+      ContentType: application/json
+      Description: 'Adoption Decision Input'
+      Name: AdoptionDecisionInput
+      RestApiId: !Ref RestApiGateway
+      Schema: |-
+        {
+          "$schema": "http://json-schema.org/draft-04/schema#",
+          "title": "AdoptionDecisionInput",
+          "type": "object",
+          "properties": {
+              "action": { "type": "string" },
+              "comments": { "type": "string" }
+          },
+          "required": [
+              "action"
+          ]
+        }
+    Type: AWS::ApiGateway::Model
+
+  ApiModelUserConfirmForgotPasswordInput:
+    Properties:
+      ContentType: application/json
+      Description: 'User Confirm Forgot Password Input'
+      Name: UserConfirmForgotPasswordInput
+      RestApiId: !Ref RestApiGateway
+      Schema: |-
+        {
+          "$schema": "http://json-schema.org/draft-04/schema#",
+          "title": "UserConfirmForgotPasswordInput",
+          "type": "object",
+          "properties": {
+              "code": { "type": "string" },
+              "password": { "type": "string" },
+              "userName": { "type": "string" }
+          },
+          "required": [
+              "code",
+              "password",
+              "userName"
+          ]
+        }
+    Type: AWS::ApiGateway::Model
+
+  ApiModelUserConfirmInput:
+    Properties:
+      ContentType: application/json
+      Description: 'Confirm User Input'
+      Name: UserConfirmInput
+      RestApiId: !Ref RestApiGateway
+      Schema: |-
+        {
+          "$schema": "http://json-schema.org/draft-04/schema#",
+          "title": "UserConfirmInput",
+          "type": "object",
+          "properties": {
+              "code": { "type": "string" },
+              "userName": { "type": "string" }
+          },
+          "required": [
+              "code",
+              "userName"
+          ]
+        }
+    Type: AWS::ApiGateway::Model
+
+  ApiModelUserForgotPasswordInput:
+    Properties:
+      ContentType: application/json
+      Description: 'User Forgot Password Input'
+      Name: UserForgotPasswordInput
+      RestApiId: !Ref RestApiGateway
+      Schema: |-
+        {
+          "$schema": "http://json-schema.org/draft-04/schema#",
+          "title": "UserForgotPasswordInput",
+          "type": "object",
+          "properties": {
+              "userName": { "type": "string" }
+          },
+          "required": [
+              "userName"
+          ]
+        }
+    Type: AWS::ApiGateway::Model
+
+  ApiModelUserLoginInput:
+    Properties:
+      ContentType: application/json
+      Description: 'User Login Input'
+      Name: UserLoginInput
+      RestApiId: !Ref RestApiGateway
+      Schema: |-
+        {
+          "$schema": "http://json-schema.org/draft-04/schema#",
+          "title": "UserLoginInput",
+          "type": "object",
+          "properties": {
+              "password": { "type": "string" },
+              "userName": { "type": "string" }
+          },
+          "required": [
+              "password",
+              "userName"
+          ]
+        }
+    Type: AWS::ApiGateway::Model
+
+  ApiModelUserProfileUpdateInput:
+    Properties:
+      ContentType: application/json
+      Description: 'User Profile Update Input Model'
+      Name: UserProfileUpdateInput
+      RestApiId: !Ref RestApiGateway
+      Schema: |-
+        {
+          "$schema": "http://json-schema.org/draft-04/schema#",
+          "title": "UserProfileUpdateInput",
+          "type": "object",
+          "properties": {
+              "address1": { "type": "string" },
+              "address2": { "type": "string" },
+              "allowNotifications": { "type": "boolean" },
+              "city": { "type": "string" },
+              "dateOfBirth": { "type": "string" },
+              "driverLicense": { "type": "string" },
+              "driverLicenseExp": { "type": "string" },
+              "driverLicensePhotoBack": { "type": "string" },
+              "driverLicensePhotoFront": { "type": "string" },
+              "email": { "type": "string" },
+              "firstName": { "type": "string" },
+              "lastName": { "type": "string" },
+              "mailingAddress1": { "type": "string" },
+              "mailingAddress2": { "type": "string" },
+              "mailingCity": { "type": "string" },
+              "mailingState": { "type": "string" },
+              "mailingZip": { "type": "string" },
+              "state": { "type": "string" },
+              "usePrimaryAddress": { "type": "boolean" },
+              "zip": { "type": "string" }
+          },
+          "required": [
+            "address1",
+            "city",
+            "dateOfBirth",
+            "driverLicense",
+            "driverLicenseExp",
+            "firstName",
+            "lastName",
+            "state",
+            "zip"
+          ]
+        }
+    Type: AWS::ApiGateway::Model
+
+  ApiModelUserRegisterInput:
+    Properties:
+      ContentType: application/json
+      Description: 'User Register Body'
+      Name: UserRegisterInput
+      RestApiId: !Ref RestApiGateway
+      Schema: |-
+        {
+          "$schema": "http://json-schema.org/draft-04/schema#",
+          "title": "UserRegisterInput",
+          "type": "object",
+          "properties": {
+              "password": { "type": "string" },
+              "userName": { "type": "string" }
+          },
+          "required": [
+              "password",
+              "userName"
+          ]
+        }
+    Type: AWS::ApiGateway::Model
+
+  ApiModelUserRequestAdoptionInput:
+    Properties:
+      ContentType: application/json
+      Description: 'User Request adoption Input'
+      Name: UserRequestAdoptionInput
+      RestApiId: !Ref RestApiGateway
+      Schema: |-
+        {
+          "$schema": "http://json-schema.org/draft-04/schema#",
+          "title": "UserRequestAdoptionInput",
+          "type": "object",
+          "properties": {
+              "mileage": { "type": "integer" },
+              "returnDate": { "type": "string" },
+              "adoptionId": { "type": "integer" }
+          },
+          "required": [
+              "mileage",
+              "returnDate",
+              "adoptionId"
+          ]
+        }
+    Type: AWS::ApiGateway::Model
+
+  ApiModelUserResendConfirmationInput:
+    Properties:
+      ContentType: application/json
+      Description: 'User Resend Confirmation Code Input'
+      Name: UserResendConfirmationInput
+      RestApiId: !Ref RestApiGateway
+      Schema: |-
+        {
+          "$schema": "http://json-schema.org/draft-04/schema#",
+          "title": "UserResendConfirmationInput",
+          "type": "object",
+          "properties": {
+              "userName": { "type": "string" }
+          },
+          "required": [
+              "userName"
+          ]
+        }
+    Type: AWS::ApiGateway::Model
+
+  ApiModelUserAdoptInput:
+    Properties:
+      ContentType: application/json
+      Description: 'User Adopt Input Model'
+      Name: UserAdoptInput
+      RestApiId: !Ref RestApiGateway
+      Schema: |-
+        {
+          "$schema": "http://json-schema.org/draft-04/schema#",
+          "title": "UserAdoptInput",
+          "type": "object",
+          "properties": {
+              "currency": { "type": "string" },
+              "last4Ssn": { "type": "integer" },
+              "monthlyPayment": { "type": "number" },
+              "startingPayment": { "type": "number" },
+              "stripePaymentToken": { "type": "string" },
+              "leashId": { "type": "integer" }
+          },
+          "required": [
+              "currency",
+              "monthlyPayment",
+              "startingPayment",
+              "stripePaymentToken",
+              "leashId"
+          ]
+        }
+    Type: AWS::ApiGateway::Model
+
+  ApiModelAnimalUpdateInput:
+    Properties:
+      ContentType: application/json
+      Description: 'Animal Update Input Model'
+      Name: AnimalUpdateInput
+      RestApiId: !Ref RestApiGateway
+      Schema: |-
+        {
+          "$schema": "http://json-schema.org/draft-04/schema#",
+          "title": "AnimalUpdateInput",
+          "type": "object",
+          "properties": {
+              "display": { "type": "boolean" },
+              "status": { "type": "string" }
+          }
+        }
+    Type: AWS::ApiGateway::Model
+
+  # API Documentation (AWS::ApiGateway::DocumentationPart) - None
+
+# TODO: Not sure how to configure this
+#   ApiCustomDomainName:
+#     Properties:
+#       DomainName: !If [ApiCustomDomainNameGiven, !Ref ApiCustomDomainName, !Sub 'api-${Environment}.${DomainName}']
+#       EndpointConfiguration:
+#         Types: !Ref ApiEndpointConfigurationTypes
+#       Name: !If [ApiGatewayNameGiven, !Ref ApiGatewayName, !Sub '${Project}-${Environment}']
+#     Type: AWS::ApiGateway::DomainName
+
+  LambdaPermissionGenerateSignedS3Url:
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref LambdaGenerateSignedS3UrlArn
+      Principal: apigateway.amazonaws.com
+      SourceArn:
+        !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestApiGateway}/*'
+    Type: AWS::Lambda::Permission
+  LambdaPermissionPetsUploadPost:
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref LambdaGenerateSignedS3UrlArn
+      Principal: apigateway.amazonaws.com
+      SourceArn:
+        !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestApiGateway}/*/POST/Pets/upload'
+    Type: AWS::Lambda::Permission
+
+  # the first permission works to handle the subsequent specific permissions
+  # so you can delete the rest if you want to. leachipg here for posterity
+  LambdaPermissionPetsFinder:
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref LambdaPetsFinderArn
+      Principal: apigateway.amazonaws.com
+      SourceArn:
+        !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestApiGateway}/*'
+    Type: AWS::Lambda::Permission
+  LambdaPermissionPetsAnimalIdGet:
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref LambdaPetsFinderArn
+      Principal: apigateway.amazonaws.com
+      SourceArn:
+        !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestApiGateway}/*/GET/Pets/leash/*'
+    Type: AWS::Lambda::Permission
+  LambdaPermissionPetsChipGet:
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref LambdaPetsFinderArn
+      Principal: apigateway.amazonaws.com
+      SourceArn:
+        !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestApiGateway}/*/GET/Pets/*'
+    Type: AWS::Lambda::Permission
+  LambdaPermissionPetStoreIdPetsGet:
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref LambdaPetsFinderArn
+      Principal: apigateway.amazonaws.com
+      SourceArn:
+        !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestApiGateway}/*/GET/petstore/*/Pets'
+    Type: AWS::Lambda::Permission
+
+  # the first permission works to handle the subsequent specific permissions
+  # so you can delete the rest if you want to. leachipg here for posterity
+  LambdaPermissionPortalFinder:
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref LambdaPortalFinderArn
+      Principal: apigateway.amazonaws.com
+      SourceArn:
+        !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestApiGateway}/*'
+    Type: AWS::Lambda::Permission
+  LambdaPermissionPetsAnimalIdPost:
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref LambdaPortalFinderArn
+      Principal: apigateway.amazonaws.com
+      SourceArn:
+        !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestApiGateway}/*/POST/Pets/leash/*'
+    Type: AWS::Lambda::Permission
+  LambdaPermissionPetStoreIdAdoptionsGet:
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref LambdaPortalFinderArn
+      Principal: apigateway.amazonaws.com
+      SourceArn:
+        !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestApiGateway}/*/GET/petstore/*/Pets'
+    Type: AWS::Lambda::Permission
+  LambdaPermissionPetStoreIdAdoptionIdGet:
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref LambdaPortalFinderArn
+      Principal: apigateway.amazonaws.com
+      SourceArn:
+        !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestApiGateway}/*/GET/petstore/*/adoptions/*'
+    Type: AWS::Lambda::Permission
+  LambdaPermissionPetStoreIdAdoptionIdDecisionPost:
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref LambdaPortalFinderArn
+      Principal: apigateway.amazonaws.com
+      SourceArn:
+        !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestApiGateway}/*/POST/petstore/*/adoptions/*/decision'
+    Type: AWS::Lambda::Permission
+
+  # the first permission works to handle the subsequent specific permissions
+  # so you can delete the rest if you want to. leachipg here for posterity
+  LambdaPermissionOwnerFinder:
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref LambdaOwnerFinderArn
+      Principal: apigateway.amazonaws.com
+      SourceArn:
+        !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestApiGateway}/*'
+    Type: AWS::Lambda::Permission
+  LambdaPermissionOwnerConfirmPost:
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref LambdaOwnerFinderArn
+      Principal: apigateway.amazonaws.com
+      SourceArn:
+        !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestApiGateway}/*/POST/Owner/confirm'
+    Type: AWS::Lambda::Permission
+  LambdaPermissionOwnerConfirmForgotPasswordPost:
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref LambdaOwnerFinderArn
+      Principal: apigateway.amazonaws.com
+      SourceArn:
+        !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestApiGateway}/*/POST/Owner/confirm-forgot-password'
+    Type: AWS::Lambda::Permission
+  LambdaPermissionOwnerForgotPasswordPost:
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref LambdaOwnerFinderArn
+      Principal: apigateway.amazonaws.com
+      SourceArn:
+        !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestApiGateway}/*/POST/Owner/forgot-password'
+    Type: AWS::Lambda::Permission
+  LambdaPermissionOwnerLoginPost:
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref LambdaOwnerFinderArn
+      Principal: apigateway.amazonaws.com
+      SourceArn:
+        !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestApiGateway}/*/POST/Owner/login'
+    Type: AWS::Lambda::Permission
+  LambdaPermissionOwnerProfileDelete:
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref LambdaOwnerFinderArn
+      Principal: apigateway.amazonaws.com
+      SourceArn:
+        !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestApiGateway}/*/DELETE/Owner/profile'
+    Type: AWS::Lambda::Permission
+  LambdaPermissionOwnerProfileGet:
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref LambdaOwnerFinderArn
+      Principal: apigateway.amazonaws.com
+      SourceArn:
+        !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestApiGateway}/*/GET/Owner/profile'
+    Type: AWS::Lambda::Permission
+  LambdaPermissionOwnerProfilePost:
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref LambdaOwnerFinderArn
+      Principal: apigateway.amazonaws.com
+      SourceArn:
+        !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestApiGateway}/*/POST/Owner/profile'
+    Type: AWS::Lambda::Permission
+  LambdaPermissionOwnerRegisterPost:
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref LambdaOwnerFinderArn
+      Principal: apigateway.amazonaws.com
+      SourceArn:
+        !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestApiGateway}/*/POST/Owner/register'
+    Type: AWS::Lambda::Permission
+  LambdaPermissionOwnerRequestAdoptionPost:
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref LambdaOwnerFinderArn
+      Principal: apigateway.amazonaws.com
+      SourceArn:
+        !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestApiGateway}/*/POST/Owner/request-adoption'
+    Type: AWS::Lambda::Permission
+  LambdaPermissionOwnerResendConfirmationCodePost:
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref LambdaOwnerFinderArn
+      Principal: apigateway.amazonaws.com
+      SourceArn:
+        !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestApiGateway}/*/POST/Owner/resend-confirmation-code'
+    Type: AWS::Lambda::Permission
+  LambdaPermissionOwnerAdoptPost:
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref LambdaOwnerFinderArn
+      Principal: apigateway.amazonaws.com
+      SourceArn:
+        !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestApiGateway}/*/POST/Owner/adoption'
+    Type: AWS::Lambda::Permission
+  LambdaPermissionOwnerAdoptionIdGet:
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref LambdaOwnerFinderArn
+      Principal: apigateway.amazonaws.com
+      SourceArn:
+        !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestApiGateway}/*/GET/Owner/adoption/*'
+    Type: AWS::Lambda::Permission
+
+  Route53RecordApi:
+    Properties:
+      HostedZoneId: !Ref HostedZoneId
+      Name: !Sub 'api-${Environment}.${DomainName}'
+      ResourceRecords:
+        - !Sub '${RestApiGateway}.execute-api.${AWS::Region}.amazonaws.com'
+      TTL: 300
+      Type: CNAME
+    Type: AWS::Route53::RecordSet
+
+
+Outputs:
+
+  ApiAuthorizerId:
+    Description: 'ID of the REST API Authorizer'
+    Export: {'Name': !Sub '${AWS::StackName}-ApiAuthorizerId'}
+    Value: !Ref ApiGatewayAuthorizer
+
+  RestApiDns:
+    Description: 'DNS of the REST API'
+    Export: {'Name': !Sub '${AWS::StackName}-RestApiDns'}
+    Value: !Sub 'api-${Environment}.${DomainName}'
+
+  RestApiId:
+    Description: 'ID of the REST API'
+    Export: {'Name': !Sub '${AWS::StackName}-RestApiId'}
+    Value: !Ref RestApiGateway
+
+  RestApiUrl:
+    Description: 'URL endpoint of the REST API'
+    Export: {'Name': !Sub '${AWS::StackName}-RestApiUrl'}
+    Value: !Sub 'https://${RestApiGateway}.execute-api.${AWS::Region}.amazonaws.com/${Environment}/'

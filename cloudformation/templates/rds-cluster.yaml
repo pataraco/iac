@@ -1,0 +1,497 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Creates an AWS RDS (Aurora) Cluster (from either a snapshot or new), DB Subnet Group and (up to) four DB Instances'
+
+
+Parameters:
+
+  AutoMinorVersionUpgrade:
+    AllowedValues: ['true', 'false']
+    ConstraintDescription: 'Enter true or false'
+    Default: 'true'
+    Description: 'A value that indicates whether minor engine upgrades are applied automatically to the DB instance during the maintenance window. By default, minor engine upgrades are applied automatically (default: true)'
+    Type: String
+
+  AvailabilityZones:
+    Default: ''
+    Description: 'A list of Availability Zones (AZs) where instances in the DB cluster can be created. For information on AWS Regions and Availability Zones, see Choosing the Regions and Availability Zones in the Amazon Aurora User Guide.'
+    Type: List<AWS::EC2::AvailabilityZone::Name>
+
+  BackupRetentionPeriod:
+    ConstraintDescription: 'Must be a value from 1 to 35'
+    Default: 1
+    Description: 'The number of days (1-35) for which automated backups are retained. (default: 1)'
+    MaxValue: 35
+    MinValue: 1
+    Type: Number
+
+  DatabaseName:
+    Default: ''
+    Description: 'The name of your database. If a name is not provided, then Amazon RDS will not create a database in this DB cluster. For naming constraints, see Naming Constraints in the Amazon RDS User Guide.'
+    Type: String
+
+  DbClusterName:
+    Default: ''
+    Description: 'A name for the RDS DB Cluster resource. (default: ${Project}-${Environment})'
+    Type: String
+
+  DBClusterParameterGroupName:
+    Default: 'default.aurora5.6'
+    Description: 'The name of the DB cluster parameter group to associate with this DB cluster. Note: If this argument is omitted, default.aurora5.6 is used. If default.aurora5.6 is used, specifying aurora-mysql or aurora-postgresql for the Engine property might result in an error.'
+    Type: String
+
+  DeletionProtection:
+    AllowedValues: ['true', 'false']
+    ConstraintDescription: 'Enter true or false'
+    Default: 'false'
+    Description: 'A value that indicates whether the DB cluster has deletion protection enabled. The database cannot be deleted when deletion protection is enabled. By default, deletion protection is disabled.'
+    Type: String
+
+  EnableCloudwatchLogsExports:
+    Default: 'error'
+    Description: 'The list of log types that need to be enabled for exporting to CloudWatch Logs. The values in the list depend on the DB engine being used. For more information, see Amazon Aurora documentation. e.g. audit, error, general, slowquery (default: error)'
+    Type: CommaDelimitedList
+
+  EnablePerformanceInsights:
+    AllowedValues: ['true', 'false']
+    ConstraintDescription: 'Enter true or false'
+    Default: 'false'
+    Description: 'A value that indicates whether to enable Performance Insights for the DB instance.  For more information, see Using Amazon Performance Insights in the Amazon Relational Database Service User Guide.'
+    Type: String
+
+  Engine:
+    AllowedValues: ['aurora', 'aurora-mysql', 'aurora-postgresql']
+    Default: 'aurora'
+    Description: 'The name of the database engine to be used for this DB cluster and DB instances. For valid values, see the AWS documentation. Valid values aurora (for MySQL 5.6-compatible Aurora), aurora-mysql (for MySQL 5.7-compatible Aurora), and aurora-postgresql. (default: aurora)'
+    Type: String
+
+  EngineMode:
+    AllowedValues: ['provisioned', 'serverless', 'parallelquery', 'global']
+    Default: 'provisioned'
+    Description: 'The DB engine mode of the DB cluster, either provisioned, serverless, parallelquery, or global. (default: provisioned)'
+    Type: String
+
+  EngineVersion:
+    Default: ''
+    Description: 'The version number of the database engine to use. To list available versions, use: aws rds describe-db-engine-versions'
+    Type: String
+
+  Environment:
+    Description: 'Name of Environment'
+    Type: String
+
+  InstanceClass:
+    Default: 'db.t3.medium'
+    Description: 'The compute and memory capacity of the DB instance, for example, db.m4.large. Not all DB instance classes are available in all AWS Regions, or for all database engines. For the full list of DB instance classes, and availability for your engine, see DB Instance Class in the Amazon RDS User Guide (default: db-t3.medium)'
+    Type: String
+
+  KmsKeyId:
+    Default: ''
+    Description: 'The Amazon Resource Name (ARN) of the AWS Key Management Service master key that is used to encrypt the database instances in the DB cluster. If you enable the StorageEncrypted property but do not specify this property, the default master key is used. If you specify this property, StorageEncrypted property will be set to: true.'
+    Type: String
+
+  MasterUserPassword:
+    Default: ''
+    Description: 'The master password for the DB instance.  Note If you specify the SourceDBInstanceIdentifier or DBSnapshotIdentifier property, do not specify this property. The value is inherited from the source DB instance or snapshot.'
+    NoEcho: true
+    Type: String
+
+  MasterUsername:
+    Default: 'admin'
+    Description: 'The name of the master user for the DB cluster. Note: You must specify MasterUsername, unless you specify SnapshotIdentifier. In that case, do not specify MasterUsername. (default: admin)'
+    Type: String
+
+  MonitoringInterval:
+    AllowedValues: [0, 1, 5, 10, 15, 30, 60]
+    Default: 0
+    Description: 'The interval, in seconds, between points when Enhanced Monitoring metrics are collected for the DB instance. To disable collecting Enhanced Monitoring metrics, specify 0. If set, an IAM Role is created to allowed RDS to log to CloudWatch. Valid Values: 0, 1, 5, 10, 15, 30, 60 (default: 0)'
+    Type: Number
+
+    # MonitoringRoleArn:
+    #   Default: ''
+    #   Description: 'The ARN for the IAM role that permits RDS to send enhanced monitoring metrics to Amazon CloudWatch Logs. For information on creating a monitoring role, go to Setting Up and Enabling Enhanced Monitoring in the Amazon RDS User Guide.  If MonitoringInterval is set to a value other than 0, then you must supply a MonitoringRoleArn value.'
+    #   Type: String
+
+  NumberOfInstances:
+    ConstraintDescription: 'Must be a value from 1 to 4. Only up to 4 instances supported.'
+    Default: 1
+    Description: 'The number of DB instances to create (default: 1)'
+    MaxValue: 4
+    MinValue: 1
+    Type: Number
+
+  PreferredBackupWindow:
+    Default: ''
+    Description: 'The daily time range during which automated backups are created if automated backups are enabled using the BackupRetentionPeriod parameter. The default is a 30-minute window selected at random from an 8-hour block of time for each AWS Region. To see the time blocks available, see Adjusting the Preferred DB Cluster Maintenance Window in the Amazon Aurora User Guide. Constraints: Must be in the format hh24:mi-hh24:mi.  Must be in Universal Coordinated Time (UTC).  Must not conflict with the preferred maintenance window.  Must be at least 30 minutes.'
+    Type: String
+
+  PreferredMaintenanceWindow:
+    Default: ''
+    Description: 'The weekly time range during which system maintenance can occur, in Universal Coordinated Time (UTC). Format: ddd:hh24:mi-ddd:hh24:mi The default is a 30-minute window selected at random from an 8-hour block of time for each AWS Region, occurring on a random day of the week. To see the time blocks available, see Adjusting the Preferred DB Cluster Maintenance Window in the Amazon Aurora User Guide.  Valid Days: mon, tue, wed, thu, fri, sat, sun.  Constraints: Minimum 30-minute window. Must not conflict with the preferred backup window.'
+    Type: String
+
+  Project:
+    Default: ''
+    Description: 'Name of the project being deployed'
+    Type: String
+
+  PubliclyAccessible:
+    AllowedValues: ['true', 'false']
+    ConstraintDescription: 'Enter true or false'
+    Default: 'true'
+    Description: 'Indicates whether the DB instance is an internet-facing instance. If you specify true, AWS CloudFormation creates an instance with a publicly resolvable DNS name, which resolves to a public IP address. If you specify false, AWS CloudFormation creates an internal instance with a DNS name that resolves to a private IP address.'
+    Type: String
+
+  SecurityGroupIds:
+    Default: ''
+    Description: 'A list of EC2 VPC security groups to associate with this DB cluster.'
+    Type: List<AWS::EC2::SecurityGroup::Id>
+
+  SnapshotId:
+    Default: ''
+    Description: 'The identifier for the DB snapshot or DB cluster snapshot to restore from.  You can use either the name or the Amazon Resource Name (ARN) to specify a DB cluster snapshot. However, you can use only the ARN to specify a DB snapshot.  Constraints: Must match the identifier of an existing Snapshot.'
+    Type: String
+
+  SsmParamName:
+    Default: ''
+    Description: 'The name of the SSM Paramter to save the S3 Bucket Name. (default: /${Project}/${Environment}/s3/bucket-name)'
+    Type: String
+
+  SsmParamDesc:
+    Default: ''
+    Description: 'The description of the SSM Paramter to use for the S3 Bucket Name. (default: S3 Bucket Name for ${Project} ${Environment)'
+    Type: String
+
+  StorageEncrypted:
+    AllowedValues: ['true', 'false']
+    ConstraintDescription: 'Enter true or false'
+    Default: 'false'
+    Description: 'Indicates whether the DB instance is encrypted.  If you specify the DBClusterIdentifier, DBSnapshotIdentifier, or SourceDBInstanceIdentifier property, do not specify this property. The value is inherited from the cluster, snapshot, or source DB instance.  Note: If you specify the KmsKeyId property, then this value is set to: true.'
+    Type: String
+
+  SubnetIds:
+    Description: 'The EC2 Subnet IDs for the DB Subnet Group.'
+    Type: List<AWS::EC2::Subnet::Id>
+
+  # SSM Parameter Store
+  SsmParamNameDbName:
+    Default: ''
+    Description: 'The name of the SSM Paramter to save the RDS database name. (default: /${Project}/${Environment}/rds/db-name)'
+    Type: String
+
+  SsmParamNameHost:
+    Default: ''
+    Description: 'The name of the SSM Paramter to save the RDS host. (default: /${Project}/${Environment}/rds/host)'
+    Type: String
+
+  SsmParamNamePort:
+    Default: ''
+    Description: 'The name of the SSM Paramter to save the RDS port. (default: /${Project}/${Environment}/rds/port)'
+    Type: String
+
+  SsmParamNameReadEndpoint:
+    Default: ''
+    Description: 'The name of the SSM Paramter to save the RDS read endpoint. (default: /${Project}/${Environment}/rds/read-endpoint)'
+    Type: String
+
+  SsmParamNameWriteEndpoint:
+    Default: ''
+    Description: 'The name of the SSM Paramter to save the RDS write endpoint. (default: /${Project}/${Environment}/rds/write-endpoint)'
+    Type: String
+
+
+Conditions:
+
+  CreateDbInst1: !Or
+    - !Equals [!Ref NumberOfInstances, '1']
+    - !Equals [!Ref NumberOfInstances, '2']
+    - !Equals [!Ref NumberOfInstances, '3']
+    - !Equals [!Ref NumberOfInstances, '4']
+  CreateDbInst2: !Or
+    - !Equals [!Ref NumberOfInstances, '2']
+    - !Equals [!Ref NumberOfInstances, '3']
+    - !Equals [!Ref NumberOfInstances, '4']
+  CreateDbInst3: !Or
+    - !Equals [!Ref NumberOfInstances, '3']
+    - !Equals [!Ref NumberOfInstances, '4']
+  CreateDbInst4: !Equals [!Ref NumberOfInstances, '4']
+  DbClusterNameGiven: !Not [!Equals [!Ref DbClusterName, '']]
+  DbNameGiven: !Not [!Equals [!Ref DatabaseName, '']]
+  EncryptDb: !Not [!Equals [!Ref KmsKeyId, '']]
+  EnhancedMonitoring: !Not [!Equals [!Ref MonitoringInterval, '0']]
+  SsmParamNameDbNameGiven: !Not [!Equals [!Ref SsmParamNameDbName, '']]
+  SsmParamNameHostGiven: !Not [!Equals [!Ref SsmParamNameHost, '']]
+  SsmParamNamePortGiven: !Not [!Equals [!Ref SsmParamNamePort, '']]
+  SsmParamNameReadEndpointGiven: !Not [!Equals [!Ref SsmParamNameReadEndpoint, '']]
+  SsmParamNameWriteEndpointGiven: !Not [!Equals [!Ref SsmParamNameWriteEndpoint, '']]
+  UseSnapshot: !Not [!Equals [!Ref SnapshotId, '']]
+
+
+Resources:
+
+  IamRoleEnhancedMonitoring:
+    Type: AWS::IAM::Role
+    Condition: EnhancedMonitoring
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: 'sts:AssumeRole'
+            Effect: Allow
+            Principal: {Service: 'monitoring.rds.amazonaws.com'}
+        Version: '2012-10-17'
+      Description:  !Sub 'Allows RDS to manage CloudWatch Logs resources for Enhanced Monitoring for ${Project} ${Environment}'
+      ManagedPolicyArns: ['arn:aws:iam::aws:policy/service-role/AmazonRDSEnhancedMonitoringRole']
+      RoleName: !If
+        - DbClusterNameGiven
+        - !Sub '${DbClusterName}-rds-enhanced-monitoring'
+        - !Sub '${Project}-${Environment}-rds-enhanced-monitoring'
+
+  RdsDbSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: !Sub 'Subnet group for ${Project} ${Environment} instances'
+      DBSubnetGroupName: !If [DbClusterNameGiven, !Ref DbClusterName, !Sub '${Project}-${Environment}']
+      SubnetIds: !Ref SubnetIds
+      Tags:
+        - Key: Name
+          Value: !If [DbClusterNameGiven, !Ref DbClusterName, !Sub '${Project}-${Environment}']
+
+  RdsDbCluster:
+    Type: AWS::RDS::DBCluster
+    Properties:
+      AvailabilityZones: !Ref AvailabilityZones
+      BackupRetentionPeriod: !Ref BackupRetentionPeriod
+      DatabaseName: !If [DbNameGiven, !Ref DatabaseName, !Ref 'AWS::NoValue']
+      DBClusterIdentifier: !If [DbClusterNameGiven, !Ref DbClusterName, !Sub '${Project}-${Environment}']
+      DBClusterParameterGroupName: !Ref DBClusterParameterGroupName
+      DBSubnetGroupName: !Ref RdsDbSubnetGroup
+      DeletionProtection: !Ref DeletionProtection
+      EnableCloudwatchLogsExports: !Ref EnableCloudwatchLogsExports
+      Engine: !Ref Engine
+      EngineMode: !Ref EngineMode
+      EngineVersion: !Ref EngineVersion
+      KmsKeyId: !If [EncryptDb, !Ref KmsKeyId, !Ref 'AWS::NoValue']
+      MasterUsername: !If [UseSnapshot, !Ref 'AWS::NoValue', !Ref MasterUsername]
+      MasterUserPassword: !If [UseSnapshot, !Ref 'AWS::NoValue', !Ref MasterUserPassword]
+      StorageEncrypted: !If [EncryptDb, true, !Ref StorageEncrypted]
+      PreferredBackupWindow: !Ref PreferredBackupWindow
+      PreferredMaintenanceWindow: !Ref PreferredMaintenanceWindow
+      SnapshotIdentifier: !If [UseSnapshot, !Ref SnapshotId, !Ref 'AWS::NoValue']
+      VpcSecurityGroupIds: !Ref SecurityGroupIds
+      Tags:
+        - Key: Name
+          Value: !If [DbClusterNameGiven, !Ref DbClusterName, !Sub '${Project}-${Environment}']
+
+  RdsDbInstance1:
+    Type: AWS::RDS::DBInstance
+    Condition: CreateDbInst1
+    Properties:
+      AutoMinorVersionUpgrade: !Ref AutoMinorVersionUpgrade
+      CopyTagsToSnapshot: true
+      DBClusterIdentifier: !Ref RdsDbCluster
+      DBInstanceClass: !Ref InstanceClass
+      DBInstanceIdentifier: !If
+        - DbClusterNameGiven
+        - !Sub '${DbClusterName}-01'
+        - !Sub '${Project}-${Environment}-01'
+      DeleteAutomatedBackups: false
+      Engine: !Ref Engine
+      EnablePerformanceInsights: !Ref EnablePerformanceInsights
+      MonitoringInterval: !Ref MonitoringInterval
+      MonitoringRoleArn: !If [EnhancedMonitoring, !GetAtt IamRoleEnhancedMonitoring.Arn, !Ref 'AWS::NoValue']
+      PubliclyAccessible: !Ref PubliclyAccessible
+      Tags:
+        - Key: Name
+          Value: !If
+            - DbClusterNameGiven
+            - !Sub '${DbClusterName}-01'
+            - !Sub '${Project}-${Environment}-01'
+
+  RdsDbInstance2:
+    Type: AWS::RDS::DBInstance
+    Condition: CreateDbInst2
+    Properties:
+      AutoMinorVersionUpgrade: !Ref AutoMinorVersionUpgrade
+      CopyTagsToSnapshot: true
+      DBClusterIdentifier: !Ref RdsDbCluster
+      DBInstanceClass: !Ref InstanceClass
+      DBInstanceIdentifier: !If
+        - DbClusterNameGiven
+        - !Sub '${DbClusterName}-02'
+        - !Sub '${Project}-${Environment}-02'
+      DeleteAutomatedBackups: false
+      Engine: !Ref Engine
+      EnablePerformanceInsights: !Ref EnablePerformanceInsights
+      MonitoringInterval: !Ref MonitoringInterval
+      MonitoringRoleArn: !If [EnhancedMonitoring, !GetAtt IamRoleEnhancedMonitoring.Arn, !Ref 'AWS::NoValue']
+      PubliclyAccessible: !Ref PubliclyAccessible
+      Tags:
+        - Key: Name
+          Value: !If
+            - DbClusterNameGiven
+            - !Sub '${DbClusterName}-02'
+            - !Sub '${Project}-${Environment}-02'
+
+  RdsDbInstance3:
+    Type: AWS::RDS::DBInstance
+    Condition: CreateDbInst3
+    Properties:
+      AutoMinorVersionUpgrade: !Ref AutoMinorVersionUpgrade
+      CopyTagsToSnapshot: true
+      DBClusterIdentifier: !Ref RdsDbCluster
+      DBInstanceClass: !Ref InstanceClass
+      DBInstanceIdentifier: !If
+        - DbClusterNameGiven
+        - !Sub '${DbClusterName}-03'
+        - !Sub '${Project}-${Environment}-03'
+      DeleteAutomatedBackups: false
+      Engine: !Ref Engine
+      EnablePerformanceInsights: !Ref EnablePerformanceInsights
+      MonitoringInterval: !Ref MonitoringInterval
+      MonitoringRoleArn: !If [EnhancedMonitoring, !GetAtt IamRoleEnhancedMonitoring.Arn, !Ref 'AWS::NoValue']
+      PubliclyAccessible: !Ref PubliclyAccessible
+      Tags:
+        - Key: Name
+          Value: !If
+            - DbClusterNameGiven
+            - !Sub '${DbClusterName}-03'
+            - !Sub '${Project}-${Environment}-03'
+
+  RdsDbInstance4:
+    Type: AWS::RDS::DBInstance
+    Condition: CreateDbInst4
+    Properties:
+      AutoMinorVersionUpgrade: !Ref AutoMinorVersionUpgrade
+      CopyTagsToSnapshot: true
+      DBClusterIdentifier: !Ref RdsDbCluster
+      DBInstanceClass: !Ref InstanceClass
+      DBInstanceIdentifier: !If
+        - DbClusterNameGiven
+        - !Sub '${DbClusterName}-04'
+        - !Sub '${Project}-${Environment}-04'
+      DeleteAutomatedBackups: false
+      Engine: !Ref Engine
+      EnablePerformanceInsights: !Ref EnablePerformanceInsights
+      MonitoringInterval: !Ref MonitoringInterval
+      MonitoringRoleArn: !If [EnhancedMonitoring, !GetAtt IamRoleEnhancedMonitoring.Arn, !Ref 'AWS::NoValue']
+      PubliclyAccessible: !Ref PubliclyAccessible
+      Tags:
+        - Key: Name
+          Value: !If
+            - DbClusterNameGiven
+            - !Sub '${DbClusterName}-04'
+            - !Sub '${Project}-${Environment}-04'
+
+  SsmParamDbName:
+    Type: AWS::SSM::Parameter
+    Condition: DbNameGiven
+    Properties:
+      Description: !Sub 'RDS Database Name for ${Project} ${Environment}'
+      Name: !If
+        - SsmParamNameDbNameGiven
+        - SsmParamNameDbName
+        - !Sub '/${Project}/${Environment}/rds/db-name'
+      Type: String
+      Value: !Ref DatabaseName
+
+  SsmParamHost:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Description: !Sub 'RDS Database Host for ${Project} ${Environment}'
+      Name: !If
+        - SsmParamNameHostGiven
+        - SsmParamNameHost
+        - !Sub '/${Project}/${Environment}/rds/host'
+      Type: String
+      Value: !GetAtt RdsDbCluster.Endpoint.Address
+
+  SsmParamPort:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Description: !Sub 'RDS Database Port for ${Project} ${Environment}'
+      Name: !If
+        - SsmParamNamePortGiven
+        - SsmParamNamePort
+        - !Sub '/${Project}/${Environment}/rds/port'
+      Type: String
+      Value: !GetAtt RdsDbCluster.Endpoint.Port
+
+  SsmParamReadEndpoint:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Description: !Sub 'RDS Database Read Endpoint for ${Project} ${Environment}'
+      Name: !If
+        - SsmParamNameReadEndpointGiven
+        - SsmParamNameReadEndpoint
+        - !Sub '/${Project}/${Environment}/rds/read-endpoint'
+      Type: String
+      Value: !GetAtt RdsDbCluster.ReadEndpoint.Address
+
+  SsmParamWriteEndpoint:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Description: !Sub 'RDS Database Write Endpoint for ${Project} ${Environment}'
+      Name: !If
+        - SsmParamNameWriteEndpointGiven
+        - SsmParamNameWriteEndpoint
+      Name: !Sub '/${Project}/${Environment}/rds/write-endpoint'
+      Type: String
+      Value: !GetAtt RdsDbCluster.Endpoint.Address
+
+
+Outputs:
+
+  RdsDbClusterName:
+    Description: 'The name of the RDS DB Cluster'
+    Export: {'Name': !Sub '${AWS::StackName}-RdsDbClusterName'}
+    Value: !Ref RdsDbCluster
+
+  RdsDbInst1:
+    Condition: CreateDbInst1
+    Description: 'The DB instance name'
+    Export: {'Name': !Sub '${AWS::StackName}-RdsDbInst1'}
+    Value: !Ref RdsDbInstance1
+
+  RdsDbInst2:
+    Condition: CreateDbInst2
+    Description: 'The DB instance name'
+    Export: {'Name': !Sub '${AWS::StackName}-RdsDbInst2'}
+    Value: !Ref RdsDbInstance2
+
+  RdsDbInst3:
+    Condition: CreateDbInst3
+    Description: 'The DB instance name'
+    Export: {'Name': !Sub '${AWS::StackName}-RdsDbInst3'}
+    Value: !Ref RdsDbInstance3
+
+  RdsDbInst4:
+    Condition: CreateDbInst4
+    Description: 'The DB instance name'
+    Export: {'Name': !Sub '${AWS::StackName}-RdsDbInst4'}
+    Value: !Ref RdsDbInstance4
+
+  RdsDbName:
+    Condition: DbNameGiven
+    Description: 'The name of the RDS Database'
+    Export: {'Name': !Sub '${AWS::StackName}-RdsDbName'}
+    Value: !Ref DatabaseName
+
+  RdsHost:
+    Description: 'The host (connection) endpoint for the DB cluster'
+    Export: {'Name': !Sub '${AWS::StackName}-RdsHost'}
+    Value: !GetAtt RdsDbCluster.Endpoint.Address
+
+  RdsPort:
+    Description: 'The port number that will accept connections on this DB cluster'
+    Export: {'Name': !Sub '${AWS::StackName}-RdsPort'}
+    Value: !GetAtt RdsDbCluster.Endpoint.Port
+
+  RdsReadEndpoint:
+    Description: 'The reader endpoint for the DB cluster'
+    Export: {'Name': !Sub '${AWS::StackName}-RdsReadEndpoint'}
+    Value: !GetAtt RdsDbCluster.ReadEndpoint.Address
+
+  RdsWriteEndpoint:
+    Description: 'The writer (connection) endpoint for the DB cluster'
+    Export: {'Name': !Sub '${AWS::StackName}-RdsWriteEndpoint'}
+    Value: !GetAtt RdsDbCluster.Endpoint.Address

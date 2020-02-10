@@ -1,0 +1,437 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Creates Lambda layer(s) and function(s)'
+
+
+Parameters:
+
+  CognitoUserPoolAppClientId:
+    Description: 'Cognito User Pool app client ID. (Lambda environment variable: CLIENT_ID)'
+    Type: String
+
+  CognitoUserPoolAppClientSecret:
+    Description: 'Cognito User Pool app client Secret. (Lambda environment variable: CLIENT_SECRET)'
+    NoEcho: true
+    Type: String
+
+  CognitoUserPoolId:
+    Description: Cognito User Pool ID
+    Type: String
+
+  DbEndpoint:
+    Description: 'RDS Cluster (write/read) Endpoint. (Lambda environment variable: MYSQL_HOST)'
+    Type: String
+
+  DbName:
+    Description: 'RDS Cluster database name. (Lambda environment variable: MYSQL_DB)'
+    Type: String
+
+  DbPassword:
+    Description: 'RDS Cluster master user password, (Lambda environment variable: MYSQL_PASS)'
+    NoEcho: true
+    Type: String
+
+  DbReadonlyEndpoint:
+    Description: 'RDS Cluster Readonly endpoint. (Lambda environment variable: MYSQL_READ)'
+    Type: String
+
+  DbUser:
+    Description: 'RDS Cluster master user name. (Lambda environment variable: MYSQL_USER)'
+    Type: String
+
+  Environment:
+    Description: 'Name of Environment'
+    Type: String
+
+  FunctionsS3Bucket:
+    Description: 'An Amazon S3 bucket in the same AWS Region as your function. The bucket can be in a different AWS account. This bucket contains the code for the lambda function(s).'
+    Type: String
+
+  FunctionsS3Key:
+    Description: 'The Amazon S3 bucket key of the deployment package (zip file) within the Amazon S3 bucket.'
+    Type: String
+
+  LambdaRuntime:
+    AllowedValues:
+      - dotnetcore1.0
+      - dotnetcore2.1
+      - go1.x
+      - java8
+      - nodejs10.x
+      - nodejs8.10
+      - provided
+      - python2.7
+      - python3.6
+      - python3.7
+      - ruby2.5
+    Description: 'The runtime identifier of the function.'
+    Type: String
+
+  LambdaTimeout:
+    ConstraintDescription: 'Must be a value from 1 to 900'
+    Default: 3
+    Description: 'The amount of time (seconds) that Lambda allows a function to run before stopping it. The default is 3 seconds. The maximum allowed value is 900 seconds (15 minutes). (default: 3)'
+    MaxValue: 900
+    MinValue: 1
+    Type: Number
+
+  LayersS3Bucket:
+    Description: 'The Amazon S3 bucket of the layer archive. This bucket contains the code for the lambda layer(s).'
+    Type: String
+
+  LayersS3Key:
+    Description: 'The Amazon S3 bucket key of the layer archive (zip file) within the Amazon S3 bucket.'
+    Type: String
+
+  Project:
+    Default: ''
+    Description: 'Name of the project being deployed'
+    Type: String
+
+  RoleManagedPolicyArns:
+    Default: ''
+    Description: 'List of IAM managed policies to attach to the Lambda IAM Role'
+    Type: CommaDelimitedList
+
+  SecurityGroupIds:
+    Description: 'A list of EC2 VPC security groups to associate with the Lambda functions.'
+    Type: List<AWS::EC2::SecurityGroup::Id>
+
+  StripeApiKey:
+    Description: 'The Stripe API key. (Lambda environment variable: STRIPE_API_KEY)'
+    Type: String
+
+  SubnetIds:
+    Description: 'A list of EC2 Subnet IDs for the Lambda functions.'
+    Type: List<AWS::EC2::Subnet::Id>
+
+
+Resources:
+
+  IamRoleLambdaExecution:
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: 'sts:AssumeRole'
+            Effect: Allow
+            Principal: {Service: 'lambda.amazonaws.com'}
+        Version: '2012-10-17'
+      ManagedPolicyArns: !Ref RoleManagedPolicyArns
+      Policies:
+        - PolicyDocument:
+            Statement:
+              - Action:
+                  - 's3:AbortMultipartUpload'
+                  - 's3:CreateBucket'
+                  - 's3:DeleteObject'
+                  - 's3:DeleteObjectTagging'
+                  - 's3:DeleteObjectVersion'
+                  - 's3:DeleteObjectVersionTagging'
+                  - 's3:Get*'
+                  - 's3:List*'
+                  - 's3:PutAccelerateConfiguration'
+                  - 's3:PutAnalyticsConfiguration'
+                  - 's3:PutBucketCORS'
+                  - 's3:PutBucketLogging'
+                  - 's3:PutBucketNotification'
+                  - 's3:PutBucketRequestPayment'
+                  - 's3:PutBucketTagging'
+                  - 's3:PutBucketVersioning'
+                  - 's3:PutBucketWebsite'
+                  - 's3:PutEncryptionConfiguration'
+                  - 's3:PutInventoryConfiguration'
+                  - 's3:PutLifecycleConfiguration'
+                  - 's3:PutMetricsConfiguration'
+                  - 's3:PutObject'
+                  - 's3:PutObjectTagging'
+                  - 's3:PutObjectVersionTagging'
+                  - 's3:PutReplicationConfiguration'
+                  - 's3:ReplicateDelete'
+                  - 's3:ReplicateObject'
+                  - 's3:ReplicateTags'
+                  - 's3:RestoreObject'
+                Effect: Allow
+                Resource:
+                  - 'arn:aws:s3:::*/*'
+                  - 'arn:aws:s3:::petstore-pets-uploads'
+                Sid: S3SpecificLimitedAccess
+              - Action:
+                  - 's3:GetAccountPublicAccessBlock'
+                  - 's3:ListAllMyBuckets'
+                  - 's3:HeadBucket'
+                Effect: Allow
+                Resource: '*'
+                Sid: S3GlobalLimitedAccess
+            Version: '2012-10-17'
+          PolicyName: CognitoAuthorizedPolicy
+          PolicyName: S3-petstore-pets-uploads
+          PolicyName: !Sub '${Project}-${Environment}-s3-pets-uploads'
+      RoleName: !Sub '${Project}-${Environment}-backend-lambda-execution'
+    Type: AWS::IAM::Role
+
+
+  LambdaLayerThirdParty:
+    Properties:
+      CompatibleRuntimes:
+        - !Ref LambdaRuntime
+      Content:
+        S3Bucket: !Ref LayersS3Bucket
+        S3Key: !Ref LayersS3Key
+      Description: 'Third Party python libraries'
+      LayerName: !Sub '${Project}-${Environment}-third-party'
+      LicenseInfo: MIT
+    Type: AWS::Lambda::LayerVersion
+
+  LambdaGenerateSignedS3Url:
+    Properties:
+      Code:
+        S3Bucket: !Ref FunctionsS3Bucket
+        S3Key: !Ref FunctionsS3Key
+      Description: 'Creates a signed S3 URL for the Portal so it can upload files directly to S3'
+      FunctionName: !Sub '${Project}-${Environment}-generate-signed-s3-url'
+      Handler: lambda_generate_signed_s3_Url.lambda_handler
+      Layers:
+        - !Ref LambdaLayerThirdParty
+      MemorySize: 128
+      Role: !GetAtt IamRoleLambdaExecution.Arn
+      Runtime: !Ref LambdaRuntime
+      Tags:
+        - {Key: Name, Value: !Sub '${Project}-${Environment}-generate-signed-s3-url'}
+      Timeout: !Ref LambdaTimeout
+      VpcConfig:
+        SecurityGroupIds: !Ref SecurityGroupIds
+        SubnetIds: !Ref SubnetIds
+    Type: AWS::Lambda::Function
+
+  LambdaImportPetsFromS3:
+    Properties:
+      Code:
+        S3Bucket: !Ref FunctionsS3Bucket
+        S3Key: !Ref FunctionsS3Key
+      Description: 'Watches S3 bucket for uploaded files which it uses to update/create Pets records in MySQL'
+      Environment:
+        Variables:
+          MYSQL_DB: !Ref DbName
+          MYSQL_HOST: !Ref DbEndpoint
+          MYSQL_PASS: !Ref DbPassword
+          MYSQL_READ: !Ref DbReadonlyEndpoint
+          MYSQL_USER: !Ref DbUser
+      FunctionName: !Sub '${Project}-${Environment}-import-pets-from-s3'
+      Handler: lambda_import_pets.lambda_handler
+      Layers:
+        - !Ref LambdaLayerThirdParty
+      MemorySize: 1024
+      Role: !GetAtt IamRoleLambdaExecution.Arn
+      Runtime: !Ref LambdaRuntime
+      Tags:
+        - {Key: Name, Value: !Sub '${Project}-${Environment}-import-pets-from-s3'}
+      Timeout: !Ref LambdaTimeout
+      VpcConfig:
+        SecurityGroupIds: !Ref SecurityGroupIds
+        SubnetIds: !Ref SubnetIds
+    Type: AWS::Lambda::Function
+
+  LambdaPetsAdopter:
+    Properties:
+      Code:
+        S3Bucket: !Ref FunctionsS3Bucket
+        S3Key: !Ref FunctionsS3Key
+      Description: 'Handles AWS API requests for pets'
+      Environment:
+        Variables:
+          MYSQL_DB: !Ref DbName
+          MYSQL_HOST: !Ref DbEndpoint
+          MYSQL_PASS: !Ref DbPassword
+          MYSQL_READ: !Ref DbReadonlyEndpoint
+          MYSQL_USER: !Ref DbUser
+      FunctionName: !Sub '${Project}-${Environment}-pets-adopter'
+      Handler: lambda_pets.lambda_handler
+      Layers:
+        - !Ref LambdaLayerThirdParty
+      MemorySize: 128
+      Role: !GetAtt IamRoleLambdaExecution.Arn
+      Runtime: !Ref LambdaRuntime
+      Tags:
+        - {Key: Name, Value: !Sub '${Project}-${Environment}-pets-adopter'}
+      Timeout: !Ref LambdaTimeout
+      VpcConfig:
+        SecurityGroupIds: !Ref SecurityGroupIds
+        SubnetIds: !Ref SubnetIds
+    Type: AWS::Lambda::Function
+
+  LambdaManageCognitoUserPool:
+    Properties:
+      Code:
+        S3Bucket: !Ref FunctionsS3Bucket
+        S3Key: !Ref FunctionsS3Key
+      Description: 'Ad hoc code to manage Cognito user pools'
+      Environment:
+        Variables:
+          CLIENT_ID: !Ref CognitoUserPoolAppClientId
+          CLIENT_SECRET: !Ref CognitoUserPoolAppClientSecret
+          MYSQL_DB: !Ref DbName
+          MYSQL_HOST: !Ref DbEndpoint
+          MYSQL_PASS: !Ref DbPassword
+          MYSQL_READ: !Ref DbReadonlyEndpoint
+          MYSQL_USER: !Ref DbUser
+          REGION: !Ref AWS::Region
+          STRIPE_API_KEY: !Ref StripeApiKey
+          USER_POOL_ID: !Ref CognitoUserPoolId
+      FunctionName: !Sub '${Project}-${Environment}-manage-cognito-user-pool'
+      Handler: lambda_manage_user_pool.lambda_handler
+      Layers:
+        - !Ref LambdaLayerThirdParty
+      MemorySize: 128
+      Role: !GetAtt IamRoleLambdaExecution.Arn
+      Runtime: !Ref LambdaRuntime
+      Tags:
+        - {Key: Name, Value: !Sub '${Project}-${Environment}-manage-cognito-user-pool'}
+      Timeout: !Ref LambdaTimeout
+      VpcConfig:
+        SecurityGroupIds: !Ref SecurityGroupIds
+        SubnetIds: !Ref SubnetIds
+    Type: AWS::Lambda::Function
+
+  LambdaPortalAdopter:
+    Properties:
+      Code:
+        S3Bucket: !Ref FunctionsS3Bucket
+        S3Key: !Ref FunctionsS3Key
+      Description: 'Handles AWS API requests for internal admin portal'
+      Environment:
+        Variables:
+          CLIENT_ID: !Ref CognitoUserPoolAppClientId
+          CLIENT_SECRET: !Ref CognitoUserPoolAppClientSecret
+          MYSQL_DB: !Ref DbName
+          MYSQL_HOST: !Ref DbEndpoint
+          MYSQL_PASS: !Ref DbPassword
+          MYSQL_READ: !Ref DbReadonlyEndpoint
+          MYSQL_USER: !Ref DbUser
+          REGION: !Ref AWS::Region
+          STRIPE_API_KEY: !Ref StripeApiKey
+          USER_POOL_ID: !Ref CognitoUserPoolId
+      FunctionName: !Sub '${Project}-${Environment}-portal-adopter'
+      Handler: lambda_portal_adopter.lambda_handler
+      Layers:
+        - !Ref LambdaLayerThirdParty
+      MemorySize: 128
+      Role: !GetAtt IamRoleLambdaExecution.Arn
+      Runtime: !Ref LambdaRuntime
+      Tags:
+        - {Key: Name, Value: !Sub '${Project}-${Environment}-portal-adopter'}
+      Timeout: !Ref LambdaTimeout
+      VpcConfig:
+        SecurityGroupIds: !Ref SecurityGroupIds
+        SubnetIds: !Ref SubnetIds
+    Type: AWS::Lambda::Function
+
+  LambdaUserAdopter:
+    Properties:
+      Code:
+        S3Bucket: !Ref FunctionsS3Bucket
+        S3Key: !Ref FunctionsS3Key
+      Description: 'Handles AWS API requests for petstore app users in the mobile app'
+      Environment:
+        Variables:
+          CLIENT_ID: !Ref CognitoUserPoolAppClientId
+          CLIENT_SECRET: !Ref CognitoUserPoolAppClientSecret
+          MYSQL_DB: !Ref DbName
+          MYSQL_HOST: !Ref DbEndpoint
+          MYSQL_PASS: !Ref DbPassword
+          MYSQL_READ: !Ref DbReadonlyEndpoint
+          MYSQL_USER: !Ref DbUser
+          REGION: !Ref AWS::Region
+          STRIPE_API_KEY: !Ref StripeApiKey
+          USER_POOL_ID: !Ref CognitoUserPoolId
+      FunctionName: !Sub '${Project}-${Environment}-user-adopter'
+      Handler: lambda_petstore_user_adopter.lambda_handler
+      Layers:
+        - !Ref LambdaLayerThirdParty
+      MemorySize: 128
+      Role: !GetAtt IamRoleLambdaExecution.Arn
+      Runtime: !Ref LambdaRuntime
+      Tags:
+        - {Key: Name, Value: !Sub '${Project}-${Environment}-user-adopter'}
+      Timeout: !Ref LambdaTimeout
+      VpcConfig:
+        SecurityGroupIds: !Ref SecurityGroupIds
+        SubnetIds: !Ref SubnetIds
+    Type: AWS::Lambda::Function
+
+
+Outputs:
+
+  IamRoleLambdaName:
+    Description: 'The name of the IAM role for the Lambda functions'
+    Export: {'Name': !Sub '${AWS::StackName}-IamRoleLambdaName'}
+    Value: !Ref IamRoleLambdaExecution
+
+  IamRoleLambdaArn:
+    Description: 'The ARN of the IAM role for the Lambda functions'
+    Export: {'Name': !Sub '${AWS::StackName}-IamRoleLambdaArn'}
+    Value: !GetAtt IamRoleLambdaExecution.Arn
+
+  LambdaLayerThirdPartyArn:
+    Description: 'The ARN of the third_party Lambda Layer'
+    Export: {'Name': !Sub '${AWS::StackName}-LambdaLayerThirdPartyArn'}
+    Value: !Ref LambdaLayerThirdParty
+
+  LambdaGenerateSignedS3UrlArn:
+    Description: 'The ARN of the lambda_generate_signed_s3_url Lambda function'
+    Export: {'Name': !Sub '${AWS::StackName}-LambdaGenerateSignedS3UrlArn'}
+    Value: !GetAtt LambdaGenerateSignedS3Url.Arn
+
+  LambdaGenerateSignedS3UrlName:
+    Description: 'The name of the lambda_generate_signed_s3_url Lambda function'
+    Export: {'Name': !Sub '${AWS::StackName}-LambdaGenerateSignedS3UrlName'}
+    Value: !Ref LambdaGenerateSignedS3Url
+
+  LambdaImportPetsFromS3Arn:
+    Description: 'The ARN of the lambda_import_pets Lambda function'
+    Export: {'Name': !Sub '${AWS::StackName}-LambdaImportPetsFromS3Arn'}
+    Value: !GetAtt LambdaImportPetsFromS3.Arn
+
+  LambdaImportPetsFromS3Name:
+    Description: 'The name of the lambda_import_pets Lambda function'
+    Export: {'Name': !Sub '${AWS::StackName}-LambdaImportPetsFromS3Name'}
+    Value: !Ref LambdaImportPetsFromS3
+
+  LambdaPetsAdopterArn:
+    Description: 'The ARN of the lambda_pets Lambda function'
+    Export: {'Name': !Sub '${AWS::StackName}-LambdaPetsAdopterArn'}
+    Value: !GetAtt LambdaPetsAdopter.Arn
+
+  LambdaPetsAdopterName:
+    Description: 'The name of the lambda_pets Lambda function'
+    Export: {'Name': !Sub '${AWS::StackName}-LambdaPetsAdopterName'}
+    Value: !Ref LambdaPetsAdopter
+
+  LambdaManageCognitoUserPoolArn:
+    Description: 'The ARN of the manage_user_pool Lambda function'
+    Export: {'Name': !Sub '${AWS::StackName}-LambdaManageCognitoUserPoolArn'}
+    Value: !GetAtt LambdaManageCognitoUserPool.Arn
+
+  LambdaManageCognitoUserPoolName:
+    Description: 'The name of the manage_user_pool Lambda function'
+    Export: {'Name': !Sub '${AWS::StackName}-LambdaManageCognitoUserPoolName'}
+    Value: !Ref LambdaManageCognitoUserPool
+
+  LambdaPortalAdopterArn:
+    Description: 'The ARN of the lambda_portal_adopter Lambda function'
+    Export: {'Name': !Sub '${AWS::StackName}-LambdaPortalAdopterArn'}
+    Value: !GetAtt LambdaPortalAdopter.Arn
+
+  LambdaPortalAdopterName:
+    Description: 'The name of the lambda_portal_adopter Lambda function'
+    Export: {'Name': !Sub '${AWS::StackName}-LambdaPortalAdopterName'}
+    Value: !Ref LambdaPortalAdopter
+
+  LambdaUserAdopterArn:
+    Description: 'The ARN of the lambda_petstore_user_adopter Lambda function'
+    Export: {'Name': !Sub '${AWS::StackName}-LambdaUserAdopterArn'}
+    Value: !GetAtt LambdaUserAdopter.Arn
+
+  LambdaUserAdopterName:
+    Description: 'The name of the lambda_petstore_user_adopter Lambda function'
+    Export: {'Name': !Sub '${AWS::StackName}-LambdaUserAdopterName'}
+    Value: !Ref LambdaUserAdopter

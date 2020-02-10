@@ -1,0 +1,388 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Creates an Amazon Elasticsearch domain and relavant resources'
+
+
+Parameters:
+
+  AutomatedSnapshotStartHour:
+    Default: 0
+    Description: 'The hour in UTC during which the service takes an automated daily snapshot of the indices in the Amazon ES domain. For example, if you specify 0, Amazon ES takes an automated snapshot everyday between midnight and 1 am. You can specify a value between 0 and 23. (default: 0)'
+    MinValue: 0
+    MaxValue: 23
+    Type: Number
+
+  DomainName:
+    Default: ''
+    Description: 'A name for the Elasticsearch domain resource. (default: ${Project}-${Environment})'
+    Type: String
+
+  ElasticsearchVersion:
+    Default: '7.1'
+    Description: 'The version of Elasticsearch to use, such as 2.3. Use ListElasticsearchVersions for a list. (default: 7.1)'
+    Type: String
+
+  Environment:
+    Description: 'Name of Environment'
+    Type: String
+
+  InstanceCount:
+    Default: 1
+    Description: 'The number of data nodes (instances) to use in the Amazon ES domain. (default: 1)'
+    Type: Number
+
+  InstanceType:
+    Default: t2.micro.elasticsearch
+    Description: 'The instance type for your data nodes, such as "m3.medium.elasticsearch". For valid values, see "Supported Instance Types" in the "Amazon Elasticsearch Service Developer Guide". (default: t2.micro.elasticsearch)'
+    Type: String
+
+  IpWhiteList:
+    Description: 'Comma separated list of CIDRs to allow access from'
+    Type: CommaDelimitedList
+
+  Project:
+    Default: ''
+    Description: 'Name of the project being deployed'
+    Type: String
+
+  # Advanced Options
+  RestActionMultiAllowExplicitIndex:
+    AllowedValues: ['false', 'true']
+    Default: true
+    Description: 'Specifies whether explicit references to indices are allowed inside the body of HTTP requests. Setting this property to false prevents users from bypassing access control for subresources. (default: true)'
+    Type: String
+
+  IndicesFielddataCacheSize:
+    Default: 'unbounded'
+    Description: 'Specifies the percentage of Java heap space that is allocated to field data. By default, this setting is unbounded.  Note: Many customers query rotating daily indices. It is recommended to begin benchmark testing with indices.fielddata.cache.size configured to 40% of the JVM heap for most such use cases. However, if you have very large indices you might need a large field data cache. (default: unbounded)'
+    Type: String
+
+  IndicesQueryBoolMaxClauseCount:
+    Default: '1024'
+    Description: 'Specifies the maximum number of clauses allowed in a Lucene Boolean query. The default is 1,024. Queries with more than the permitted number of clauses result in a TooManyClauses error. (default: 1024)'
+    Type: String
+
+  # Cognito Options
+  CognitoEnabled:
+    AllowedValues: ['false', 'true']
+    Default: false
+    Description: 'Whether to enable or disable Amazon Cognito authentication for Kibana. (default: false)'
+    Type: String
+
+  CognitoIdentityPoolId:
+    Default: ''
+    Description: 'The Amazon Cognito identity pool ID that you want Amazon ES to use for Kibana authentication.'
+    Type: String
+
+  CognitoRoleArn:
+    Default: ''
+    Description: 'The AmazonESCognitoAccess role that allows Amazon ES to configure your user pool and identity pool.'
+    Type: String
+
+  CognitoUserPoolId:
+    Default: ''
+    Description: 'The Amazon Cognito user pool ID that you want Amazon ES to use for Kibana authentication.'
+    Type: String
+
+  # EBS Options
+  EbsType:
+    AllowedValues: ['gp2', 'io1', 'st1']
+    Default: 'gp2'
+    Description: 'The Amazon Cognito user pool ID that you want Amazon ES to use for Kibana authentication.'
+    Type: String
+
+  EbsSize:
+    Default: 10
+    Description: 'The size (in GiB) of the EBS volume for each data node. The minimum and maximum size of an EBS volume depends on the EBS volume type and the instance type to which it is attached. gp2: 10-1024 io1: 35-1024, st1: 10-100. (defaults: gp2: 10, io1: 35, st1: 10)'
+    MinValue: 10
+    MaxValue: 1024
+    Type: Number
+
+  EbsIops:
+    Default: 1000
+    Description: 'The number of I/O operations per second (IOPS) that the volume supports. This property applies only to the Provisioned IOPS (SSD) EBS volume type (io1). Range: 1000-16000 IOPS. The IOPS to volume size ratio should be greater than or equal to 1:1 and lesser than or equal to 30:1. (default: 1000)'
+    MinValue: 1000
+    MaxValue: 16000
+    Type: Number
+
+  # Dedicated Master Options
+  DedicatedMasterEnabled:
+    AllowedValues: ['false', 'true']
+    Default: false
+    Description: 'Indicates whether to use a dedicated master node for the Amazon ES domain. A dedicated master node is a cluster node that performs cluster management tasks, but does not hold data or respond to data upload requests. Dedicated master nodes offload cluster management tasks to increase the stability of your search clusters. (default: false)'
+    Type: String
+
+  DedicatedMasterCount:
+    AllowedValues: [3, 5]
+    Default: 3
+    Description: 'The number of instances to use for the master node. If you specify this property, you must specify "true" for the DedicatedMasterEnabled property. Three dedicated master nodes work well for most use cases. On large clusters with thousands of indices you should opt for larger instance types, as adding more dedicated master nodes will not help. Avoid repeated changes to the master node setting as it may lead to cluster instability when the service attempts to change the number of dedicated master nodes. Availalbe choices: 3 or 5. (default: 3)'
+    Type: Number
+
+  DedicatedMasterType:
+    Default: t2.micro.elasticsearch
+    Description: 'The hardware configuration of the computer that hosts the dedicated master node, such as "m3.medium.elasticsearch". If you specify this property, you must specify "true" for the DedicatedMasterEnabled property. For valid values, see "Supported Instance Types" in the "Amazon Elasticsearch Service Developer Guide". (default: t2.micro.elasticsearch)'
+    Type: String
+
+  # Encryption Options
+  AtRestEncryptionEnabled:
+    AllowedValues: ['false', 'true']
+    Default: false
+    Description: 'Whether or not to enable encryption at rest. (default: false)'
+    Type: String
+
+  KmsKeyId:
+    Default: ''
+    Description: 'The ID of a customer managed KMS key to use for encryption at rest, otherwise an AWS managed KMS key is used. Takes the form 1a2a3a4-1a2a-3a4a-5a6a-1a2a3a4a5a6a.'
+    Type: String
+
+  NodeToNodeEncryptionEnabled:
+    AllowedValues: ['false', 'true']
+    Default: false
+    Description: 'Whether or not to enable node-to-node encryption. (default: false)'
+    Type: String
+
+  # Logging Options
+  SearchSlowLogsEnabled:
+    AllowedValues: ['false', 'true']
+    Default: false
+    Description: 'Whether or not to enable Search Slow Logs. Search slow logs provide insights into how fast or slow queries and fetches are performing. Once enabled, your logs are captured in CloudWatch Logs under the log group you specify for SearchSlowLogCloudWatchLogsGroupArn. (default: false)'
+    Type: String
+
+  SearchSlowLogCloudWatchLogsGroupArn:
+    Default: ''
+    Description: 'Specifies the ARN of the CloudWatch log group to publish Search Slow Logs to'
+    Type: String
+
+  IndexSlowLogsEnabled:
+    AllowedValues: ['false', 'true']
+    Default: false
+    Description: 'Whether or not to enable Index Slow Logs. Index slow logs provide insights into the indexing process. Once enabled, your logs are captured in CloudWatch Logs under the log group you specify for IndexSlowLogCloudWatchLogsGroupArn. (default: false)'
+    Type: String
+
+  IndexSlowLogCloudWatchLogsGroupArn:
+    Default: ''
+    Description: 'Specifies the ARN of the CloudWatch log group to publish Search Slow Logs to'
+    Type: String
+
+  ErrorLogsEnabled:
+    AllowedValues: ['false', 'true']
+    Default: false
+    Description: 'Whether or not to enable Error Logs. Elasticsearch error logs provide access to information about errors and warnings raised during the operation of the service and can be useful for troubleshooting. Once enabled, your logs are captured in CloudWatch Logs under the log group you specify for ErrorLogCloudWatchLogsGroupArn. (default: false)'
+    Type: String
+
+  ErrorLogCloudWatchLogsGroupArn:
+    Default: ''
+    Description: 'Specifies the ARN of the CloudWatch log group to publish Search Slow Logs to'
+    Type: String
+
+  # Multi-AZ (Zone Awareness) Options
+  MultiAzEnabled:
+    AllowedValues: ['false', 'true']
+    Default: false
+    Description: 'Indicates whether to enable zone awareness for the Amazon ES domain. When you enable zone awareness, Amazon ES allocates the nodes and replica index shards that belong to a cluster across two Availability Zones (AZs) in the same region to prevent data loss and minimize downtime in the event of node or data center failure. Do not enable zone awareness if your cluster has no replica index shards or is a single-node cluster. (default: false)'
+    Type: String
+
+  MultiAzZoneCount:
+    AllowedValues: [2, 3]
+    Default: 2
+    Description: 'If you enabled multiple Availability Zones (AZs), the number of AZs that you want the domain to use. Either 2 or 3. For 2 Availability Zones, you must choose instances in multiples of 2. (default: 2)'
+    Type: Number
+
+  SecurityGroupIds:
+    Default: ''
+    Description: 'The list of security group IDs that are associated with the VPC endpoints for the domain. If you do not provide any security group IDs, Amazon ES uses the default security group for the VPC.'
+    Type: CommaDelimitedList
+
+  SubnetIds:
+    Default: ''
+    Description: 'Provide one subnet ID for each Availability Zone that your domain uses. For example, you must specify three subnet IDs for a three Availability Zone domain.'
+    Type: CommaDelimitedList
+
+  # SSM Parameter Store
+  SsmParamNameEsDomainArn:
+    Default: ''
+    Description: 'The name of the SSM Paramter to save the Elasticsearch domain ARN. (default: /${Project}/${Environment}/elasticsearch/domain-arn)'
+    Type: String
+
+  SsmParamNameEsDomainEndpoint:
+    Default: ''
+    Description: 'The name of the SSM Paramter to save the Elasticsearch domain [configuration] endpoint port. (default: /${Project}/${Environment}/elasticsearch/domain-endpoint)'
+    Type: String
+
+  SsmParamNameEsDomainName:
+    Default: ''
+    Description: 'The name of the SSM Paramter to save the Elasticsearch domain name. (default: /${Project}/${Environment}/elasticsearch/domain-name)'
+    Type: String
+
+
+Conditions:
+
+  AtRestEncryptionEnabled: !Equals [!Ref AtRestEncryptionEnabled, 'true']
+  CognitoEnabled: !Equals [!Ref CognitoEnabled, 'true']
+  CognitoIdentityPoolIdGiven: !Not [!Equals [!Ref CognitoIdentityPoolId, '']]
+  CognitoRoleArnGiven: !Not [!Equals [!Ref CognitoRoleArn, '']]
+  CognitoUserPoolIdGiven: !Not [!Equals [!Ref CognitoUserPoolId, '']]
+  DedicatedMasterEnabled: !Equals [!Ref DedicatedMasterEnabled, 'true']
+  DomainNameGiven: !Not [!Equals [!Ref DomainName, '']]
+  EbsProvisionedIops: !Equals [!Ref EbsType, 'io1']
+  EbsSizeGiven: !Not [!Equals [!Ref EbsSize, 10]]
+  ErrorLogsEnabled: !Equals [!Ref ErrorLogsEnabled, 'true']
+  IndexSlowLogsEnabled: !Equals [!Ref IndexSlowLogsEnabled, 'true']
+  IndicesFielddataCacheSizeGiven: !Not [!Equals [!Ref IndicesFielddataCacheSize, 'unbounded']]
+  KmsKeyIdGiven: !Not [!Equals [!Ref KmsKeyId, '']]
+  LoggingEnabled: !Or
+    - Condition: ErrorLogsEnabled
+    - Condition: IndexSlowLogsEnabled
+    - Condition: SearchSlowLogsEnabled
+  MultiAzEnabled: !Equals [!Ref MultiAzEnabled, 'true']
+  NodeToNodeEncryptionEnabled: !Equals [!Ref NodeToNodeEncryptionEnabled, 'true']
+  SearchSlowLogsEnabled: !Equals [!Ref SearchSlowLogsEnabled, 'true']
+  SecurityGroupIdsGiven: !Not [!Equals [!Select ["0", !Ref SecurityGroupIds], '']]
+  SubnetIdsGiven: !Not [!Equals [!Select ["0", !Ref SubnetIds], '']]
+  SsmParamNameEsDomainArnGiven: !Not [!Equals [!Ref SsmParamNameEsDomainArn, '']]
+  SsmParamNameEsDomainEndpointGiven: !Not [!Equals [!Ref SsmParamNameEsDomainEndpoint, '']]
+  SsmParamNameEsDomainNameGiven: !Not [!Equals [!Ref SsmParamNameEsDomainName, '']]
+
+
+Resources:
+
+  ElasticsearchDomain:
+    Type: AWS::Elasticsearch::Domain
+    # If EnableVersionUpgrade update policy is set to true, you can update the
+    # ElasticsearchVersion and CloudFormation will update the version without
+    # interruption, otherwise updating the version results in replacement.
+    UpdatePolicy:
+      EnableVersionUpgrade: true
+    Properties:
+      AccessPolicies: # Allow access to the domain from specific IP(s)
+        Version: "2012-10-17"
+        Statement:
+          - Sid: 'AllowAccessFromWhitelistedIps'
+            Action: 'es:*'
+            Effect: 'Allow'
+            Principal: '*'
+            # Resource: "arn:aws:es:us-east-1:846973539254:domain/test/*"
+            Resource: !If
+              - DomainNameGiven
+              - !Sub 'arn:aws:es:${AWS::Region}:${AWS::AccountId}:domain/${DomainName}/*'
+              - !Sub 'arn:aws:es:${AWS::Region}:${AWS::AccountId}:domain/${Project}-${Environment}/*'
+            Condition:
+              IpAddress:
+                'aws:SourceIp': !Ref IpWhiteList
+      AdvancedOptions:
+        rest.action.multi.allow_explicit_index: !Ref RestActionMultiAllowExplicitIndex
+        indices.fielddata.cache.size: !If [IndicesFielddataCacheSizeGiven, !Ref IndicesFielddataCacheSize, !Ref 'AWS::NoValue']
+        indices.query.bool.max_clause_count: !Ref IndicesQueryBoolMaxClauseCount
+      CognitoOptions: !If
+        - CognitoEnabled
+        - Enabled: true
+          IdentityPoolId: !If [CognitoIdentityPoolIdGiven, !Ref CognitoIdentityPoolId, !Sub '${Project}-${Environment}']
+          RoleArn: !If [CognitoRoleArnGiven, !Ref CognitoRoleArn, !Sub '${Project}-${Environment}']
+          UserPoolId: !If [CognitoUserPoolIdGiven, !Ref CognitoUserPoolId, !Sub '${Project}-${Environment}']
+        - !Ref 'AWS::NoValue'
+      DomainName: !If [DomainNameGiven, !Ref DomainName, !Sub '${Project}-${Environment}']
+      EBSOptions:
+        EBSEnabled: true
+        Iops: !If [EbsProvisionedIops, !Ref EbsIops, !Ref 'AWS::NoValue']
+        VolumeSize: !If [EbsSizeGiven, !Ref EbsSize, !If [EbsProvisionedIops, 35, 10]]
+        VolumeType: !Ref EbsType
+      ElasticsearchClusterConfig:
+        DedicatedMasterCount: !If [DedicatedMasterEnabled, !Ref DedicatedMasterCount, !Ref 'AWS::NoValue']
+        DedicatedMasterEnabled: !Ref DedicatedMasterEnabled
+        DedicatedMasterType: !If [DedicatedMasterEnabled, !Ref DedicatedMasterType, !Ref 'AWS::NoValue']
+        InstanceCount: !Ref InstanceCount
+        InstanceType: !Ref InstanceType
+        ZoneAwarenessConfig: !If
+          - MultiAzEnabled
+          - AvailabilityZoneCount: !Ref MultiAzZoneCount
+          - !Ref 'AWS::NoValue'
+        ZoneAwarenessEnabled: !If [MultiAzEnabled, !Ref MultiAzEnabled, !Ref 'AWS::NoValue']
+      ElasticsearchVersion: !Ref ElasticsearchVersion
+      EncryptionAtRestOptions: !If
+        - AtRestEncryptionEnabled
+        - Enabled: true
+          KmsKeyId: !If [KmsKeyIdGiven, !Ref KmsKeyId, !Ref 'AWS::NoValue']
+        - !Ref 'AWS::NoValue'
+      LogPublishingOptions: !If
+        - LoggingEnabled
+        - SEARCH_SLOW_LOGS: !If
+            - SearchSlowLogsEnabled
+            - Enabled: true
+              CloudWatchLogsLogGroupArn: !Ref SearchSlowLogCloudWatchLogsGroupArn
+            - !Ref 'AWS::NoValue'
+          INDEX_SLOW_LOGS: !If
+            - IndexSlowLogsEnabled
+            - Enabled: true
+              CloudWatchLogsLogGroupArn: !Ref IndexSlowLogCloudWatchLogsGroupArn
+            - !Ref 'AWS::NoValue'
+          ES_APPLICATION_LOGS: !If
+            - ErrorLogsEnabled
+            - Enabled: true
+              CloudWatchLogsLogGroupArn: !Ref ErrorLogCloudWatchLogsGroupArn
+            - !Ref 'AWS::NoValue'
+        - !Ref 'AWS::NoValue'
+      NodeToNodeEncryptionOptions: !If
+        - NodeToNodeEncryptionEnabled
+        - Enabled: true
+        - !Ref 'AWS::NoValue'
+      SnapshotOptions:
+        AutomatedSnapshotStartHour: !Ref AutomatedSnapshotStartHour
+      Tags:
+        - Key: Name
+          Value: !If [DomainNameGiven, !Ref DomainName, !Sub '${Project}-${Environment}']
+      VPCOptions: !If
+        - SubnetIdsGiven
+        - SecurityGroupIds: !If [SecurityGroupIdsGiven, !Ref SecurityGroupIds, !Ref 'AWS::NoValue']
+          SubnetIds: !Ref SubnetIds
+        - !Ref 'AWS::NoValue'
+
+  SsmParamEsDomainArn:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Description: !Sub 'Elasticsearch Domain ARN for ${Project} ${Environment}'
+      Name: !If
+        - SsmParamNameEsDomainArnGiven
+        - !Ref SsmParamNameEsDomainArn
+        - !Sub '/${Project}/${Environment}/elasticsearch/domain-arn'
+      Type: String
+      Value: !GetAtt ElasticsearchDomain.Arn
+
+  SsmParamEsDomainEndpoint:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Description: !Sub 'Elasticsearch Domain Endpoint for ${Project} ${Environment}'
+      Name: !If
+        - SsmParamNameEsDomainEndpointGiven
+        - !Ref SsmParamNameEsDomainEndpoint
+        - !Sub '/${Project}/${Environment}/elasticsearch/domain-endpoint'
+      Type: String
+      Value: !GetAtt ElasticsearchDomain.DomainEndpoint
+
+  SsmParamEsDomainName:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Description: !Sub 'Elasticsearch Domain Name for ${Project} ${Environment}'
+      Name: !If
+        - SsmParamNameEsDomainNameGiven
+        - !Ref SsmParamNameEsDomainName
+        - !Sub '/${Project}/${Environment}/elasticsearch/domain-name'
+      Type: String
+      Value: !Ref ElasticsearchDomain
+
+
+Outputs:
+
+  ElasticsearchDomainArn:
+    Description: 'The ARN of the Elasticsearch domain'
+    Export: {'Name': !Sub '${AWS::StackName}-ElasticsearchDomainArn'}
+    Value: !GetAtt ElasticsearchDomain.Arn
+
+  ElasticsearchDomainEndpoint:
+    Description: 'The Endpoint of the Elasticsearch domain'
+    Export: {'Name': !Sub '${AWS::StackName}-ElasticsearchDomainEndpoint'}
+    Value: !GetAtt ElasticsearchDomain.DomainEndpoint
+
+  ElasticsearchDomainName:
+    Description: 'The Name of the Elasticsearch domain'
+    Export: {'Name': !Sub '${AWS::StackName}-ElasticsearchDomainName'}
+    Value: !Ref ElasticsearchDomain

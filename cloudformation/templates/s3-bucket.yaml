@@ -1,0 +1,421 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Creates an Amazon S3 Bucket and the configuration for it'
+
+
+Parameters:
+
+  AccessControl:
+    AllowedValues: ['Private', 'PublicRead', 'PublicReadWrite', 'AuthenticatedRead', 'LogDeliveryWrite', 'BucketOwnerRead', 'BucketOwnerFullControl', 'AwsExecRead']
+    Default: 'Private'
+    Description: 'A canned access control list (ACL) that grants predefined permissions to the bucket.  Valid values: Private, PublicRead, PublicReadWrite, AuthenticatedRead, LogDeliveryWrite, BucketOwnerRead, BucketOwnerFullControl, or AwsExecRead. (default: Private)'
+    Type: String
+
+  AccessLoggingEnabled:
+    AllowedValues: ['true', 'false']
+    Default: 'false'
+    Description: 'Whether or not to enable/configure Server Access Logging. (default: false)'
+    Type: String
+
+  BucketName:
+    Default: ''
+    Description: 'Name of Bucket'
+    Type: String
+
+  BucketPolicyStatementActions:
+    Default: ''
+    Description: 'A comma separated list of Actions for the statement of the bucket policy to be attached to the bucket'
+    Type: CommaDelimitedList
+
+  BucketPolicyStatementEffect:
+    Default: ''
+    Description: 'The Effect for the statement of the bucket policy to be attached to the bucket'
+    Type: String
+
+  BucketPolicyStatementPrincipal:
+    Default: ''
+    Description: 'The Principal for the statement of the bucket policy to be attached to the bucket'
+    Type: String
+
+  BucketPolicyStatementSid:
+    Default: ''
+    Description: 'The Sid for the statement of the bucket policy to be attached to the bucket'
+    Type: String
+
+  EncryptionEnabled:
+    AllowedValues: ['true', 'false']
+    Default: 'false'
+    Description: 'Whether or not to enable/configure Server Side Encryption (SSE). (default: false)'
+    Type: String
+
+  Environment:
+    Description: 'Name of Environment'
+    Type: String
+
+  KmsCmkArn:
+    Default: ''
+    Description: 'KMS Customer Managed Key ARN to use for the default encryption. This parameter is allowed if and only if SSEAlgorithm is set to aws:kms. If you supply this value, SSEAlgorithm is automatically set to aws:kms'
+    Type: String
+
+  LoggingPrefix:
+    Default: ''
+    Description: 'A prefix for all log object keys. If you store log files from multiple Amazon S3 buckets in a single bucket, you can use a prefix to distinguish which log files came from which bucket'
+    Type: String
+
+  LoggingS3BucketName:
+    Default: ''
+    Description: 'The name of the bucket where Amazon S3 should store server access log files. You can store log files in any bucket that you own.'
+    Type: String
+
+  Project:
+    Default: ''
+    Description: 'Name of the project being deployed'
+    Type: String
+
+  SseAlgorithm:
+    AllowedValues: ['AES256', 'aws:kms']
+    Default: 'AES256'
+    Description: 'Server-side encryption algorithm to use for the default encryption. Valid values: AWS256, aws:kms. AES256 for S3 Managed. aws:kms for KMS managed. Specify KmsCmkArn to use a KMS CMK. (default: AES256)'
+    Type: String
+
+  SsmParamName:
+    Default: ''
+    Description: 'The name of the SSM Paramter to save the S3 Bucket Name. (default: /${Project}/${Environment}/s3/bucket-name)'
+    Type: String
+
+  SsmParamDesc:
+    Default: ''
+    Description: 'The description of the SSM Paramter to use for the S3 Bucket Name. (default: S3 Bucket Name for ${Project} ${Environment)'
+    Type: String
+
+  Versioning:
+    AllowedValues: ['Enabled', 'Suspended']
+    Default: 'Suspended'
+    Description: 'The versioning state of the bucket. Enabled or Suspended. (default: Suspended)'
+    Type: String
+
+  # Block Public Access (bucket settings)
+  BlockPublicAcls:
+    AllowedValues: ['true', 'false']
+    Default: 'true'
+    Description: 'Specifies whether Amazon S3 should block public access control lists (ACLs) for this bucket and objects in this bucket. Setting this element to true causes the following behavior: PUT Bucket acl and PUT Object acl calls fail if the specified ACL is public.  PUT Object calls fail if the request includes a public ACL.  Enabling this setting does not affect existing policies or ACLs. (default: true)'
+    Type: String
+
+  BlockPublicPolicy:
+    AllowedValues: ['true', 'false']
+    Default: 'true'
+    Description: 'Specifies whether Amazon S3 should block public bucket policies for this bucket. Setting this element to true causes Amazon S3 to reject calls to PUT Bucket policy if the specified bucket policy allows public access.  Enabling this setting does not affect existing bucket policies. (default: true)'
+    Type: String
+
+  IgnorePublicAcls:
+    AllowedValues: ['true', 'false']
+    Default: 'true'
+    Description: 'Specifies whether Amazon S3 should ignore public ACLs for this bucket and objects in this bucket. Setting this element to true causes Amazon S3 to ignore all public ACLs on this bucket and objects in this bucket.  Enabling this setting does not affect the persistence of any existing ACLs and does not prevent new public ACLs from being set. (default: true)'
+    Type: String
+
+  RestrictPublicBuckets:
+    AllowedValues: ['true', 'false']
+    Default: 'true'
+    Description: 'Specifies whether Amazon S3 should restrict public bucket policies for this bucket. Setting this element to true restricts access to this bucket to only AWS services and authorized users within this account if the bucket has a public policy. Enabling this setting does not affect previously stored bucket policies, except that public and cross-account access within any public bucket policy, including non-public delegation to specific accounts, is blocked. (default: true)'
+    Type: String
+
+  # CORS Configuration
+  CorsEnabled:
+    AllowedValues: ['true', 'false']
+    Default: 'false'
+    Description: 'Whether or not to enable/configure CORS. (default: false)'
+    Type: String
+
+  CorsAllowedHeaders:
+    Default: '*'
+    Description: 'Headers that are specified in the Access-Control-Request-Headers header. These headers are allowed in a preflight OPTIONS request. In response to any preflight OPTIONS request, Amazon S3 returns any requested headers that are allowed. (default: *)'
+    Type: CommaDelimitedList
+
+  CorsAllowedMethods:
+    Default: 'POST'
+    Description: 'An HTTP method that you allow the origin to execute. Valid values are GET, PUT, HEAD, POST, and DELETE. (default: POST)'
+    Type: CommaDelimitedList
+
+  CorsAllowedOrigins:
+    Default: '*'
+    Description: 'One or more origins you want customers to be able to access the bucket from. (default: *)'
+    Type: CommaDelimitedList
+
+  CorsExposedHeaders:
+    Default: ''
+    Description: 'One or more headers in the response that you want customers to be able to access from their applications (for example, from a JavaScript XMLHttpRequest object). (default: nil)'
+    Type: CommaDelimitedList
+
+  CorsId:
+    Default: 'AllowPostFromAll'
+    Description: 'A unique identifier for this rule. The value must be no more than 255 characters. (default: AllowPostFromAll)'
+    Type: String
+
+  CorsMaxAge:
+    Default: 3000
+    Description: 'The time in seconds that your browser is to cache the preflight response for the specified resource. (default: 3000)'
+    Type: Number
+
+  # Lifecycle Configuration
+  LifecycleEnabled:
+    AllowedValues: ['true', 'false']
+    Default: 'false'
+    Description: 'Whether or not to enable/configure a Lifecyle Rule. (default: false)'
+    Type: String
+
+  LifecycleAbortIncompleteMultipartUploads:
+    Default: 0
+    Description: 'Specifies the number of days after which Amazon S3 aborts an incomplete multipart upload. (default: 0 [disabled])'
+    Type: Number
+
+  LifecycleExpirationDate:
+    Default: 'YYYY-MM-DD'
+    Description: 'Indicates when objects are deleted from Amazon S3 and Amazon S3 Glacier. The date must be in ISO 8601 format: YYYY-MM-DD. Time is midnight UTC. If you specify an expiration and transition time, you must use the same time unit for both properties (either in days or by date). The expiration time must also be later than the transition time. (default: YYYY-MM-DD [disabled])'
+    Type: String
+
+  LifecycleExpirationInDays:
+    Default: 0
+    Description: 'Indicates the number of days after creation when objects are deleted from Amazon S3 and Amazon S3 Glacier. If you specify an expiration and transition time, you must use the same time unit for both properties (either in days or by date). The expiration time must also be later than the transition time. (default: 0 [disabled])'
+    MinValue: 0
+    Type: Number
+
+  LifecycleRuleId:
+    Default: 'Lifecycle Rule Name'
+    Description: 'Unique identifier (name) for the rule. The value cannot be longer than 255 characters. (default: Lifecycle Rule Name)'
+    Type: String
+
+  LifecyclePrefix:
+    Default: ''
+    Description: 'Object key prefix that identifies one or more objects to which this rule applies. (default: nil [disabled])'
+    Type: String
+
+  LifecycleNonCurrentVersionExpirationInDays:
+    Default: 0
+    Description: 'Specifies the number of days an object is noncurrent before Amazon S3 can perform the associated action. (default: 0 [disabled])'
+    MinValue: 0
+    Type: Number
+
+  LifecycleNonCurrentVersionTransitionInDays:
+    Default: 0
+    Description: 'Specifies the number of days an object is noncurrent before Amazon S3 can perform the associated action. (default: 0 [disabled])'
+    MinValue: 0
+    Type: Number
+
+  LifecycleNonCurrentVersionTransitionStorageClass:
+    AllowedValues: ['DEEP_ARCHIVE', 'GLACIER', 'INTELLIGENT_TIERING', 'ONEZONE_IA', 'STANDARD_IA', 'UNDEFINED']
+    Default: 'UNDEFINED'
+    Description: "The storage class used to transition the object to. (default: UNDEFINED [disabled])"
+    Type: String
+
+  LifecycleTransitionDate:
+    Default: 'YYYY-MM-DD'
+    Description: 'Indicates when objects are transitioned to the specified storage class. The date must be in ISO 8601 format: YYYY-MM-DD. Time is midnight UTC. (default: YYYY-MM-DD [disabled])'
+    Type: String
+
+  LifecycleTransitionInDays:
+    Default: 0
+    Description: 'Indicates the number of days after creation when objects are transitioned to the specified storage class. The value must be a positive integer. (default: 0 [disabled])'
+    MinValue: 0
+    Type: Number
+
+  LifecycleTransitionStorageClass:
+    AllowedValues: ['DEEP_ARCHIVE', 'GLACIER', 'INTELLIGENT_TIERING', 'ONEZONE_IA', 'STANDARD_IA', 'UNDEFINED']
+    Default: 'UNDEFINED'
+    Description: "The storage class used to transition the object to. (default: UNDEFINED [disabled])"
+    Type: String
+
+
+Conditions:
+
+  AbortIncompleteMultipartUploads: !Not [!Equals [!Ref LifecycleAbortIncompleteMultipartUploads, 0]]
+  AccessLoggingEnabled: !Equals [!Ref AccessLoggingEnabled, 'true']
+  AttachBucketPolicy: !And
+    - !Not [!Equals [!Select ["0", !Ref BucketPolicyStatementActions], '']]
+    - !Not [!Equals [!Ref BucketPolicyStatementEffect, '']]
+    - !Not [!Equals [!Ref BucketPolicyStatementPrincipal, '']]
+    - !Not [!Equals [!Ref BucketPolicyStatementSid, '']]
+  BucketNameGiven: !Not [!Equals [!Ref BucketName, '']]
+  CorsEnabled: !Equals [!Ref CorsEnabled, 'true']
+  EncryptionEnabled: !Equals [!Ref EncryptionEnabled, 'true']
+  ExpirationDateGiven: !Not [!Equals [!Ref LifecycleExpirationDate, 'YYYY-MM-DD']]
+  ExpirationDaysGiven: !Not [!Equals [!Ref LifecycleExpirationInDays, 0]]
+  KmsCmkArnGiven: !Not [!Equals [!Ref KmsCmkArn, '']]
+  LifecycleEnabled: !Equals [!Ref LifecycleEnabled, 'true']
+  LifecyclePrefixGiven: !Not [!Equals [!Ref LifecyclePrefix, '']]
+  LifecycleTransitionDateGiven: !Not [!Equals [!Ref LifecycleTransitionDate, 'YYYY-MM-DD']]
+  LifecycleTransitionInDaysGiven: !Not [!Equals [!Ref LifecycleTransitionInDays, 0]]
+  LoggingPrefixGiven: !Not [!Equals [!Ref LoggingPrefix, '']]
+  NonCurrentVersionExpirationDaysGiven: !Not [!Equals [!Ref LifecycleNonCurrentVersionExpirationInDays, 0]]
+  SsmParamDescGiven: !Not [!Equals [!Ref SsmParamDesc, '']]
+  SsmParamNameGiven: !Not [!Equals [!Ref SsmParamName, '']]
+  TransitionNonCurrentVersions: !And
+    - !Not [!Equals [!Ref LifecycleNonCurrentVersionTransitionStorageClass, 'UNDEFINED']]
+    - !Not [!Equals [!Ref LifecycleNonCurrentVersionTransitionInDays, 0]]
+  TransitionObjects: !And
+    - !Not [!Equals [!Ref LifecycleTransitionStorageClass, 'UNDEFINED']]
+    - !Or
+      - Condition: LifecycleTransitionDateGiven
+      - Condition: LifecycleTransitionInDaysGiven
+
+
+Resources:
+
+  S3BucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Condition: AttachBucketPolicy
+    Properties:
+      Bucket: !Ref S3Bucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: !Ref BucketPolicyStatementSid
+            Action: !Ref BucketPolicyStatementActions
+            Effect: !Ref BucketPolicyStatementEffect
+            Principal: !Ref BucketPolicyStatementPrincipal
+            Resource: !Sub '${S3Bucket.Arn}/*'
+
+  # uncomment/modify to attach a bucket policy
+  # RequireChefDataS3BucketEncryption:
+  #   Properties:
+  #     Bucket: !Ref S3Bucket
+  #     PolicyDocument:
+  #       Statement:
+  #         - Action: ['s3:PutObject']
+  #           Condition:
+  #             StringNotEquals: {'s3:x-amz-server-side-encryption': AES256}
+  #           Effect: Deny
+  #           Principal: '*'
+  #           Resource: !Sub '${S3Bucket.Arn}/*'
+  #           Sid: DenyIncorrectEncryptionHeader
+  #         - Action: ['s3:PutObject']
+  #           Condition:
+  #             'Null': {'s3:x-amz-server-side-encryption': 'true'}
+  #           Effect: Deny
+  #           Principal: '*'
+  #           Resource: !Sub '${S3Bucket.Arn}/*'
+  #           Sid: DenyUnEncryptedObjectUploads
+  #       Version: '2012-10-17'
+  #   Type: AWS::S3::BucketPolicy
+
+  S3Bucket:
+    Properties:
+      AccessControl: !Ref AccessControl
+      BucketName: !If [BucketNameGiven, !Ref BucketName, !Ref 'AWS::NoValue']
+      BucketEncryption: !If
+        - EncryptionEnabled
+        - ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              # the following properties need to be indented twice
+              KMSMasterKeyID: !If [KmsCmkArnGiven, !Ref KmsCmkArn, !Ref 'AWS::NoValue']
+              SSEAlgorithm: !If [KmsCmkArnGiven, 'aws:kms', !Ref SseAlgorithm]
+        - !Ref 'AWS::NoValue'
+      CorsConfiguration: !If
+        - CorsEnabled
+        - CorsRules: 
+          - AllowedHeaders: !Ref CorsAllowedHeaders  # List of String
+            AllowedMethods: !Ref CorsAllowedMethods  # List of String
+            AllowedOrigins: !Ref CorsAllowedOrigins  # List of String
+            # ExposedHeaders: !Ref CorsExposedHeaders  # List of String
+            Id: !Ref CorsId                          # String
+            MaxAge: !Ref CorsMaxAge                  # Integer (seconds)
+        - !Ref 'AWS::NoValue'
+      LifecycleConfiguration: !If
+        - LifecycleEnabled
+        - Rules:  # TODO: currently can only specify one rule
+          # must specify at least one of the following:
+          #   AbortIncompleteMultipartUpload, ExpirationDate, ExpirationInDays,
+          #   NoncurrentVersionExpirationInDays, NoncurrentVersionTransitions,
+          #   Transitions
+          - AbortIncompleteMultipartUpload: !If
+              - AbortIncompleteMultipartUploads
+              - DaysAfterInitiation: !Ref LifecycleAbortIncompleteMultipartUploads
+              - !Ref 'AWS::NoValue'
+            # ExpirationDate: YYYY-MM-DD  # ISO 8601 - time is midnight UTC
+            ExpirationDate: !If [ExpirationDateGiven, !Ref LifecycleExpirationDate, !Ref 'AWS::NoValue']
+            ExpirationInDays: !If [ExpirationDaysGiven, !Ref LifecycleExpirationInDays, !Ref 'AWS::NoValue']
+            Id: !Ref LifecycleRuleId  # Optional
+            NoncurrentVersionExpirationInDays: !If [NonCurrentVersionExpirationDaysGiven, !Ref LifecycleNonCurrentVersionExpirationInDays, !Ref 'AWS::NoValue']
+            # TODO: currently can only specify one transition
+            NoncurrentVersionTransitions: !If
+              - TransitionNonCurrentVersions
+              - StorageClass: !Ref LifecycleNonCurrentVersionTransitionStorageClass
+                TransitionInDays: !Ref LifecycleNonCurrentVersionTransitionInDays
+              - !Ref 'AWS::NoValue'
+            Prefix: !If [LifecyclePrefixGiven, !Ref LifecyclePrefix, !Ref 'AWS::NoValue']
+            Status: !If [LifecycleEnabled, Enabled, Disabled]
+            # TODO: Tag Filters settings will be tricky to dynamically configure
+            # for more than one filter - saving for the future if/when needed
+            # TagFilters:  # Tags to identify subset of objects to which rule applies
+            #   - Key: key
+            #     Value: val
+            # TODO: currently can only specify one transition
+            Transitions: !If
+              - TransitionObjects
+              - StorageClass: !Ref LifecycleTransitionStorageClass
+                TransitionDate: !If [LifecycleTransitionDateGiven, !Ref LifecycleTransitionDate, !Ref 'AWS::NoValue']
+                TransitionInDays: !If [LifecycleTransitionInDaysGiven, !Ref LifecycleTransitionInDays, !Ref 'AWS::NoValue']
+              - !Ref 'AWS::NoValue'
+        - !Ref 'AWS::NoValue'
+      LoggingConfiguration: !If
+        - AccessLoggingEnabled
+        - DestinationBucketName: !Ref LoggingS3BucketName
+          LogFilePrefix: !If [LoggingPrefixGiven, !Ref LoggingPrefix, !Ref 'AWS::NoValue']
+        - !Ref 'AWS::NoValue'
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: !Ref BlockPublicAcls
+        BlockPublicPolicy: !Ref BlockPublicPolicy
+        IgnorePublicAcls: !Ref IgnorePublicAcls
+        RestrictPublicBuckets: !Ref RestrictPublicBuckets
+      Tags:
+        - Key: Name
+          Value: !If [BucketNameGiven, !Ref BucketName, 'cloudformation-generated']
+      VersioningConfiguration:
+        Status: !Ref Versioning
+    Type: AWS::S3::Bucket
+
+  SsmParamBucketName:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Description: !If
+        - SsmParamDescGiven
+        - !Ref SsmParamDesc
+        - !Sub 'S3 Bucket Name for ${Project} ${Environment}'
+      Name: !If
+        - SsmParamNameGiven
+        - !Ref SsmParamName
+        - !Sub '/${Project}/${Environment}/s3/bucket-name'
+      Tags:
+        "Name": !If
+          - SsmParamNameGiven
+          - !Ref SsmParamName
+          - !Sub '/${Project}/${Environment}/s3/bucket-name'
+      Type: String
+      Value: !Ref S3Bucket
+
+
+Outputs:
+
+  S3BucketArn:
+    Description: 'ARN of the S3 bucket'
+    Export: {'Name': !Sub '${AWS::StackName}-S3BucketArn'}
+    Value: !GetAtt S3Bucket.Arn
+
+  S3BucketName:
+    Description: 'Name of the S3 bucket'
+    Export: {'Name': !Sub '${AWS::StackName}-S3BucketName'}
+    Value: !Ref S3Bucket
+
+  S3BucketDomainName:
+    Description: 'DNS name of the S3 bucket'
+    Export: {'Name': !Sub '${AWS::StackName}-S3BucketDomainName'}
+    Value: !GetAtt S3Bucket.DomainName
+
+  S3BucketRegionalDomainName:
+    Description: 'Regional domain name of the S3 bucket'
+    Export: {'Name': !Sub '${AWS::StackName}-S3BucketRegionalDomainName'}
+    Value: !GetAtt S3Bucket.RegionalDomainName
+
+  S3BucketWebsiteUrl:
+    Description: 'Website endpoint of the S3 bucket'
+    Export: {'Name': !Sub '${AWS::StackName}-S3BucketWebsiteUrl'}
+    Value: !GetAtt S3Bucket.WebsiteURL

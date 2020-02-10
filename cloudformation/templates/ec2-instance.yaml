@@ -1,0 +1,119 @@
+---
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Create a standalone EC2 instance
+
+
+Parameters:
+
+  AssociatePublicIpAddress:
+    Default: false
+    Description: 'Indicates whether to assign a public IPv4 address to an instance you launch in a VPC. The public IP address can only be assigned to a network interface for eth0, and can only be assigned to a new network interface, not an existing one. You cannot specify more than one network interface in the request. (default: false)'
+    Type: String
+  Environment:
+    Description: 'Name of Environment'
+    Type: String
+  HostedZone:
+    Default: ''
+    Description: 'Name of the Route 53 Hosted Zone in which to create a record set for the instance. If this parameter is not set, a DNS entry is not created'
+    Type: String
+  IamInstanceProfile:
+    Description: 'Name of instance profile to associate to instance'
+    Type: String
+  ImageId:
+    Description: 'AMI ID for the Instance'
+    Type: String
+  InstanceType:
+    Default: t3.nano
+    Description: 'Type of AWS EC2 instance to create (default: t3.nano)'
+    Type: String
+  KeyName:
+    Description: 'Name of the AWS EC2 key pair'
+    Type: 'AWS::EC2::KeyPair::KeyName'
+  Monitoring:
+    AllowedValues: ['false', 'true']
+    Default: false
+    Description: 'Whether or not to enable detailed monitoring (default: false)'
+    Type: String
+  Name:
+    Description: 'Name to tag instance with'
+    Type: String
+  Project:
+    Description: 'Name of the project being deployed'
+    Type: String
+  SecurityGroupIds:
+    Description: 'Security Group IDs to assign to the AWS EC2 instance'
+    Type: List<AWS::EC2::SecurityGroup::Id>
+  SubnetId:
+    Description: 'ID of the subnet to launch the instance into'
+    Type: AWS::EC2::Subnet::Id
+  TerminationProtection:
+    AllowedValues: ['false', 'true']
+    Default: 'false'
+    Description: 'Enable termination protection on the EC2 Instances to avoid accidential termination (true/false)? (default: false)'
+    Type: String
+  VolumeSizeRoot:
+    Default: '100'
+    Description: 'The size of the root Drive in GB (default: 100)'
+    Type: Number
+    MinValue: 8
+    MaxValue: 1024
+
+
+Conditions:
+  EnableTeminationProtection: !Equals [!Ref TerminationProtection, 'true']
+  CreateDnsEntry: !Not [!Equals [!Ref HostedZone, '']]
+
+
+Resources:
+  Ec2Instance:
+    Type: AWS::EC2::Instance
+    Properties:
+      BlockDeviceMappings:
+        - DeviceName: /dev/xvda
+          Ebs: {DeleteOnTermination: true, VolumeType: gp2, VolumeSize: !Ref VolumeSizeRoot}
+      DisableApiTermination: !If [EnableTeminationProtection, true, false]
+      IamInstanceProfile: !Ref IamInstanceProfile
+      ImageId: !Ref ImageId
+      InstanceType: !Ref InstanceType
+      Monitoring: !Ref Monitoring
+      NetworkInterfaces:
+        - DeviceIndex: 0
+          AssociatePublicIpAddress: !Ref AssociatePublicIpAddress
+          DeleteOnTermination: true
+          GroupSet: !Ref SecurityGroupIds
+          SubnetId: !Ref SubnetId
+      KeyName: !Ref KeyName
+      # SecurityGroupIds: !Ref SecurityGroupIds  # don't specify these properties here
+      # SubnetId: !Ref SubnetId                  # when specifying NetworkInterfaces
+      Tags:
+        - {Key: Name, Value: !Ref Name}
+
+  Route53RecordSet:
+    Type: AWS::Route53::RecordSet
+    Condition: CreateDnsEntry
+    Properties:
+      HostedZoneName : !Sub '${HostedZone}.'
+      Name: !Sub '${Name}.${HostedZone}'
+      ResourceRecords:
+        - !GetAtt Ec2Instance.PublicIp
+      TTL: '60'
+      Type: A
+
+Outputs:
+  InstanceId:
+    Description: ID of EC2 Instance created
+    Export: {'Name': !Sub '${AWS::StackName}-InstanceId'}
+    Value: !Ref Ec2Instance
+  PublicIp:
+    Description: Public IP of EC2 Instance created
+    Export: {'Name': !Sub '${AWS::StackName}-PublicIp'}
+    Value: !GetAtt Ec2Instance.PublicIp
+  PrivateIp:
+    Description: Private IP of EC2 Instance created
+    Export: {'Name': !Sub '${AWS::StackName}-PrivateIp'}
+    Value: !GetAtt Ec2Instance.PrivateIp
+  Route53RecordSet:
+    Condition: CreateDnsEntry
+    Description: Route 53 Record Set created for instance
+    Export: {'Name': !Sub '${AWS::StackName}-Route53RecordSet'}
+    Value: !Ref Route53RecordSet

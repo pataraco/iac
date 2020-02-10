@@ -1,5 +1,5 @@
-# Infrastructure Automation
-Repo to help me learn, practice and improve my infrastructure automation skills
+# Infrastructure as Code
+Repo to help me learn, practice and improve my IaC  skills
 
 # To-Do / Things to try
 - Create an AWS CloudFormation custom resource to create an Amazon DynamoDB Global Table

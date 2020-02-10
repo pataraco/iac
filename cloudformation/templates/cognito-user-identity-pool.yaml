@@ -1,0 +1,371 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Creates Cognito User Pool and App Client'
+
+
+Parameters:
+
+  EmailVerificationMessage:
+    Default: 'Your verification code is {####}.'
+    Description: 'A string representing the email verification message. You can customize the message and include HTML tags, but it must include the "{####}" placeholder, which will be replaced with the code.'
+    Type: String
+
+  EmailVerificationSubject:
+    Default: 'Your verification code'
+    Description: 'A string representing the email verification subject.'
+    Type: String
+
+  Environment:
+    Description: 'Name of Environment'
+    Type: String
+
+  FromSesEmailAddress:
+    Default: ''
+    Description: 'The verified SES email address to use for email. This value is converted to the ARN of the email address, e.g. arn:aws:ses:${AWS::Region}:${AWS::AccountId}:identity/${FromSesEmailAddress}'
+    Type: String
+
+  InviteEmailMessage:
+    Default: 'Your username is {username} and temporary password is {####}.'
+    Description: 'The message template for invitation email messages. You can customize the message and include HTML tags, but it must include the "{username}" and "{####}" placeholder, which will be replaced with the username and temporary password respectively.'
+    Type: String
+
+  InviteEmailSubject:
+    Default: 'Your temporary password'
+    Description: 'The subject line for invitation email messages.'
+    Type: String
+
+  InviteSmsMessage:
+    Default: 'Your username is {username} and temporary password is {####}.'
+    Description: 'The message template for invitation SMS messages. You can customize the message and include HTML tags, but it must include the "{username}" and "{####}" placeholder, which will be replaced with the username and temporary password respectively.'
+    Type: String
+
+  Mfa:
+    AllowedValues: ['OFF', 'ON', 'OPTIONAL']
+    Default: 'OFF'
+    Description: 'Specifies multi-factor authentication (MFA) configuration details. Valid choices: OFF, ON or OPTIONAL. OFF - MFA tokens are not required and cannot be specified during user registration.  ON - MFA tokens are required for all user registrations. You can only specify required when you are initially creating a user pool.  OPTIONAL - Users have the option when registering to create an MFA token. (default: OFF)'
+    Type: String
+
+  MfaAuthMessage:
+    Default: 'Your authentication code is {####}.'
+    Description: 'A string representing the SMS authentication message for MFA. You can customize the message and include HTML tags, but it must include the "{####}" placeholder, which will be replaced with the code.'
+    Type: String
+
+  MinPasswordLength:
+    ConstraintDescription: 'Must be a value from 6 to 99'
+    Default: 8
+    Description: 'The minimum length of the password policy that you have set. From 6 to 99. (default: 8)'
+    MaxValue: 99
+    MinValue: 6
+    Type: Number
+
+  PasswordLowercaseRequired:
+    AllowedValues: ['true', 'false']
+    Default: 'true'
+    Description: 'In the password policy that you have set, refers to whether you have required users to use at least one lowercase letter in their password. (default: true)'
+    Type: String
+
+  PasswordNumberRequired:
+    AllowedValues: ['true', 'false']
+    Default: 'true'
+    Description: 'In the password policy that you have set, refers to whether you have required users to use at least one number in their password.'
+    Type: String
+
+  PasswordSpecialRequired:
+    AllowedValues: ['true', 'false']
+    Default: 'true'
+    Description: 'In the password policy that you have set, refers to whether you have required users to use at least one symbol or special characters in their password.'
+    Type: String
+
+  PasswordUppercaseRequired:
+    AllowedValues: ['true', 'false']
+    Default: 'true'
+    Description: 'In the password policy that you have set, refers to whether you have required users to use at least one uppercase letter in their password.'
+    Type: String
+
+  Project:
+    Default: ''
+    Description: 'Name of the project being deployed'
+    Type: String
+
+  ReplyToEmailAddress:
+    Default: ''
+    Description: 'The destination to which the receiver of the email should reply to.'
+    Type: String
+
+  SmsVerificationMessage:
+    Default: 'Your verification code is {####}.'
+    Description: 'A string representing the SMS verification message. You can customize the message and include HTML tags, but it must include the "{####}" placeholder, which will be replaced with the code.'
+    Type: String
+
+  TemporaryPasswordValidity:
+    ConstraintDescription: 'Must be a value from 0 to 365'
+    Default: 7
+    Description: 'The number of days a temporary password is valid. If the user does not sign-in during this time, their password will need to be reset by an administrator. (default: 7)'
+    MaxValue: 365
+    MinValue: 0
+    Type: Number
+
+  UserPoolAppClientName:
+    Default: ''
+    Description: 'The name to give the User Pool App Client. (default: ${Project}-${Environment})'
+    Type: String
+
+  UserPoolName:
+    Default: ''
+    Description: 'The name to give the User Pool. (default: ${Project}-${Environment})'
+    Type: String
+
+
+Conditions:
+
+  UseReplyToEmailAddress: !Not [!Equals [!Ref ReplyToEmailAddress, '']]
+  UserPoolNameGiven: !Not [!Equals [!Ref UserPoolName, '']]
+  UserPoolAppClientNameGiven: !Not [!Equals [!Ref UserPoolAppClientName, '']]
+
+Resources:
+
+  # Save for future use in case an Identity Pool is needed
+  ### IamRoleCognitoAuthorized:
+  ###   Properties:
+  ###     AssumeRolePolicyDocument:
+  ###       Statement:
+  ###         - Action: 'sts:AssumeRoleWithWebIdentity'
+  ###           Condition:
+  ###             ForAnyValue:StringLike:
+  ###               cognito-identity.amazonaws.com:amr: authenticated
+  ###             StringEquals:
+  ###               cognito-identity.amazonaws.com:aud: !Ref CognitoIdentityPool
+  ###           Effect: Allow
+  ###           Principal: {Federated: 'cognito-identity.amazonaws.com'}
+  ###       Version: '2012-10-17'
+  ###     Policies:
+  ###       - PolicyDocument:
+  ###           Statement:
+  ###             - Action:
+  ###                 - mobileanalytics:PutEvents
+  ###                 - cognito-sync:*
+  ###                 - cognito-identity:*
+  ###               Effect: Allow
+  ###               Resource: '*'
+  ###             - Action:
+  ###                 - lambda:InvokeFunction
+  ###               Effect: Allow
+  ###               Resource: '*'
+  ###           Version: '2012-10-17'
+  ###         PolicyName: CognitoAuthorizedPolicy
+  ###     RoleName: !Sub '${Project}-${Environment}-cognito-authorized'
+  ###   Type: AWS::IAM::Role
+
+  # Save for future use in case an Identity Pool is needed
+  ### IamRoleCognitoUnauthorized:
+  ###   Properties:
+  ###     AssumeRolePolicyDocument:
+  ###       Statement:
+  ###         - Action: 'sts:AssumeRoleWithWebIdentity'
+  ###           Condition:
+  ###             ForAnyValue:StringLike:
+  ###               cognito-identity.amazonaws.com:amr: unauthenticated
+  ###             StringEquals:
+  ###               cognito-identity.amazonaws.com:aud: !Ref CognitoIdentityPool
+  ###           Effect: Allow
+  ###           Principal: {Federated: 'cognito-identity.amazonaws.com'}
+  ###       Version: '2012-10-17'
+  ###     Policies:
+  ###       - PolicyDocument:
+  ###           Statement:
+  ###             - Action:
+  ###                 - mobileanalytics:PutEvents
+  ###                 - cognito-sync:*
+  ###               Effect: Allow
+  ###               Resource: '*'
+  ###           Version: '2012-10-17'
+  ###         PolicyName: CognitoUnauthorizedPolicy
+  ###     RoleName: !Sub '${Project}-${Environment}-cognito-unauthorized'
+  ###   Type: AWS::IAM::Role
+
+  IamRoleCognitoSns:
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: 'sts:AssumeRole'
+            Condition:
+              StringEquals:
+                sts:ExternalId: !Sub '${Project}-${Environment}-cognito-sms'
+            Effect: Allow
+            Principal: {Service: 'cognito-idp.amazonaws.com'}
+        Version: '2012-10-17'
+      Policies:
+        - PolicyDocument:
+            Statement:
+              - Action: 'sns:publish'
+                Effect: Allow
+                Resource: '*'
+            Version: '2012-10-17'
+          PolicyName: CognitoSNSPolicy
+      RoleName: !Sub '${Project}-${Environment}-cognito-sns'
+    Type: AWS::IAM::Role
+
+  # Save for future use in case an Identity Pool is needed
+  ### CognitoIdentityPool:
+  ###   Properties:
+  ###     AllowUnauthenticatedIdentities: true
+  ###     CognitoIdentityProviders:
+  ###     - ClientId: !Ref CognitoUserPoolClient
+  ###       ProviderName: !GetAtt CognitoUserPool.ProviderName
+  ###     IdentityPoolName: !Sub '${Project}-${Environment}'
+  ###   Type: AWS::Cognito::IdentityPool
+
+  # Save for future use in case an Identity Pool is needed
+  ### IdentityPoolRoleMapping:
+  ###   Properties:
+  ###     IdentityPoolId: !Ref CognitoIdentityPool
+  ###     Roles:
+  ###       authenticated: !GetAtt IamRoleCognitoAuthorized.Arn
+  ###       unauthenticated: !GetAtt IamRoleCognitoUnauthorized.Arn
+  ###   Type: AWS::Cognito::IdentityPoolRoleAttachment
+
+  CognitoUserPool:
+    Properties:
+      AdminCreateUserConfig:
+        AllowAdminCreateUserOnly: false
+        InviteMessageTemplate:
+          EmailMessage: !Ref InviteEmailMessage
+          EmailSubject: !Ref InviteEmailSubject
+          SMSMessage: !Ref InviteSmsMessage
+          # don't set UnusedAccountValidityDays when setting TemporaryPasswordValidityDays
+          # UnusedAccountValidityDays: !Ref TemporaryPasswordValidity
+      AutoVerifiedAttributes: ['email', 'phone_number']
+      # DeletionPolicy NOT supported for type: AWS::Cognito::UserPool
+      # DeletionPolicy: Retain
+      EmailConfiguration:
+        EmailSendingAccount: DEVELOPER
+        ReplyToEmailAddress: !Ref ReplyToEmailAddress
+        SourceArn:
+          !Sub 'arn:aws:ses:${AWS::Region}:${AWS::AccountId}:identity/${FromSesEmailAddress}'
+      EmailVerificationMessage: !Ref EmailVerificationMessage
+      EmailVerificationSubject: !Ref EmailVerificationSubject
+      MfaConfiguration: !Ref Mfa
+      Policies:
+        PasswordPolicy:
+          MinimumLength: !Ref MinPasswordLength
+          RequireLowercase: !Ref PasswordLowercaseRequired
+          RequireNumbers: !Ref PasswordNumberRequired
+          RequireSymbols: !Ref PasswordSpecialRequired
+          RequireUppercase: !Ref PasswordUppercaseRequired
+          TemporaryPasswordValidityDays: !Ref TemporaryPasswordValidity
+      Schema:
+        # WARNING!: If ANY schema changes are made,
+        #           the User Pool will be REPLACED and users will be LOST
+        #
+        #           New/Additional custom attributes can be added via CLI
+        #           without causing a replacement of the User Pool
+        #
+        # can specify a combined total of 50 attributes (standard/custom)
+        #
+        # standard attributes
+        #   used to specify which standard attributes are required or not
+        #   can't change types
+        - {Name: address,            Mutable: true, Required: false}
+        - {Name: birthdate,          Mutable: true, Required: false}
+        - {Name: email,              Mutable: true, Required: false}
+        - {Name: family_name,        Mutable: true, Required: false}
+        - {Name: gender,             Mutable: true, Required: false}
+        - {Name: given_name,         Mutable: true, Required: false}
+        - {Name: locale,             Mutable: true, Required: false}
+        - {Name: middle_name,        Mutable: true, Required: false}
+        - {Name: name,               Mutable: true, Required: false}
+        - {Name: nickname,           Mutable: true, Required: false}
+        - {Name: phone_number,       Mutable: true, Required: false}
+        - {Name: picture,            Mutable: true, Required: false}
+        - {Name: preferred_username, Mutable: true, Required: false}
+        - {Name: profile,            Mutable: true, Required: false}
+        - {Name: website,            Mutable: true, Required: false}
+        - {Name: zoneinfo,           Mutable: true, Required: false}
+        # custom attributes
+        #   Cannot be 'required' and Mutable defaults to 'false'
+        - {AttributeDataType: String, Mutable: true, Name: address1}
+        - {AttributeDataType: String, Mutable: true, Name: address2}
+        - {AttributeDataType: String, Mutable: true, Name: city}
+        - {AttributeDataType: String, Mutable: true, Name: state}
+        - {AttributeDataType: String, Mutable: true, Name: zip}
+        - {AttributeDataType: String, Mutable: true, Name: driver_license_exp}
+        - {AttributeDataType: String, Mutable: true, Name: driver_license}
+        - {AttributeDataType: String, Mutable: true, Name: stripe_customer_id}
+        - {AttributeDataType: String, Mutable: true, Name: allow_notifications}
+        - {AttributeDataType: String, Mutable: true, Name: mailing_address1}
+        - {AttributeDataType: String, Mutable: true, Name: mailing_address2}
+        - {AttributeDataType: String, Mutable: true, Name: mailing_city}
+        - {AttributeDataType: String, Mutable: true, Name: mailing_state}
+        - {AttributeDataType: String, Mutable: true, Name: mailing_zip}
+        - {AttributeDataType: Number, Mutable: true, Name: use_primary_address, NumberAttributeConstraints: {MinValue: 0, MaxValue: 1}}
+        - {AttributeDataType: Number, Mutable: true, Name: is_admin, NumberAttributeConstraints: {MinValue: 0, MaxValue: 1}}
+        - {AttributeDataType: Number, Mutable: true, Name: plaid_access_token, NumberAttributeConstraints: {MinValue: 1, MaxValue: 256}}
+        - {AttributeDataType: Number, Mutable: true, Name: plaid_item_id, NumberAttributeConstraints: {MinValue: 1, MaxValue: 256}}
+        - {AttributeDataType: Number, Mutable: true, Name: platform, NumberAttributeConstraints: {MinValue: 1, MaxValue: 256}}
+      SmsAuthenticationMessage: !Ref MfaAuthMessage
+      SmsConfiguration:
+        ExternalId: !Sub '${Project}-${Environment}-cognito-sms'
+        SnsCallerArn: !GetAtt IamRoleCognitoSns.Arn
+      SmsVerificationMessage: !Ref SmsVerificationMessage
+      UserPoolName: !If [UserPoolNameGiven, !Ref UserPoolName, !Sub '${Project}-${Environment}']
+      UserPoolTags:
+        Environment: !Ref Environment
+        Name: !If [UserPoolNameGiven, !Ref UserPoolName, !Sub '${Project}-${Environment}']
+        Project: !Ref Project
+        Provisioner: CloudFormation
+      UsernameAttributes: ['email', 'phone_number']
+    Type: AWS::Cognito::UserPool
+
+  CognitoUserPoolClient:
+    Properties:
+      ClientName: !If [UserPoolAppClientNameGiven, !Ref UserPoolAppClientName, !Sub '${Project}-${Environment}']
+      ExplicitAuthFlows:
+        - ADMIN_NO_SRP_AUTH
+        # - CUSTOM_AUTH_FLOW_ONLY
+        # - USER_PASSWORD_AUTH
+      GenerateSecret: true        # default: false - requires replacement
+      # RefreshTokenValidity: 30  # default: 30
+      # ReadAttributes: default to none selected and with all not selected the
+      #   attributes become all readable. To limit access, specify desired
+      # ReadAttributes:
+      #   - name
+      UserPoolId: !Ref CognitoUserPool
+      # WriteAttributes: default to none selected and with all not selected the
+      #   attributes become all writable. To limit access, specify desired
+      # WriteAttributes:
+      #   - nickname
+    Type: AWS::Cognito::UserPoolClient
+
+
+Outputs:
+
+  # Save for future use in case an Identity Pool is needed
+  ### IdentityPoolId:
+  ###   Description: 'The ID of the Amazon Cognito identity pool'
+  ###   Export: {'Name': !Sub '${AWS::StackName}-IdentityPoolId'}
+  ###   Value: !Ref CognitoIdentityPool
+
+  ### IdentityPoolName:
+  ###   Description: 'The name of the Amazon Cognito identity pool'
+  ###   Export: {'Name': !Sub '${AWS::StackName}-IdentityPoolName'}
+  ###   Value: !GetAtt CognitoIdentityPool.Name
+
+  UserPoolAppClientId:
+    Description: 'The ID of the Amazon Cognito user pool app client'
+    Export: {'Name': !Sub '${AWS::StackName}-UserPoolAppClientId'}
+    Value: !Ref CognitoUserPoolClient
+
+  UserPoolId:
+    Description: 'The ID of the Amazon Cognito user pool'
+    Export: {'Name': !Sub '${AWS::StackName}-UserPoolId'}
+    Value: !Ref CognitoUserPool
+
+  UserPoolArn:
+    Description: 'The ARN of the Amazon Cognito user pool'
+    Export: {'Name': !Sub '${AWS::StackName}-UserPoolArn'}
+    Value: !GetAtt CognitoUserPool.Arn
+
+  UserPoolProviderUrl:
+    Description: 'The provider URL of the Amazon Cognito user pool'
+    Export: {'Name': !Sub '${AWS::StackName}-UserPoolProviderUrl'}
+    Value: !GetAtt CognitoUserPool.ProviderURL

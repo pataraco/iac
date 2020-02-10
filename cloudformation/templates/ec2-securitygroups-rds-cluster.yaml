@@ -1,0 +1,55 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Creates an EC2 Security Group and ingress rule(s) for the RDS cluster to allow traffic from specific CIDRs'
+
+
+Parameters:
+
+  Cidr1:
+    Description: 'CIDR Block 1 to allow traffic from'
+    Type: String
+
+  Environment:
+    Description: 'Name of Environment'
+    Type: String
+
+  FromPort:
+    Description: 'Beginning Port to allow traffic from'
+    Type: String
+
+  Project:
+    Default: ''
+    Description: 'Name of the project being deployed'
+    Type: String
+
+  ToPort:
+    Description: 'Ending Port to allow traffic from'
+    Type: String
+
+  VpcId:
+    Description: 'VPC ID to create the Security Group in'
+    Type: AWS::EC2::VPC::Id
+
+
+Resources:
+
+  Ec2SecurityGroup:
+    Properties:
+      GroupDescription:
+        !Sub 'Allow traffic from ${Cidr1} for ${Project} ${Environment}'
+      GroupName: !Sub '${Project}-rds-cluster-${Environment}'
+      SecurityGroupIngress:
+        - {FromPort: !Ref FromPort, ToPort: !Ref ToPort, IpProtocol: tcp, CidrIp: !Ref Cidr1}
+      Tags:
+        - Key: Name
+          Value: !Sub '${Project}-rds-cluster-${Environment}'
+      VpcId: !Ref VpcId
+    Type: AWS::EC2::SecurityGroup
+
+
+Outputs:
+
+  SgId:
+    Description: 'ID of the Security Group created for Private 10 CIDR'
+    Export: {'Name': !Sub '${AWS::StackName}-SgId'}
+    Value: !GetAtt Ec2SecurityGroup.GroupId

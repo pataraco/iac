@@ -1,0 +1,346 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Creates a Lambda function and its IAM role.'
+
+# NOTE: THIS TEMPLATE IS NOT COMPLETE/READY
+
+Parameters:
+
+  Environment:
+    Description: 'Name of Environment'
+    Type: String
+
+  FunctionsS3Bucket:
+    Description: 'An Amazon S3 bucket in the same AWS Region as your function. The bucket can be in a different AWS account. This bucket contains the code for the lambda function(s).'
+    Type: String
+
+  FunctionsS3Key:
+    Description: 'The Amazon S3 bucket key of the deployment package (zip file) within the Amazon S3 bucket.'
+    Type: String
+
+  LambdaRuntime:
+    AllowedValues:
+      - dotnetcore1.0
+      - dotnetcore2.1
+      - go1.x
+      - java8
+      - nodejs10.x
+      - nodejs8.10
+      - provided
+      - python2.7
+      - python3.6
+      - python3.7
+      - ruby2.5
+    Description: 'The runtime identifier of the function.'
+    Type: String
+
+  LambdaTimeout:
+    ConstraintDescription: 'Must be a value from 1 to 900'
+    Default: 3
+    Description: 'The amount of time (seconds) that Lambda allows a function to run before stopping it. The default is 3 seconds. The maximum allowed value is 900 seconds (15 minutes). (default: 3)'
+    MaxValue: 900
+    MinValue: 1
+    Type: Number
+
+  LayersS3Bucket:
+    Description: 'The Amazon S3 bucket of the layer archive. This bucket contains the code for the lambda layer(s).'
+    Type: String
+
+  LayersS3Key:
+    Description: 'The Amazon S3 bucket key of the layer archive (zip file) within the Amazon S3 bucket.'
+    Type: String
+
+  Project:
+    Default: ''
+    Description: 'Name of the project being deployed'
+    Type: String
+
+  RoleManagedPolicyArns:
+    Default: ''
+    Description: 'List of IAM managed policies to attach to the Lambda IAM Role'
+    Type: CommaDelimitedList
+
+  SecurityGroupIds:
+    Description: 'A list of EC2 VPC security groups to associate with the Lambda functions.'
+    Type: List<AWS::EC2::SecurityGroup::Id>
+
+  SubnetIds:
+    Description: 'A list of EC2 Subnet IDs for the Lambda functions.'
+    Type: List<AWS::EC2::Subnet::Id>
+
+
+Resources:
+
+  IamRoleLambdaExecution:
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: 'sts:AssumeRole'
+            Effect: Allow
+            Principal: {Service: 'lambda.amazonaws.com'}
+        Version: '2012-10-17'
+      ManagedPolicyArns: !Ref RoleManagedPolicyArns
+      Policies:
+        - PolicyDocument:
+            Statement:
+              - Action:
+                  - 's3:AbortMultipartUpload'
+                  - 's3:CreateBucket'
+                  - 's3:DeleteObject'
+                  - 's3:DeleteObjectTagging'
+                  - 's3:DeleteObjectVersion'
+                  - 's3:DeleteObjectVersionTagging'
+                  - 's3:Get*'
+                  - 's3:List*'
+                  - 's3:PutAccelerateConfiguration'
+                  - 's3:PutAnalyticsConfiguration'
+                  - 's3:PutBucketCORS'
+                  - 's3:PutBucketLogging'
+                  - 's3:PutBucketNotification'
+                  - 's3:PutBucketRequestPayment'
+                  - 's3:PutBucketTagging'
+                  - 's3:PutBucketVersioning'
+                  - 's3:PutBucketWebsite'
+                  - 's3:PutEncryptionConfiguration'
+                  - 's3:PutInventoryConfiguration'
+                  - 's3:PutLifecycleConfiguration'
+                  - 's3:PutMetricsConfiguration'
+                  - 's3:PutObject'
+                  - 's3:PutObjectTagging'
+                  - 's3:PutObjectVersionTagging'
+                  - 's3:PutReplicationConfiguration'
+                  - 's3:ReplicateDelete'
+                  - 's3:ReplicateObject'
+                  - 's3:ReplicateTags'
+                  - 's3:RestoreObject'
+                Effect: Allow
+                Resource:
+                  - 'arn:aws:s3:::*/*'
+                  - 'arn:aws:s3:::turn-inventory-uploads'
+                Sid: S3SpecificLimitedAccess
+              - Action:
+                  - 's3:GetAccountPublicAccessBlock'
+                  - 's3:ListAllMyBuckets'
+                  - 's3:HeadBucket'
+                Effect: Allow
+                Resource: '*'
+                Sid: S3GlobalLimitedAccess
+            Version: '2012-10-17'
+          PolicyName: CognitoAuthorizedPolicy
+          PolicyName: S3-turn-inventory-uploads
+          PolicyName: !Sub '${Project}-${Environment}-s3-inventory-uploads'
+      RoleName: !Sub '${Project}-${Environment}-backend-lambda-execution'
+    Type: AWS::IAM::Role
+
+
+  LambdaLayerThirdParty:
+    Type: AWS::Lambda::LayerVersion
+    Properties:
+      CompatibleRuntimes:
+        - !Ref LambdaRuntime
+      Content:
+        S3Bucket: !Ref LayersS3Bucket
+        S3Key: !Ref LayersS3Key
+      Description: 'Third Party python libraries'
+      LayerName: !Sub '${Project}-${Environment}-third-party'
+      LicenseInfo: MIT
+
+  LambdaManageCognitoUserPool:
+    Type: AWS::Lambda::Function
+    Properties:
+      Code:
+        S3Bucket: !Ref FunctionsS3Bucket
+        S3Key: !Ref FunctionsS3Key
+      Description: 'Ad hoc code to manage Cognito user pools'
+      Environment:
+        Variables:
+          AWS_REGION: !Ref AWS::Region
+          STRIPE_API_KEY: !Ref StripeApiKey
+          USER_POOL_ID: !Ref CognitoUserPoolId
+      FunctionName: !Sub '${Project}-${Environment}-manage-cognito-user-pool'
+      Handler: lambda_manage_user_pool.lambda_handler
+      Layers:
+        - !Ref LambdaLayerThirdParty
+      MemorySize: 128
+      Role: !GetAtt IamRoleLambdaExecution.Arn
+      Runtime: !Ref LambdaRuntime
+      Tags:
+        - {Key: Name, Value: !Sub '${Project}-${Environment}-manage-cognito-user-pool'}
+      Timeout: !Ref LambdaTimeout
+      VpcConfig:
+        SecurityGroupIds: !Ref SecurityGroupIds
+        SubnetIds: !Ref SubnetIds
+
+############### need to incorporate this ###############################
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Example Lambda zip copy'
+Parameters:
+  QSS3BucketName:
+    AllowedPattern: ^[0-9a-zA-Z]+([0-9a-zA-Z-]*[0-9a-zA-Z])*$
+    Default: aws-quickstart
+    Type: String
+  QSS3KeyPrefix:
+    AllowedPattern: ^[0-9a-zA-Z-/]*$
+    Default: quickstart-redhat-openshift/
+    Type: String
+Resources:
+  LambdaZipsBucket:
+    Type: AWS::S3::Bucket
+  CopyZips:
+    Type: Custom::CopyZips
+    Properties:
+      ServiceToken: !GetAtt 'CopyZipsFunction.Arn'
+      DestBucket: !Ref 'LambdaZipsBucket'
+      SourceBucket: !Ref 'QSS3BucketName'
+      Prefix: !Ref 'QSS3KeyPrefix'
+      Objects:
+        - functions/packages/CleanupPV/lambda.zip
+  CopyZipsRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Path: /
+      Policies:
+        - PolicyName: lambda-copier
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                Resource:
+                  - !Sub 'arn:aws:s3:::${QSS3BucketName}/${QSS3KeyPrefix}*'
+              - Effect: Allow
+                Action:
+                  - s3:PutObject
+                  - s3:DeleteObject
+                Resource:
+                  - !Sub 'arn:aws:s3:::${LambdaZipsBucket}/${QSS3KeyPrefix}*'
+  CopyZipsFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Description: Copies objects from a source S3 bucket to a destination
+      Handler: index.handler
+      Runtime: python2.7
+      Role: !GetAtt 'CopyZipsRole.Arn'
+      Timeout: 240
+      Code:
+        ZipFile: |
+          import json
+          import logging
+          import threading
+          import boto3
+          import cfnresponse
+
+
+          def copy_objects(source_bucket, dest_bucket, prefix, objects):
+              s3 = boto3.client('s3')
+              for o in objects:
+                  key = prefix + o
+                  copy_source = {
+                      'Bucket': source_bucket,
+                      'Key': key
+                  }
+                  print('copy_source: %s' % copy_source)
+                  print('dest_bucket = %s'%dest_bucket)
+                  print('key = %s' %key)
+                  s3.copy_object(CopySource=copy_source, Bucket=dest_bucket,
+                        Key=key)
+
+
+          def delete_objects(bucket, prefix, objects):
+              s3 = boto3.client('s3')
+              objects = {'Objects': [{'Key': prefix + o} for o in objects]}
+              s3.delete_objects(Bucket=bucket, Delete=objects)
+
+
+          def timeout(event, context):
+              logging.error('Execution is about to time out, sending failure response to CloudFormation')
+              cfnresponse.send(event, context, cfnresponse.FAILED, {}, None)
+
+
+          def handler(event, context):
+              # make sure we send a failure to CloudFormation if the function
+              # is going to timeout
+              timer = threading.Timer((context.get_remaining_time_in_millis()
+                        / 1000.00) - 0.5, timeout, args=[event, context])
+              timer.start()
+
+              print('Received event: %s' % json.dumps(event))
+              status = cfnresponse.SUCCESS
+              try:
+                  source_bucket = event['ResourceProperties']['SourceBucket']
+                  dest_bucket = event['ResourceProperties']['DestBucket']
+                  prefix = event['ResourceProperties']['Prefix']
+                  objects = event['ResourceProperties']['Objects']
+                  if event['RequestType'] == 'Delete':
+                      delete_objects(dest_bucket, prefix, objects)
+                  else:
+                      copy_objects(source_bucket, dest_bucket, prefix, objects)
+              except Exception as e:
+                  logging.error('Exception: %s' % e, exc_info=True)
+                  status = cfnresponse.FAILED
+              finally:
+                  timer.cancel()
+                  cfnresponse.send(event, context, status, {}, None)
+
+  MyFunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+  MyFunction:
+    DependsOn: CopyZips
+    Type: AWS::Lambda::Function
+    Properties:
+      Description: Example
+      Handler: lambda_function.handler
+      Runtime: python2.7
+      Role: !GetAtt 'MyFunctionRole.Arn'
+      Timeout: 300
+      Code:
+        S3Bucket: !Ref 'LambdaZipsBucket'
+        S3Key: !Sub '${QSS3KeyPrefix}functions/packages/CleanupPV/lambda.zip'
+############### need to incorporate this ###############################
+
+Outputs:
+
+  IamRoleLambdaName:
+    Description: 'The name of the IAM role for the Lambda functions'
+    Export: {'Name': !Sub '${AWS::StackName}-IamRoleLambdaName'}
+    Value: !Ref IamRoleLambdaExecution
+
+  IamRoleLambdaArn:
+    Description: 'The ARN of the IAM role for the Lambda functions'
+    Export: {'Name': !Sub '${AWS::StackName}-IamRoleLambdaArn'}
+    Value: !GetAtt IamRoleLambdaExecution.Arn
+
+  LambdaLayerThirdPartyArn:
+    Description: 'The ARN of the third_party Lambda Layer'
+    Export: {'Name': !Sub '${AWS::StackName}-LambdaLayerThirdPartyArn'}
+    Value: !Ref LambdaLayerThirdParty
+
+  LambdaGenerateSignedS3UrlArn:
+    Description: 'The ARN of the lambda_generate_signed_s3_url Lambda function'
+    Export: {'Name': !Sub '${AWS::StackName}-LambdaGenerateSignedS3UrlArn'}
+    Value: !GetAtt LambdaGenerateSignedS3Url.Arn
+
+  LambdaGenerateSignedS3UrlName:
+    Description: 'The name of the lambda_generate_signed_s3_url Lambda function'
+    Export: {'Name': !Sub '${AWS::StackName}-LambdaGenerateSignedS3UrlName'}
+    Value: !Ref LambdaGenerateSignedS3Url

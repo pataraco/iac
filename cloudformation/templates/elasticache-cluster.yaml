@@ -1,0 +1,242 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Creates an Amazon ElasticCache cache cluster (Redis/Memcached) and relavant resources'
+
+
+Parameters:
+
+  AzMode:
+    AllowedValues: ['cross-az', 'single-az']
+    Default: 'single-az'
+    Description: 'Specifies whether the nodes in this Memcached cluster are created in a single Availability Zone or across multiple Availability Zones in the region. If the AzMode and PreferredAZs are not specified, ElastiCache assumes single-az mode. (default: single-az)'
+    Type: String
+
+  CacheNodeType:
+    Default: 'cache.t2.micro'
+    Description: 'The compute and memory capacity of the nodes in the node group (shard). (default: cache.t2.micro)'
+    Type: String
+
+  ClusterName:
+    Default: ''
+    Description: 'A name for the ElastiCache Cluster resource. (default: ${Project}-${Environment}-${Engine}-cluster)'
+    Type: String
+
+  Engine:
+    AllowedValues: ['memcached', 'redis']
+    Default: 'redis'
+    Description: 'The name of the cache engine to be used for this cluster. Valid values: memcached or redis. (default: redis)'
+    Type: String
+
+  EngineVersion:
+    Default: ''
+    Description: 'The version number of the cache engine to be used for this cluster. To view the supported cache engine versions, use the DescribeCacheEngineVersions operation. Important: You can upgrade to a newer engine version, but you cannot downgrade to an earlier engine version. If you want to use an earlier engine version, you must delete the existing cluster or replication group and create it anew with the earlier engine version. (default: redis)'
+    Type: String
+
+  Environment:
+    Description: 'Name of Environment'
+    Type: String
+
+  NotificationTopicArn:
+    Default: ''
+    Description: 'The Amazon Resource Name (ARN) of the Amazon Simple Notification Service (SNS) topic to which notifications are sentThe Amazon Resource Name (ARN) of the Amazon Simple Notification Service (SNS) topic to which notifications are sent.'
+    Type: String
+
+  NumCacheNodes:
+    Default: 0
+    Description: 'The number of cache nodes that the cache cluster should have. (defaults: redis: 1, memcached: 1)'
+    Type: Number
+
+  PreferredMaintenanceWindow:
+    Default: 'sun:06:00-sun:08:00'  # UTC (22:00-00:00 PST)
+    Description: 'Specifies the weekly time range during which maintenance on the cluster is performed. It is specified as a range in the format ddd:hh24:mi-ddd:hh24:mi (24H Clock UTC). The minimum maintenance window is a 60 minute period. (default: sun:06:00-sun:08:00 UTC or 22:00-00:00 PST)'
+    Type: String
+
+  Project:
+    Default: ''
+    Description: 'Name of the project being deployed'
+    Type: String
+
+  Port:
+    Default: 0
+    Description: 'The port number on which each of the cache nodes accepts connections. (defaults: redis: 6379, memcached: 11211)'
+    Type: Number
+
+  SnapshotArn:
+    Default: ''
+    Description: 'An Amazon Resource Name (ARN) that uniquely identifies a Redis RDB snapshot file stored in Amazon S3. The snapshot file is used to populate the node group (shard). The Amazon S3 object name in the ARN cannot contain any commas.  This parameter is only valid for Redis. Example: arn:aws:s3:::my_bucket/snapshot1.rdb'
+    Type: String
+
+  SnapshotName:
+    Default: ''
+    Description: 'The name of a Redis snapshot from which to restore data into the new node group (shard). The snapshot status changes to restoring while the new node group (shard) is being created'
+    Type: String
+
+  SnapshotRetentionLimit:
+    Default: 0
+    Description: 'The number of days for which ElastiCache retains automatic snapshots before deleting them. For example, if you set SnapshotRetentionLimit to 5, a snapshot taken today is retained for 5 days before being deleted. (default: 0 [disabled])'
+    Type: Number
+
+  SnapshotWindow:
+    Default: ''
+    Description: 'The daily time range (in UTC) during which ElastiCache begins taking a daily snapshot of your node group (shard). Example: 05:00-09:00. If you do not specify this parameter, ElastiCache automatically chooses an appropriate time range.'
+    Type: String
+
+  SubnetIds:
+    Description: 'The EC2 subnet IDs for the cache subnet group.'
+    Type: List<AWS::EC2::Subnet::Id>
+
+  SecurityGroupIds:
+    Default: ''
+    Description: 'One or more VPC security groups associated with the cluster.  Use this parameter only when you are creating a cluster in an Amazon Virtual Private Cloud (Amazon VPC).'
+    Type: List<AWS::EC2::SecurityGroup::Id>
+
+  # SSM Parameter Store
+  SsmParamNameClusterName:
+    Default: ''
+    Description: 'The name of the SSM Paramter to save the ElastiCache cluster name. (default: /${Project}/${Environment}/elasticache/${Engine}-cluster-name)'
+    Type: String
+
+  SsmParamNameEndpoint:
+    Default: ''
+    Description: 'The name of the SSM Paramter to save the ElastiCache cluster endpoint address. (default: /${Project}/${Environment}/elasticache/${Engine}-[configuration]-endpoint-address). (Memecached refers to it as a configuration endpoint)'
+    Type: String
+
+  SsmParamNamePort:
+    Default: ''
+    Description: 'The name of the SSM Paramter to save the ElastiCache cluster [configuration] endpoint port. (default: /${Project}/${Environment}/elasticache/${Engine}-[configuration]-endpoint-port). (Memecached refers to it as a configuration endpoint)'
+    Type: String
+
+
+Conditions:
+
+  AutomaticBackupsEnabled: !Not [!Equals [!Ref SnapshotRetentionLimit, 0]]
+  ClusterNameGiven: !Not [!Equals [!Ref ClusterName, '']]
+  EnableSnsNotifications: !Not [!Equals [!Ref NotificationTopicArn, '']]
+  EngineVersionGiven: !Not [!Equals [!Ref EngineVersion, '']]
+  Memcached: !Equals [!Ref Engine, 'memcached']
+  NumCacheNodesGiven: !Not [!Equals [!Ref NumCacheNodes, 0]]
+  PortNumberGiven: !Not [!Equals [!Ref Port, 0]]
+  Redis: !Equals [!Ref Engine, 'redis']
+  SnapshotWindowGiven: !And
+    - Condition: Redis
+    - !Not [!Equals [!Ref SnapshotWindow, '']]
+  UseSnapshotArn: !And
+    - Condition: Redis
+    - !Not [!Equals [!Ref SnapshotArn, '']]
+  UseSnapshot: !And
+    - Condition: Redis
+    - !Not [!Equals [!Ref SnapshotName, '']]
+  SsmParamNameClusterNameGiven: !Not [!Equals [!Ref SsmParamNameClusterName, '']]
+  SsmParamNameEndpointGiven: !Not [!Equals [!Ref SsmParamNameEndpoint, '']]
+  SsmParamNamePortGiven: !Not [!Equals [!Ref SsmParamNamePort, '']]
+
+
+Resources:
+
+  ElastiCacheSubnetGroup:
+    Type: AWS::ElastiCache::SubnetGroup
+    Properties:
+      CacheSubnetGroupName: !If [ClusterNameGiven, !Sub '${ClusterName}-subnet', !Sub '${Project}-${Environment}-${Engine}-subnet']
+      Description: !Sub 'ElastiCache subnet group for ${Project} ${Environment} ${Engine} cluster nodes to be placed in'
+      SubnetIds: !Ref SubnetIds
+
+  ElastiCacheCluster:
+    Type: AWS::ElastiCache::CacheCluster
+    Properties: 
+      # AutoMinorVersionUpgrade: Boolean  # Optional (Jan 2020: parameter disabled)
+      AZMode: !If [Memcached, !Ref AzMode, !Ref 'AWS::NoValue']
+      CacheNodeType: !Ref CacheNodeType
+      CacheSubnetGroupName: !Ref ElastiCacheSubnetGroup
+      ClusterName: !If [ClusterNameGiven, !Ref ClusterName, !Sub '${Project}-${Environment}-${Engine}-cluster']
+      Engine: !Ref Engine
+      EngineVersion: !If [EngineVersionGiven, !Ref EngineVersion, !Ref 'AWS::NoValue']
+      NotificationTopicArn: !If [EnableSnsNotifications, !Ref NotificationTopicArn, !Ref 'AWS::NoValue']
+      NumCacheNodes: !If [NumCacheNodesGiven, !Ref NumCacheNodes, !If [Redis, 1, 1]]
+      Port: !If [PortNumberGiven, !Ref Port, !If [Redis, 6379, 11211]]
+      PreferredMaintenanceWindow: !Ref PreferredMaintenanceWindow
+      SnapshotArns: !If
+        - UseSnapshotArn
+        - [!Ref SnapshotArn]
+        - !Ref 'AWS::NoValue'
+      SnapshotName: !If [UseSnapshot, !Ref SnapshotName, !Ref 'AWS::NoValue']
+      SnapshotRetentionLimit: !If [AutomaticBackupsEnabled, !Ref SnapshotRetentionLimit, !Ref 'AWS::NoValue']
+      SnapshotWindow: !If [SnapshotWindowGiven, !Ref SnapshotWindow, !Ref 'AWS::NoValue']
+      Tags:
+        - Key: Name
+          Value: !If [ClusterNameGiven, !Ref ClusterName, !Sub '${Project}-${Environment}-${Engine}-cluster']
+      VpcSecurityGroupIds: !Ref SecurityGroupIds
+
+  SsmParamClusterName:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Description: !Sub 'ElastiCache (${Engine}) Cluster Name for ${Project} ${Environment}'
+      Name: !If
+        - SsmParamNameClusterNameGiven
+        - !Ref SsmParamNameClusterName
+        - !Sub '/${Project}/${Environment}/elasticache/${Engine}-cluster-name'
+      Type: String
+      Value: !Ref ElastiCacheCluster
+
+  SsmParamEndpointAddr:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Description: !If
+        - Redis
+        - !Sub 'ElastiCache (${Engine}) Cluster endpoint address for ${Project} ${Environment}'
+        - !Sub 'ElastiCache (${Engine}) Cluster (configuration) endpoint address for ${Project} ${Environment}'
+      Name: !If
+        - SsmParamNameEndpointGiven
+        - !Ref SsmParamNameEndpoint
+        - !If
+          - Redis
+          - !Sub '/${Project}/${Environment}/elasticache/${Engine}-endpoint-address'
+          - !Sub '/${Project}/${Environment}/elasticache/${Engine}-configuration-endpoint-address'
+      Type: String
+      Value: !If
+        - Redis
+        - !GetAtt ElastiCacheCluster.RedisEndpoint.Address
+        - !GetAtt ElastiCacheCluster.ConfigurationEndpoint.Address
+
+  SsmParamEndpointPort:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Description: !If
+        - Redis
+        - !Sub 'ElastiCache (${Engine}) Cluster endpoint port for ${Project} ${Environment}'
+        - !Sub 'ElastiCache (${Engine}) Cluster (configuration) endpoint port for ${Project} ${Environment}'
+      Name: !If
+        - SsmParamNamePortGiven
+        - !Ref SsmParamNamePort
+        - !If
+          - Redis
+          - !Sub '/${Project}/${Environment}/elasticache/${Engine}-endpoint-port'
+          - !Sub '/${Project}/${Environment}/elasticache/${Engine}-configuration-endpoint-port'
+      Type: String
+      Value: !If
+        - Redis
+        - !GetAtt ElastiCacheCluster.RedisEndpoint.Port
+        - !GetAtt ElastiCacheCluster.ConfigurationEndpoint.Port
+
+
+Outputs:
+
+  ElastiCacheClusterName:
+    Description: 'Name of the ElastiCache cluster'
+    Export: {'Name': !Sub '${AWS::StackName}-ElastiCacheClusterName'}
+    Value: !Ref ElastiCacheCluster
+
+  ElastiCacheClusterEndpointAddress:
+    Description: 'The endpoint address of the ElastiCache cluster'
+    Export: {'Name': !Sub '${AWS::StackName}-ElastiCacheClusterEndpointAddress'}
+    Value: !If
+      - Redis
+      - !GetAtt ElastiCacheCluster.RedisEndpoint.Address
+      - !GetAtt ElastiCacheCluster.ConfigurationEndpoint.Address
+
+  ElastiCacheClusterEndpointPort:
+    Description: 'The endpoint address of the ElastiCache cluster'
+    Export: {'Name': !Sub '${AWS::StackName}-ElastiCacheClusterEndpointPort'}
+    Value: !If
+      - Redis
+      - !GetAtt ElastiCacheCluster.RedisEndpoint.Port
+      - !GetAtt ElastiCacheCluster.ConfigurationEndpoint.Port

@@ -1,0 +1,411 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Creates an Amazon ElasticCache (Redis) Replication Group (AKA "Cluster" in the AWS Console) and relevant resources'
+
+
+Parameters:
+
+  AtRestEncryptionEnabled:
+    AllowedValues: ['false', 'true']
+    Default: false
+    Description: 'A flag that enables encryption at rest. You cannot modify this value after the replication group (cluster) is created. To enable encryption at rest, you must enable it when creating the cluster. (default: false)'
+    Type: String
+
+  AuthToken:
+    Default: ''
+    Description: 'The password used to access a password protected server. Specify only on replication groups where InTransitEncryptionEnabled is true. Password constraints: Must be only printable ASCII characters. Must be at least 16 characters and no more than 128 characters in length. The only permitted printable special characters are !, &, #, $, ^, <, >, and -. Other printable special characters cannot be used in the AUTH token.  For more information, see AUTH password at http://redis.io/commands/AUTH.'
+    Type: String
+
+  CacheNodeType:
+    Default: 'cache.t3.micro'
+    Description: 'The compute and memory capacity of the nodes in the node group (shard). (default: cache.t3.micro)'
+    Type: String
+
+  CacheParameterGroupName:
+    Default: ''
+    Description: 'The name of the parameter group to associate with this replication group. If this argument is omitted, the default cache parameter group for the specified engine is used. If you are running Redis version 3.2.4 or later, only one node group (shard), and want to use a default parameter group, it is recommended to specify the parameter group by name.  To create a Redis (cluster mode disabled) replication group, e.g. for EngineVersion=5.0.5, use "default.redis5.0" and for a Redis (cluster mode enabled) replication group, use "default.redis5.0.cluster.on". (default: nil [use auto associated default group])'
+    Type: String
+
+  ClusterName:
+    Default: 'NOTGIVEN'
+    Description: 'A name for the ElastiCache Cluster resource. AKA: Replication Group ID. This parameter is stored as a lowercase string. Name must contain from 1 to 40 alphanumeric characters or hyphens. The first character must be a letter. A name cannot end with a hyphen or contain two consecutive hyphens. (default: ${Project}-${Environment}-${Engine}-cluster)'
+    MinLength: 1
+    MaxLength: 40
+    Type: String
+
+  Engine:
+    AllowedValues: ['memcached', 'redis']
+    Default: 'redis'
+    Description: 'The name of the cache engine to be used for this cluster. Valid values: memcached or redis. (default: redis)'
+    Type: String
+
+  EngineVersion:
+    Default: ''
+    Description: 'The version number of the cache engine to be used for this cluster. To view the supported cache engine versions, use the DescribeCacheEngineVersions operation. Important: You can upgrade to a newer engine version, but you cannot downgrade to an earlier engine version. If you want to use an earlier engine version, you must delete the existing cluster or replication group and create it anew with the earlier engine version. (default: redis)'
+    Type: String
+
+  Environment:
+    Description: 'Name of Environment'
+    Type: String
+
+  InTransitEncryptionEnabled:
+    AllowedValues: ['false', 'true']
+    Default: false
+    Description: 'A flag that enables in-transit encryption. You cannot modify this value after the replication group (cluster) is created. To enable in-transit encryption, you must set enable it when creating the cluster. This is only valid if the Engine parameter is redis, the EngineVersion parameter is 3.2.6 or 4.x or 5.x, and the cluster is being created in an Amazon VPC. If you enable in-transit encryption, you must also specify a value for CacheSubnetGroup. (default: false)'
+    Type: String
+
+  KmsKeyId:
+    Default: ''
+    Description: 'The ID of the KMS key used to encrypt the disk on the cluster.'
+    Type: String
+
+  MultiAzWithAutomaticFailover:
+    AllowedValues: ['false', 'true']
+    Default: false
+    Description: 'Specifies whether a read-only replica is automatically promoted to read/write primary if the existing primary fails. If true, Multi-AZ is enabled for this replication group. If false, Multi-AZ is disabled for this replication group. AutomaticFailoverEnabled must be enabled for Redis (cluster mode enabled) replication groups. (default: false)'
+    Type: String
+
+  NotificationTopicArn:
+    Default: ''
+    Description: 'The Amazon Resource Name (ARN) of the Amazon Simple Notification Service (SNS) topic to which notifications are sentThe Amazon Resource Name (ARN) of the Amazon Simple Notification Service (SNS) topic to which notifications are sent.'
+    Type: String
+
+  NumberOfShards:
+    Default: 1
+    Description: 'An optional parameter that specifies the number of shards (node groups) for this Redis (cluster mode enabled) replication group. For Redis (cluster mode disabled) either omit this parameter or set it to 1. If you set the UpdatePolicy UseOnlineResharding to true, you can update this value without interruption otherwise, updating this value results in replacement. The combination of shards and replicas determines the number of nodes. (default: 1 [cluster mode disabled])'
+    Type: Number
+
+  Port:
+    Default: 0
+    Description: 'The port number on which each of the cache nodes accepts connections. (defaults: redis: 6379, memcached: 11211)'
+    Type: Number
+
+  PreferredMaintenanceWindow:
+    Default: 'sun:06:00-sun:08:00'  # UTC (22:00-00:00 PST)
+    Description: 'Specifies the weekly time range during which maintenance on the cluster is performed. It is specified as a range in the format ddd:hh24:mi-ddd:hh24:mi (24H Clock UTC). The minimum maintenance window is a 60 minute period. (default: sun:06:00-sun:08:00 UTC or 22:00-00:00 PST)'
+    Type: String
+
+  Project:
+    Default: ''
+    Description: 'Name of the project being deployed'
+    Type: String
+
+  ReplicasPerShard:
+    Default: 0
+    Description: 'An optional parameter that specifies the number of replica nodes in each shard (node group). Valid values are 0 to 5. The combination of shards and replicas determines the number of nodes. (default: 0)'
+    MinValue: 0
+    MaxValue: 5
+    Type: Number
+
+  SecurityGroupIds:
+    Default: ''
+    Description: 'One or more VPC security groups associated with the cluster.  Use this parameter only when you are creating a cluster in an Amazon Virtual Private Cloud (Amazon VPC).'
+    Type: List<AWS::EC2::SecurityGroup::Id>
+
+  SnapshotArn:
+    Default: ''
+    Description: 'An Amazon Resource Name (ARN) that uniquely identifies a Redis RDB snapshot file stored in Amazon S3. The snapshot file is used to populate the node group (shard). The Amazon S3 object name in the ARN cannot contain any commas.  This parameter is only valid for Redis. Example: arn:aws:s3:::my_bucket/snapshot1.rdb'
+    Type: String
+
+  SnapshotName:
+    Default: ''
+    Description: 'The name of a Redis snapshot from which to restore data into the new node group (shard). The snapshot status changes to restoring while the new node group (shard) is being created'
+    Type: String
+
+  SnapshotRetentionLimit:
+    Default: 0
+    Description: 'The number of days for which ElastiCache retains automatic snapshots before deleting them. For example, if you set SnapshotRetentionLimit to 5, a snapshot taken today is retained for 5 days before being deleted. (default: 0 [disabled])'
+    Type: Number
+
+  SnapshotWindow:
+    Default: ''
+    Description: 'The daily time range (in UTC) during which ElastiCache begins taking a daily snapshot of your node group (shard). Example: 05:00-09:00. If you do not specify this parameter, ElastiCache automatically chooses an appropriate time range.'
+    Type: String
+
+  SubnetIds:
+    Description: 'The EC2 subnet IDs for the cache subnet group.'
+    Type: List<AWS::EC2::Subnet::Id>
+
+  # SSM Parameter Store
+  SsmParamNameClusterName:
+    Default: ''
+    Description: 'The name of the SSM Paramter to save the ElastiCache cluster name. (default: /${Project}/${Environment}/elasticache/${Engine}-cluster-name)'
+    Type: String
+
+  SsmParamNameConfigEndpointAddress:
+    Default: ''
+    Description: 'The name of the SSM Paramter to save the ElastiCache cluster configuration endpoint address. (default: /${Project}/${Environment}/elasticache/${Engine}-configuration-endpoint-address)'
+    Type: String
+
+  SsmParamNameConfigEndpointPort:
+    Default: ''
+    Description: 'The name of the SSM Paramter to save the ElastiCache cluster configuration endpoint port. (default: /${Project}/${Environment}/elasticache/${Engine}-configuration-endpoint-port)'
+    Type: String
+
+  SsmParamNameHost:
+    Default: ''
+    Description: 'The name of the SSM Paramter to save the ElastiCache cluster host. (default: /${Project}/${Environment}/elasticache/${Engine}-primary-endpoint-address)'
+    Type: String
+
+  SsmParamNamePort:
+    Default: ''
+    Description: 'The name of the SSM Paramter to save the ElastiCache cluster port. (default: /${Project}/${Environment}/elasticache/${Engine}-primary-endpoint-port)'
+    Type: String
+
+  SsmParamNamePrimaryEndpointAddress:
+    Default: ''
+    Description: 'The name of the SSM Paramter to save the ElastiCache cluster primary endpoint address. (default: /${Project}/${Environment}/elasticache/${Engine}-primary-endpoint-address)'
+    Type: String
+
+  SsmParamNamePrimaryEndpointPort:
+    Default: ''
+    Description: 'The name of the SSM Paramter to save the ElastiCache cluster primary endpoint port. (default: /${Project}/${Environment}/elasticache/${Engine}-primary-endpoint-port)'
+    Type: String
+
+  SsmParamNameReaderEndpointAddresses:
+    Default: ''
+    Description: 'The name of the SSM Paramter to save the ElastiCache cluster reader endpoint addresses. (default: /${Project}/${Environment}/elasticache/${Engine}-reader-endpoint-addresses)'
+    Type: String
+
+  SsmParamNameReaderEndpointPorts:
+    Default: ''
+    Description: 'The name of the SSM Paramter to save the ElastiCache cluster reader endpoint ports. (default: /${Project}/${Environment}/elasticache/${Engine}-reader-endpoint-ports)'
+    Type: String
+
+
+Conditions:
+
+  AuthTokenGiven: !Not [!Equals [!Ref AuthToken, '']]
+  AutomaticBackupsEnabled: !Not [!Equals [!Ref SnapshotRetentionLimit, 0]]
+  CacheParameterGroupNameGiven: !Not [!Equals [!Ref CacheParameterGroupName, '']]
+  ClusterModeEnabled: !Not [!Equals [!Ref NumberOfShards, 1]]
+  ReplicationEnabled: !Not [!Equals [!Ref ReplicasPerShard, 0]]
+  ClusterNameGiven: !Not [!Equals [!Ref ClusterName, 'NOTGIVEN']]
+  EngineVersionGiven: !Not [!Equals [!Ref EngineVersion, '']]
+  EnableSnsNotifications: !Not [!Equals [!Ref NotificationTopicArn, '']]
+  KmsKeyIdGiven: !Not [!Equals [!Ref KmsKeyId, 'NOTGIVEN']]
+  Memcached: !Equals [!Ref Engine, 'memcached']
+  PortNumberGiven: !Not [!Equals [!Ref Port, 0]]
+  Redis: !Equals [!Ref Engine, 'redis']
+  SnapshotWindowGiven: !And
+    - Condition: Redis
+    - !Not [!Equals [!Ref SnapshotWindow, '']]
+  SsmParamNameClusterNameGiven: !Not [!Equals [!Ref SsmParamNameClusterName, '']]
+  SsmParamNameConfigEndpointAddrGiven: !Not [!Equals [!Ref SsmParamNameConfigEndpointAddress, '']]
+  SsmParamNameConfigEndpointPortGiven: !Not [!Equals [!Ref SsmParamNameConfigEndpointPort, '']]
+  SsmParamNameHostGiven: !Not [!Equals [!Ref SsmParamNameHost, '']]
+  SsmParamNamePortGiven: !Not [!Equals [!Ref SsmParamNamePort, '']]
+  SsmParamNamePrimaryEndpointAddrGiven: !Not [!Equals [!Ref SsmParamNamePrimaryEndpointAddress, '']]
+  SsmParamNamePrimaryEndpointPortGiven: !Not [!Equals [!Ref SsmParamNamePrimaryEndpointPort, '']]
+  SsmParamNameReaderEndpointAddrsGiven: !Not [!Equals [!Ref SsmParamNameReaderEndpointAddresses, '']]
+  SsmParamNameReaderEndpointPortsGiven: !Not [!Equals [!Ref SsmParamNameReaderEndpointPorts, '']]
+  UseSnapshotArn: !And
+    - Condition: Redis
+    - !Not [!Equals [!Ref SnapshotArn, '']]
+  UseSnapshot: !And
+    - Condition: Redis
+    - !Not [!Equals [!Ref SnapshotName, '']]
+
+
+Resources:
+
+  ElastiCacheSubnetGroup:
+    Type: AWS::ElastiCache::SubnetGroup
+    Properties:
+      CacheSubnetGroupName: !If [ClusterNameGiven, !Sub '${ClusterName}-subnet', !Sub '${Project}-${Environment}-${Engine}-subnet']
+      Description: !Sub 'ElastiCache subnet group for ${Project} ${Environment} ${Engine} cluster nodes to be placed in'
+      SubnetIds: !Ref SubnetIds
+
+  ElastiCacheReplicationGroup:  # AKA "Cluster" in the AWS Console
+    Type: AWS::ElastiCache::ReplicationGroup
+    # To modify a replication group's shards by adding or removing shards,
+    # rather than replacing the entire AWS::ElastiCache::ReplicationGroup
+    # resource, set UseOnlineResharding update policy to 'true'
+    # more info: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-attribute-updatepolicy.html#cfn-attributes-updatepolicy-useonlineresharding
+    UpdatePolicy:
+      UseOnlineResharding: true
+    Properties: 
+      AtRestEncryptionEnabled: !Ref AtRestEncryptionEnabled
+      AuthToken: !If [AuthTokenGiven, !Ref AuthToken, !Ref 'AWS::NoValue']
+      AutomaticFailoverEnabled: !Ref MultiAzWithAutomaticFailover
+      # AutoMinorVersionUpgrade: Boolean  # Jan 2020: parameter is disabled
+      CacheNodeType: !Ref CacheNodeType
+      CacheParameterGroupName: !If [CacheParameterGroupNameGiven, !Ref CacheParameterGroupName, !Ref 'AWS::NoValue']
+      CacheSubnetGroupName: !Ref ElastiCacheSubnetGroup
+      Engine: !Ref Engine
+      EngineVersion: !If [EngineVersionGiven, !Ref EngineVersion, !Ref 'AWS::NoValue']
+      KmsKeyId: !If [KmsKeyIdGiven, !Ref KmsKeyId, !Ref 'AWS::NoValue']
+      NotificationTopicArn: !If [EnableSnsNotifications, !Ref NotificationTopicArn, !Ref 'AWS::NoValue']
+      NumNodeGroups: !Ref NumberOfShards
+      Port: !If [PortNumberGiven, !Ref Port, !If [Redis, 6379, 11211]]
+      PreferredMaintenanceWindow: !Ref PreferredMaintenanceWindow
+      ReplicasPerNodeGroup: !Ref ReplicasPerShard
+      ReplicationGroupDescription: !Sub 'ElastiCache ${Engine} cluster for ${Project} ${Environment}'
+      ReplicationGroupId: !If [ClusterNameGiven, !Ref ClusterName, !Sub '${Project}-${Environment}-${Engine}-cluster']
+      SecurityGroupIds: !Ref SecurityGroupIds
+      SnapshotArns: !If
+        - UseSnapshotArn
+        - [!Ref SnapshotArn]
+        - !Ref 'AWS::NoValue'
+      SnapshotName: !If [UseSnapshot, !Ref SnapshotName, !Ref 'AWS::NoValue']
+      SnapshotRetentionLimit: !If [AutomaticBackupsEnabled, !Ref SnapshotRetentionLimit, !Ref 'AWS::NoValue']
+      SnapshotWindow: !If [SnapshotWindowGiven, !Ref SnapshotWindow, !Ref 'AWS::NoValue']
+      Tags:
+        - Key: Name
+          Value: !If [ClusterNameGiven, !Ref ClusterName, !Sub '${Project}-${Environment}-${Engine}-cluster']
+      TransitEncryptionEnabled: !Ref InTransitEncryptionEnabled
+
+  SsmParamClusterName:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Description: !Sub 'ElastiCache (${Engine}) Cluster Name for ${Project} ${Environment}'
+      Name: !If
+        - SsmParamNameClusterNameGiven
+        - !Ref SsmParamNameClusterName
+        - !Sub '/${Project}/${Environment}/elasticache/${Engine}-cluster-name'
+      Type: String
+      Value: !Ref ElastiCacheReplicationGroup
+
+  SsmParamConfigEndpointAddr:
+    Type: AWS::SSM::Parameter
+    Condition: ClusterModeEnabled
+    Properties:
+      Description: !Sub 'ElastiCache (${Engine}) Cluster configuration endpoint address for ${Project} ${Environment}'
+      Name: !If
+        - SsmParamNameConfigEndpointAddrGiven
+        - !Ref SsmParamNameConfigEndpointAddress
+        - !Sub '/${Project}/${Environment}/elasticache/${Engine}-configuration-endpoint-address'
+      Type: String
+      Value: !GetAtt ElastiCacheReplicationGroup.ConfigurationEndPoint.Address
+
+  SsmParamConfigEndpointPort:
+    Type: AWS::SSM::Parameter
+    Condition: ClusterModeEnabled
+    Properties:
+      Description: !Sub 'ElastiCache (${Engine}) Cluster configuration endpoint port for ${Project} ${Environment}'
+      Name: !If
+        - SsmParamNameConfigEndpointPortGiven
+        - !Ref SsmParamNameConfigEndpointPort
+        - !Sub '/${Project}/${Environment}/elasticache/${Engine}-configuration-endpoint-port'
+      Type: String
+      Value: !GetAtt ElastiCacheReplicationGroup.ConfigurationEndPoint.Port
+
+  SsmParamHost:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Description: !Sub 'ElastiCache (${Engine}) Cluster host endpoint address for ${Project} ${Environment}'
+      Name: !If
+        - SsmParamNameHostGiven
+        - !Ref SsmParamNameHost
+        - !Sub '/${Project}/${Environment}/elasticache/${Engine}-host'
+      Type: String
+      Value: !GetAtt ElastiCacheReplicationGroup.PrimaryEndPoint.Address
+
+  SsmParamPort:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Description: !Sub 'ElastiCache (${Engine}) Cluster host endpoint port for ${Project} ${Environment}'
+      Name: !If
+        - SsmParamNamePortGiven
+        - !Ref SsmParamNamePort
+        - !Sub '/${Project}/${Environment}/elasticache/${Engine}-port'
+      Type: String
+      Value: !GetAtt ElastiCacheReplicationGroup.PrimaryEndPoint.Port
+
+  SsmParamPrimaryEndpointAddr:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Description: !Sub 'ElastiCache (${Engine}) Cluster primary endpoint address for ${Project} ${Environment}'
+      Name: !If
+        - SsmParamNamePrimaryEndpointAddrGiven
+        - !Ref SsmParamNamePrimaryEndpointAddress
+        - !Sub '/${Project}/${Environment}/elasticache/${Engine}-primary-endpoint-address'
+      Type: String
+      Value: !GetAtt ElastiCacheReplicationGroup.PrimaryEndPoint.Address
+
+  SsmParamPrimaryEndpointPort:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Description: !Sub 'ElastiCache (${Engine}) Cluster primary endpoint port for ${Project} ${Environment}'
+      Name: !If
+        - SsmParamNamePrimaryEndpointPortGiven
+        - !Ref SsmParamNamePrimaryEndpointPort
+        - !Sub '/${Project}/${Environment}/elasticache/${Engine}-primary-endpoint-port'
+      Type: String
+      Value: !GetAtt ElastiCacheReplicationGroup.PrimaryEndPoint.Port
+
+  SsmParamReaderEndpointAddrs:
+    Type: AWS::SSM::Parameter
+    Condition: ReplicationEnabled
+    Properties:
+      Description: !Sub 'ElastiCache (${Engine}) Cluster reader endpoint addresses for ${Project} ${Environment}'
+      Name: !If
+        - SsmParamNameReaderEndpointAddrsGiven
+        - !Ref SsmParamNameReaderEndpointAddresses
+        - !Sub '/${Project}/${Environment}/elasticache/${Engine}-reader-endpoint-addresses'
+      Type: String
+      Value: !GetAtt ElastiCacheReplicationGroup.ReadEndPoint.Addresses
+
+  SsmParamReaderEndpointPorts:
+    Type: AWS::SSM::Parameter
+    Condition: ReplicationEnabled
+    Properties:
+      Description: !Sub 'ElastiCache (${Engine}) Cluster reader endpoint ports for ${Project} ${Environment}'
+      Name: !If
+        - SsmParamNameReaderEndpointPortsGiven
+        - !Ref SsmParamNameReaderEndpointPorts
+        - !Sub '/${Project}/${Environment}/elasticache/${Engine}-reader-endpoint-ports'
+      Type: String
+      Value: !GetAtt ElastiCacheReplicationGroup.ReadEndPoint.Ports
+
+
+Outputs:
+
+  ElastiCacheClusterName:
+    Description: 'Name of the ElastiCache cluster'
+    Export: {'Name': !Sub '${AWS::StackName}-ElastiCacheClusterName'}
+    Value: !Ref ElastiCacheReplicationGroup
+
+  ElastiCacheClusterConfigEndpointAddress:
+    Condition: ClusterModeEnabled
+    Description: 'The configuration endpoint address of the ElastiCache cluster'
+    Export: {'Name': !Sub '${AWS::StackName}-ElastiCacheClusterConfigEndpointAddress'}
+    Value: !GetAtt ElastiCacheReplicationGroup.ConfigurationEndPoint.Address
+
+  ElastiCacheClusterConfigEndpointPort:
+    Condition: ClusterModeEnabled
+    Description: 'The configuration endpoint port of the ElastiCache cluster'
+    Export: {'Name': !Sub '${AWS::StackName}-ElastiCacheClusterConfigEndpointPort'}
+    Value: !GetAtt ElastiCacheReplicationGroup.ConfigurationEndPoint.Port
+
+  ElastiCacheClusterHost:
+    Description: 'The host endpoint address of the ElastiCache cluster'
+    Export: {'Name': !Sub '${AWS::StackName}-ElastiCacheClusterHost'}
+    Value: !GetAtt ElastiCacheReplicationGroup.PrimaryEndPoint.Address
+
+  ElastiCacheClusterPort:
+    Description: 'The host endpoint port of the ElastiCache cluster'
+    Export: {'Name': !Sub '${AWS::StackName}-ElastiCacheClusterPort'}
+    Value: !GetAtt ElastiCacheReplicationGroup.PrimaryEndPoint.Port
+
+  ElastiCacheClusterPrimaryEndpointAddress:
+    Description: 'The primary endpoint address of the ElastiCache cluster'
+    Export: {'Name': !Sub '${AWS::StackName}-ElastiCacheClusterPrimaryEndpointAddress'}
+    Value: !GetAtt ElastiCacheReplicationGroup.PrimaryEndPoint.Address
+
+  ElastiCacheClusterPrimaryEndpointPort:
+    Description: 'The primary endpoint port of the ElastiCache cluster'
+    Export: {'Name': !Sub '${AWS::StackName}-ElastiCacheClusterPrimaryEndpointPort'}
+    Value: !GetAtt ElastiCacheReplicationGroup.PrimaryEndPoint.Port
+
+  ElastiCacheClusterReaderEndpointAddresses:
+    Condition: ReplicationEnabled
+    Description: 'The list of reader endpoint addresses of the ElastiCache cluster'
+    Export: {'Name': !Sub '${AWS::StackName}-ElastiCacheClusterReaderEndpointAddresses'}
+    Value: !GetAtt ElastiCacheReplicationGroup.ReadEndPoint.Addresses
+
+  ElastiCacheClusterReaderEndpointPorts:
+    Condition: ReplicationEnabled
+    Description: 'The list of reader endpoint ports of the ElastiCache cluster'
+    Export: {'Name': !Sub '${AWS::StackName}-ElastiCacheClusterReaderEndpointPorts'}
+    Value: !GetAtt ElastiCacheReplicationGroup.ReadEndPoint.Ports

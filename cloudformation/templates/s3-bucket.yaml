@@ -22,6 +22,26 @@ Parameters:
     Description: 'Name of Bucket'
     Type: String
 
+  BucketPolicyStatementActions:
+    Default: ''
+    Description: 'A comma separated list of Actions for the statement of the bucket policy to be attached to the bucket'
+    Type: CommaDelimitedList
+
+  BucketPolicyStatementEffect:
+    Default: ''
+    Description: 'The Effect for the statement of the bucket policy to be attached to the bucket'
+    Type: String
+
+  BucketPolicyStatementPrincipal:
+    Default: ''
+    Description: 'The Principal for the statement of the bucket policy to be attached to the bucket'
+    Type: String
+
+  BucketPolicyStatementSid:
+    Default: ''
+    Description: 'The Sid for the statement of the bucket policy to be attached to the bucket'
+    Type: String
+
   EncryptionEnabled:
     AllowedValues: ['true', 'false']
     Default: 'false'
@@ -209,6 +229,11 @@ Conditions:
 
   AbortIncompleteMultipartUploads: !Not [!Equals [!Ref LifecycleAbortIncompleteMultipartUploads, 0]]
   AccessLoggingEnabled: !Equals [!Ref AccessLoggingEnabled, 'true']
+  AttachBucketPolicy: !And
+    - !Not [!Equals [!Select ["0", !Ref BucketPolicyStatementActions], '']]
+    - !Not [!Equals [!Ref BucketPolicyStatementEffect, '']]
+    - !Not [!Equals [!Ref BucketPolicyStatementPrincipal, '']]
+    - !Not [!Equals [!Ref BucketPolicyStatementSid, '']]
   BucketNameGiven: !Not [!Equals [!Ref BucketName, '']]
   CorsEnabled: !Equals [!Ref CorsEnabled, 'true']
   EncryptionEnabled: !Equals [!Ref EncryptionEnabled, 'true']
@@ -235,6 +260,20 @@ Conditions:
 
 Resources:
 
+  S3BucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Condition: AttachBucketPolicy
+    Properties:
+      Bucket: !Ref S3Bucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: !Ref BucketPolicyStatementSid
+            Action: !Ref BucketPolicyStatementActions
+            Effect: !Ref BucketPolicyStatementEffect
+            Principal: !Ref BucketPolicyStatementPrincipal
+            Resource: !Sub '${S3Bucket.Arn}/*'
+
   # uncomment/modify to attach a bucket policy
   # RequireChefDataS3BucketEncryption:
   #   Properties:
@@ -246,20 +285,14 @@ Resources:
   #             StringNotEquals: {'s3:x-amz-server-side-encryption': AES256}
   #           Effect: Deny
   #           Principal: '*'
-  #           Resource: !Join
-  #             - ''
-  #             - - !GetAtt S3Bucket.Arn
-  #               - '/*'
+  #           Resource: !Sub '${S3Bucket.Arn}/*'
   #           Sid: DenyIncorrectEncryptionHeader
   #         - Action: ['s3:PutObject']
   #           Condition:
   #             'Null': {'s3:x-amz-server-side-encryption': 'true'}
   #           Effect: Deny
   #           Principal: '*'
-  #           Resource: !Join
-  #             - ''
-  #             - - !GetAtt S3Bucket.Arn
-  #               - '/*'
+  #           Resource: !Sub '${S3Bucket.Arn}/*'
   #           Sid: DenyUnEncryptedObjectUploads
   #       Version: '2012-10-17'
   #   Type: AWS::S3::BucketPolicy

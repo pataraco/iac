@@ -224,7 +224,7 @@ Resources:
         - {AttributeDataType: String, Mutable: true, Name: state}
         - {AttributeDataType: String, Mutable: true, Name: zip}
         - {AttributeDataType: String, Mutable: true, Name: driver_license_exp}
-        - {AttributeDataType: String, Mutable: true, Name: driver_license}
+        - {AttributeDataType: String, Mutable: true, Name: driver_license_num}
         - {AttributeDataType: String, Mutable: true, Name: stripe_customer_id}
         - {AttributeDataType: String, Mutable: true, Name: allow_notifications}
         - {AttributeDataType: String, Mutable: true, Name: mailing_address1}
@@ -234,9 +234,9 @@ Resources:
         - {AttributeDataType: String, Mutable: true, Name: mailing_zip}
         - {AttributeDataType: Number, Mutable: true, Name: use_primary_address, NumberAttributeConstraints: {MinValue: 0, MaxValue: 1}}
         - {AttributeDataType: Number, Mutable: true, Name: is_admin, NumberAttributeConstraints: {MinValue: 0, MaxValue: 1}}
-        - {AttributeDataType: Number, Mutable: true, Name: plaid_access_token, NumberAttributeConstraints: {MinValue: 1, MaxValue: 256}}
-        - {AttributeDataType: Number, Mutable: true, Name: plaid_item_id, NumberAttributeConstraints: {MinValue: 1, MaxValue: 256}}
-        - {AttributeDataType: Number, Mutable: true, Name: platform, NumberAttributeConstraints: {MinValue: 1, MaxValue: 256}}
+        - {AttributeDataType: Number, Mutable: true, Name: company_id, NumberAttributeConstraints: {MinValue: 0, MaxValue: 2147483647}}
+        - {AttributeDataType: String, Mutable: true, Name: access_token, StringAttributeConstraints: {MinLength: 1, MaxLength: 256}}
+        - {AttributeDataType: String, Mutable: true, Name: platform, StringAttributeConstraints: {MinLength: 1, MaxLength: 256}}
       SmsAuthenticationMessage: !Ref MfaAuthMessage
       SmsConfiguration:
         ExternalId: !Sub '${Project}-${Environment}-cognito-sms'

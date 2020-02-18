@@ -1,36 +1,9 @@
 ---
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'Creates an AWS CodeBuild Project from a GitHub source'
+Description: 'Creates an AWS CodePipeline Pipeline from a GitHub source and triggered by pushes to the version'
 
 
 Parameters:
-
-  ArtifactsBucket:
-    Default: ''
-    Description: 'If ArtifactsType is set to S3, this is the name of the output bucket'
-    Type: String
-
-  ArtifactsName:
-    Default: ''
-    Description: 'Along with ArtifactsPath and ArtifactsUseBuildId, the pattern that AWS CodeBuild uses to name and store the output artifact'
-    Type: String
-
-  ArtifactsPath:
-    Default: ''
-    Description: 'Along with ArtifactsName and ArtifactsUseBuildId, the pattern that AWS CodeBuild uses to name and store the output artifact'
-    Type: String
-
-  ArtifactsType:
-    AllowedValues: ['CODEPIPELINE', 'NO_ARTIFACTS', 'S3']
-    Default: 'NO_ARTIFACTS'
-    Description: 'The type of build output artifact (default: NO_ARTIFACTS)'
-    Type: String
-
-  ArtifactsUseBuildId:
-    AllowedValues: ['true', 'false']
-    Default: 'true'
-    Description: 'Along with ArtifactsName and ArtifactsPath, the pattern that AWS CodeBuild uses to name and store the output artifact'
-    Type: String
 
   BadgeEnabled:
     AllowedValues: ['true', 'false']
@@ -87,12 +60,6 @@ Parameters:
     MaxLength: 254
     Type: String
 
-  OverrideArtifactName:
-    AllowedValues: ['true', 'false']
-    Default: 'true'
-    Description: 'If set to true a name specified in the buildspec file overrides the artifact name. The name specified in a buildspec file is calculated at build time and uses the Shell command language. For example, you can append a date and time to your artifact name so that it is always unique (default: true)'
-    Type: String
-
   Project:
     Default: ''
     Description: 'Name of the project being deployed'
@@ -117,23 +84,12 @@ Parameters:
     MaxValue: 480
     Type: Number
 
-  ZipArtifacts:
-    AllowedValues: ['true', 'false']
-    Default: 'true'
-    Description: 'If ArtifactsType is set to S3, valid values include: false - AWS CodeBuild creates in the output bucket a folder that contains the build output.  true: AWS CodeBuild creates in the output bucket a ZIP file that contains the build output (default: true)'
-    Type: String
-
 
 Conditions:
 
-  ArtifactsNameGiven: !Not [!Equals [!Ref ArtifactsName, '']]
-  ArtifactsPathGiven: !Not [!Equals [!Ref ArtifactsPath, '']]
-  ArtifactsUseBuildId: !Equals [!Ref ArtifactsUseBuildId, 'true']
-  BuildSpecGiven: !Not [!Equals [!Ref BuildSpec, '']]
-  GenerateArtifacts: !Not [!Equals [!Ref ArtifactsBucket, '']]
   ProjectNameGiven: !Not [!Equals [!Ref Name, 'not-given']]
+  BuildSpecGiven: !Not [!Equals [!Ref BuildSpec, '']]
   SourceVersionGiven: !Not [!Equals [!Ref SourceVersion, '']]
-  ZipArtifacts: !Equals [!Ref ZipArtifacts, 'true']
 
 
 Resources:
@@ -154,17 +110,28 @@ Resources:
         - !Sub 'codebuild-${Project}-${Environment}-service-role'
     Type: AWS::IAM::Role
 
-  CodeBuildProject:
-    Type: AWS::CodeBuild::Project
+  CodePipelinePipeline:
+    Type: AWS::CodePipeline::Pipeline
     Properties: 
+    #############################
+    Properties: 
+      ArtifactStore: 
+      # todo: create conditional to create a bucket if not specified
+        Location: !Ref S3BucketCodePipelineArtifacts
+        Type: S3
+      DisableInboundStageTransitions: 
+        - StageTransition
+      Name: String
+      RestartExecutionOnUpdate: Boolean
+      RoleArn: String
+      Stages: 
+        - StageDeclaration
+      Tags: 
+        - Tag
+
+    #############################
       Artifacts: 
-        Location: !If [GenerateArtifacts, !Ref ArtifactsBucket, !Ref 'AWS::NoValue']
-        Name: !If [ArtifactsNameGiven, !Ref ArtifactsName, !Ref 'AWS::NoValue']
-        NamespaceType: !If [ArtifactsUseBuildId, BUILD_ID, !Ref 'AWS::NoValue']
-        OverrideArtifactName: !Ref OverrideArtifactName
-        Packaging: !If [ZipArtifacts, ZIP, !Ref 'AWS::NoValue']
-        Path: !If [ArtifactsPathGiven, !Ref ArtifactsPath, !Ref 'AWS::NoValue']
-        Type: !Ref ArtifactsType
+        Type: no_artifacts
       BadgeEnabled: !Ref BadgeEnabled
       Description: !Ref Description
       Environment: 
@@ -198,17 +165,16 @@ Resources:
         - {Key: Environment, Value: !Ref Environment}
         - {Key: Provisioner, Value: CloudFormation}
       TimeoutInMinutes: !Ref TimeoutInMinutes
-      # the CodeBuild project should be triggered by CodePipeline (saving for reference in case desired)
-      # Triggers:
-      #   Webhook: true
-      #   FilterGroups:
-      #     - - Type: EVENT
-      #         Pattern: PUSH
-      #       - Type: HEAD_REF
-      #         Pattern: ^refs/heads/.*
-      #       - Type: FILE_PATH
-      #         Pattern: READ_ME
-      #         ExcludeMatchedPattern: true
+      Triggers:
+        Webhook: true
+        FilterGroups:
+          - - Type: EVENT
+              Pattern: PUSH
+            - Type: HEAD_REF
+              Pattern: ^refs/heads/.*
+            - Type: FILE_PATH
+              Pattern: READ_ME
+              ExcludeMatchedPattern: true
 
 
 Outputs:
@@ -216,9 +182,9 @@ Outputs:
   CodeBuildProjectName:
     Description: 'The name of the CodeBuild Project'
     Export: {'Name': !Sub '${AWS::StackName}-CodeBuildProjectName'}
-    Value: !Ref CodeBuildProject
+    Value: !Ref CodePipelinePipeline
 
   CodeBuildProjectArn:
     Description: 'The ARN of the CodeBuild Project'
     Export: {'Name': !Sub '${AWS::StackName}-CodeBuildProjectArn'}
-    Value: !GetAtt CodeBuildProject.Arn
+    Value: !GetAtt CodePipelinePipeline.Arn

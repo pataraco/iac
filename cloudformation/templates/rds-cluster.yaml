@@ -152,16 +152,6 @@ Parameters:
     Description: 'The identifier for the DB snapshot or DB cluster snapshot to restore from.  You can use either the name or the Amazon Resource Name (ARN) to specify a DB cluster snapshot. However, you can use only the ARN to specify a DB snapshot.  Constraints: Must match the identifier of an existing Snapshot.'
     Type: String
 
-  SsmParamName:
-    Default: ''
-    Description: 'The name of the SSM Paramter to save the S3 Bucket Name. (default: /${Project}/${Environment}/s3/bucket-name)'
-    Type: String
-
-  SsmParamDesc:
-    Default: ''
-    Description: 'The description of the SSM Paramter to use for the S3 Bucket Name. (default: S3 Bucket Name for ${Project} ${Environment)'
-    Type: String
-
   StorageEncrypted:
     AllowedValues: ['true', 'false']
     ConstraintDescription: 'Enter true or false'

@@ -1,0 +1,54 @@
+# CodeBuild project Buildspec to deploy serverless resources via Serverless Framework
+#
+# required environment variables
+#
+#  ARTIFACTS_LOC             = S3 bucket name/path for the artifacts upload
+#  ARTIFACT_NAME             = name of the artifact to create
+#  ENVIRONMENT               = name of the environment
+#  LATEST_ARTIFACT_SSM_PARAM = SSM param name containing the latest build info
+
+version: 0.2
+
+phases:
+  install:
+    runtime-versions:
+      python: 3.7
+  pre_build:
+    commands:
+      - mkdir -p build/python
+      - pipenv lock -r > build/requirements.txt 2> /dev/null
+      - ssm_get_param="aws ssm get-parameter --name $LATEST_ARTIFACT_SSM_PARAM --query Parameter.Value --output text"
+      # - check_for_diffs="if [[ \$(diff -q latest_reqs.txt build/requirements.txt) ]]; then echo 'requirements have changed'; reqs_changed=true; else echo 'requirements have NOT changed'; reqs_changed=false; fi"
+      - check_for_diffs='if [[ $(diff -q latest_reqs.txt build/requirements.txt) ]]; then echo "requirements have changed"; reqs_changed="true"; else echo "requirements have NOT changed"; reqs_changed="false"; fi'
+      - |
+        if [[ $($ssm_get_param 2> /dev/null) ]]; then
+           echo "latest artifact fournd"
+           latest_artifact=$($ssm_get_param)
+           echo "downloading and comparing requirements for any changes"
+           aws s3 cp --quiet s3://$latest_artifact latest_artifact.zip
+           unzip latest_artifact.zip requirements.txt
+           mv requirements.txt latest_reqs.txt
+           eval $check_for_diffs
+        else
+           echo "latest artifact NOT fournd - it will be created"
+           reqs_changed="true"
+        fi
+  build:
+    commands:
+      - cd build
+      - if [ "$reqs_changed" == "true" ]; then reqs_stat="requirements have changed"; else reqs_stat="requirements have NOT changed"; fi
+      - act="pip installing requirements"
+      - cmd="pip install -q -r requirements.txt --target python"
+      - if [ "$reqs_changed" == "true" ]; then echo "$reqs_stat - $act"; eval $cmd; else echo "$reqs_stat - NOT $act"; fi
+  post_build:
+    commands:
+      - act="creating ZIP file ($ARTIFACT_NAME)"
+      - cmd="zip -q -r $ARTIFACT_NAME ."
+      - if [ "$reqs_changed" == "true" ]; then echo "$reqs_stat - $act"; eval $cmd; else echo "$reqs_stat - NOT $act"; fi
+      - artifact=$ARTIFACTS_LOC/${CODEBUILD_BUILD_ID#*:}/$ARTIFACT_NAME
+      - act="uploading a new artifact to S3 ($artifact)"
+      - cmd="aws s3 cp --quiet $ARTIFACT_NAME s3://$artifact"
+      - if [ "$reqs_changed" == "true" ]; then echo "$reqs_stat - $act"; eval $cmd; else echo "$reqs_stat - NOT $act"; fi
+      - act="updating SSM Parameter ($LATEST_ARTIFACT_SSM_PARAM)"
+      - cmd="aws ssm put-parameter --name $LATEST_ARTIFACT_SSM_PARAM --value $artifact --type String --overwrite"
+      - if [ "$reqs_changed" == "true" ]; then echo "$reqs_stat - $act"; eval $cmd; else echo "$reqs_stat - NOT $act"; fi

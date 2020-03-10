@@ -1,63 +1,42 @@
 ---
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'Creates an AWS CodePipeline Pipeline from a GitHub source and triggered by pushes to the version'
+Description: 'Creates an AWS CodePipeline Pipeline from a GitHub source and associated webhook'
 
 
 Parameters:
 
-  BadgeEnabled:
-    AllowedValues: ['true', 'false']
-    Default: 'false'
-    Description: 'Indicates whether AWS CodeBuild generates a publicly accessible badge images URL for the project (default: false)'
-    Type: String
-
-  BuildSpec:
-    Default: ''
-    Description: 'The build specification for the project. If this value is not provided, then the source code must contain a buildspec file named buildspec.yml at the root level. If this value is provided, it can be either a single string containing the entire build specification, or the path to an alternate buildspec file'
-    Type: String
-
-  Description:
-    Default: 'GitHub sourced CodeBuild project'
-    Description: 'A description that makes the build project easy to identify'
+  ArtifactStoreLocation:
+    Description: 'The S3 bucket used for storing the artifacts for a pipeline. You can specify the name of an S3 bucket but not a folder in the bucket. A folder to contain the pipeline artifacts is created for you based on the name of the pipeline. You can use any S3 bucket in the same AWS Region as the pipeline to store your pipeline artifacts'
     Type: String
 
   Environment:
     Description: 'Name of Environment'
     Type: String
 
-  EnvironmentComputeType:
-    AllowedValues: ['BUILD_GENERAL1_SMALL', 'BUILD_GENERAL1_MEDIUM', 'BUILD_GENERAL1_LARGE']
-    Default: 'BUILD_GENERAL1_SMALL'
-    Description: 'The type of compute environment which determines the memory and number of CPU cores the build environment uses. Available values include: BUILD_GENERAL1_SMALL (3 GB/2 vCPUs), BUILD_GENERAL1_MEDIUM (7 GB/4 vCPUs) or BUILD_GENERAL1_LARGE (15 GB/8 vCPUs). (default: BUILD_GENERAL1_SMALL)'
+  GitHubRepo:
+    Description: 'The GitHub repositorty HTTPS clone URL that contains the source code'
     Type: String
 
-  EnvironmentImage:
-    Default: 'aws/codebuild/amazonlinux2-x86_64-standard:1.0'
-    Description: 'The image tag or image digest that identifies the Docker image to use for this build project. Use the following formats: registry/repository:tag or registry/repository@digest (e.g. aws/codebuild/standard:2.0) (default: aws/codebuild/amazonlinux2-x86_64-standard:1.0)'
+  GitHubUser:
+    Description: 'The GitHub user that has access to the repositorty'
     Type: String
 
-  EnvironmentType:
-    AllowedValues: ['ARM_CONTAINER', 'LINUX_CONTAINER', 'LINUX_GPU_CONTAINER', 'WINDOWS_CONTAINER']
-    Default: 'LINUX_CONTAINER'
-    Description: 'The type of build environment to use for related builds. (default: LINUX_CONTAINER)'
+  GitHubBranch:
+    Default: 'master'
+    Description: 'The GitHub branch to reference in the repositorty'
     Type: String
 
-  GitCloneDepth:
-    Default: 1
-    Description: 'The depth of history to download. Minimum value is 0. If this value is 0, greater than 25, or not provided, then the full history is downloaded with each build project (default: 1)'
-    MinValue: 0
-    Type: Number
-
-  GitHubLocation:
-    Description: 'For source code in a GitHub repository, the HTTPS clone URL to the repository that contains the source and the build spec file. You must connect your AWS account to your GitHub account using the AWS CodeBuild console'
+  GitHubOAuthToken:
+    Description: 'The GitHub authentication token that allows CodePipeline to perform operations on the GitHub repository. The entry is always displayed as a mask of four asterisks'
+    NoEcho: true
     Type: String
 
   Name:
-    AllowedPattern: '[A-Za-z0-9][A-Za-z0-9\-_]{1,254}'
+    AllowedPattern: '[A-Za-z0-9.@\-_]{1,100}'
     Default: 'not-given'
-    Description: 'The name of the build project. The name must be unique across all of the projects in your AWS account'
+    Description: 'The name of the pipeline. From 1 to 100 characters long (default: ${Project}-${Environment}'
     MinLength: 1
-    MaxLength: 254
+    MaxLength: 100
     Type: String
 
   Project:
@@ -65,126 +44,299 @@ Parameters:
     Description: 'Name of the project being deployed'
     Type: String
 
-  QueuedTimeoutInMinutes:
-    Default: 480
-    Description: 'The number of minutes a build is allowed to be queued before it times out. (default: 480 or 8 hours)'
-    MinValue: 5
-    MaxValue: 480
-    Type: Number
-
-  SourceVersion:
-    Default: ''
-    Description: "A version of the build input to be built for this project. If not specified, the latest version is used. If specified, for GitHub the commit ID, pull request ID, branch name, or tag name that corresponds to the version of the source code you want to build. If a pull request ID is specified, it must use the format pr/pull-request-ID (for example pr/25). If a branch name is specified, the branch's HEAD commit ID is used. If not specified, the default branch's HEAD commit ID is used"
+  PythonLambdaLayerCodeBuildProjectName:
+    Description: 'Name of the CodeBuild project for building the Python Lambda layer'
     Type: String
 
-  TimeoutInMinutes:
-    Default: 60
-    Description: 'How long, in minutes, from 5 to 480 (8 hours), for AWS CodeBuild to wait before timing out any related build that did not get marked as completed. (default: 60 minutes)'
-    MinValue: 5
-    MaxValue: 480
-    Type: Number
+  RestartExecutionOnUpdate:
+    AllowedValues: ['true', 'false']
+    Default: 'false'
+    Description: 'Indicates whether to rerun the CodePipeline pipeline after you update it. (default: false)'
+    Type: String
+
+  ServerlessCodeBuildProjectName:
+    Description: 'Name of the CodeBuild project for Serverless deployments'
+    Type: String
+
+  WebHookSecret:
+    Description: 'The secret used to create the CodePipeline webhook for use by GitHub. The entry is always displayed as a mask of four asterisks'
+    NoEcho: true
+    Type: String
 
 
 Conditions:
 
-  ProjectNameGiven: !Not [!Equals [!Ref Name, 'not-given']]
-  BuildSpecGiven: !Not [!Equals [!Ref BuildSpec, '']]
-  SourceVersionGiven: !Not [!Equals [!Ref SourceVersion, '']]
+  PipelineNameGiven: !Not [!Equals [!Ref Name, 'not-given']]
 
 
 Resources:
 
-  IamRoleCodeBuildService:
+  IamManagedPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      Description: !Sub 'Policy used for trust relationship with CodePipeline for ${Project}-${Environment}'
+      ManagedPolicyName: !Sub '${Project}-${Environment}-codepipeline-service'
+      PolicyDocument:
+        Statement:
+          - Sid: PassRoleSpecificServices
+            Action:
+              - iam:PassRole
+            Effect: Allow
+            Resource: ['*']
+            Condition:
+              StringEqualsIfExists:
+                iam:PassedToService:
+                  - cloudformation.amazonaws.com
+                  - ec2.amazonaws.com
+                  - ecs-tasks.amazonaws.com
+                  - elasticbeanstalk.amazonaws.com
+          - Sid: FullAccessSpecificServices
+            Action:
+              - autoscaling:*
+              - cloudformation:*
+              - cloudwatch:*
+              - ec2:*
+              - ecs:*
+              - elasticbeanstalk:*
+              - elasticloadbalancing:*
+              - rds:*
+              - s3:*
+              - sns:*
+              - sqs:*
+            Effect: Allow
+            Resource: ['*']
+          - Sid: LimitedAccessSpecificServices
+            Action:
+              - codebuild:BatchGetBuilds
+              - codebuild:StartBuild
+              - codecommit:CancelUploadArchive
+              - codecommit:GetBranch
+              - codecommit:GetCommit
+              - codecommit:GetUploadArchiveStatus
+              - codecommit:UploadArchive
+              - codedeploy:CreateDeployment
+              - codedeploy:GetApplication
+              - codedeploy:GetApplicationRevision
+              - codedeploy:GetDeployment
+              - codedeploy:GetDeploymentConfig
+              - codedeploy:RegisterApplicationRevision
+              - codestar-connections:UseConnection
+              - devicefarm:CreateUpload
+              - devicefarm:GetRun
+              - devicefarm:GetUpload
+              - devicefarm:ListDevicePools
+              - devicefarm:ListProjects
+              - devicefarm:ScheduleRun
+              - ecr:DescribeImages
+              - lambda:InvokeFunction
+              - lambda:ListFunctions
+              - opsworks:CreateDeployment
+              - opsworks:DescribeApps
+              - opsworks:DescribeCommands
+              - opsworks:DescribeDeployments
+              - opsworks:DescribeInstances
+              - opsworks:DescribeStacks
+              - opsworks:UpdateApp
+              - opsworks:UpdateStack
+              - servicecatalog:CreateProvisioningArtifact
+              - servicecatalog:DeleteProvisioningArtifact
+              - servicecatalog:DescribeProvisioningArtifact
+              - servicecatalog:ListProvisioningArtifacts
+              - servicecatalog:UpdateProduct
+            Effect: Allow
+            Resource: ['*']
+        Version: '2012-10-17'
+
+  IamRole:
+    Type: AWS::IAM::Role
     Properties:
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
         Statement:
           - Action: 'sts:AssumeRole'
             Effect: Allow
-            Principal: {Service: 'codebuild.amazonaws.com'}
-      ManagedPolicyArns: ['arn:aws:iam::aws:policy/AdministratorAccess']
+            Principal: {Service: 'codepipeline.amazonaws.com'}
       Description: !Sub 'Allows CodeBuild to build/deploy resources for ${Project} ${Environment}'
+      ManagedPolicyArns:
+        - !Ref IamManagedPolicy
       RoleName: !If
-        - ProjectNameGiven
-        - !Sub 'codebuild-${Name}-service-role'
-        - !Sub 'codebuild-${Project}-${Environment}-service-role'
-    Type: AWS::IAM::Role
+        - PipelineNameGiven
+        - !Sub 'codepipeline-${Name}-service-role'
+        - !Sub 'codepipeline-${Project}-${Environment}-service-role'
 
   CodePipelinePipeline:
     Type: AWS::CodePipeline::Pipeline
-    Properties: 
-    #############################
-    Properties: 
-      ArtifactStore: 
-      # todo: create conditional to create a bucket if not specified
-        Location: !Ref S3BucketCodePipelineArtifacts
+    Properties:
+      # TODO: add conditional to create/use a S3 bucket if not specified
+      ArtifactStore:
+        Location: !Ref ArtifactStoreLocation
         Type: S3
-      DisableInboundStageTransitions: 
-        - StageTransition
-      Name: String
-      RestartExecutionOnUpdate: Boolean
-      RoleArn: String
-      Stages: 
-        - StageDeclaration
-      Tags: 
-        - Tag
+      Name: !If [PipelineNameGiven, !Ref Name, !Sub '${Project}-${Environment}']
+      RestartExecutionOnUpdate: !Ref RestartExecutionOnUpdate
+      RoleArn: !GetAtt IamRole.Arn
+      Stages:
+        # get the source code
+        - Name: GetSourceCode
+          Actions:
+            - Name: GetGitHubSourceCode
+              ActionTypeId:
+                Category: Source
+                Owner: ThirdParty
+                Provider: GitHub
+                Version: 1
+              Configuration:
+                Branch: !Ref GitHubBranch
+                OAuthToken: !Ref GitHubOAuthToken
+                Owner: !Ref GitHubUser
+                PollForSourceChanges: false
+                Repo: !Ref GitHubRepo
+              Namespace: GitHubSourceCode
+              OutputArtifacts:
+                - Name: GitHubSource
+              RunOrder: 1
 
-    #############################
-      Artifacts: 
-        Type: no_artifacts
-      BadgeEnabled: !Ref BadgeEnabled
-      Description: !Ref Description
-      Environment: 
-        ComputeType: !Ref EnvironmentComputeType
-        EnvironmentVariables: 
-          - Name: ENVIRONMENT
-            Type: PLAINTEXT
-            Value: !Ref Environment
-        Image: !Ref EnvironmentImage
-        ImagePullCredentialsType: CODEBUILD
-        Type: !Ref EnvironmentType
-      LogsConfig: 
-        CloudWatchLogs:
-          Status: ENABLED
-      Name: !If [ProjectNameGiven, !Ref Name, !Sub '${Project}-${Environment}']
-      QueuedTimeoutInMinutes: !Ref QueuedTimeoutInMinutes
-      ServiceRole: !Ref IamRoleCodeBuildService
-      Source: 
-        BuildSpec: !If [BuildSpecGiven, !Ref BuildSpec, !Ref 'AWS::NoValue']
-        GitCloneDepth: !Ref GitCloneDepth
-        Location: !Ref GitHubLocation
-        ReportBuildStatus: true
-        SourceIdentifier: String
-        Type: GITHUB
-      SourceVersion: !If [SourceVersionGiven, !Ref SourceVersion, !Ref 'AWS::NoValue']
+        # build lambda layers
+        - Name: BuildLambdaLayers
+          Actions:
+            # build python lambda layer
+            - Name: BuildPythonLambdaLayer
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Provider: CodeBuild
+                Version: 1
+              Configuration:
+                ProjectName: !Ref PythonLambdaLayerCodeBuildProjectName
+                PrimarySource: GitHubSource
+              Namespace: BuildPythonLambdaLayer
+              InputArtifacts:
+                - Name: GitHubSource
+              # OutputArtifacts:
+              #   - Name: GitHubSource
+              RunOrder: 1
+
+#       # run unit tests
+#       - Name: TestCode
+#         Actions:
+#           - Name: TestPythonCode
+#             ActionTypeId:
+#               Category: Test
+#               Owner: AWS
+#               Provider: CodeBuild
+#               Version: 1
+#             Configuration:
+#               Owner: !Ref GitHubUser
+#               Repo: !Ref GitHubRepo
+#               PollForSourceChanges: false
+#               Branch: !Ref GitHubRepo
+#             Namespace: TestPythonCode
+#             OutputArtifacts:
+#               - Name: GitHubSource
+#             RunOrder: 1
+
+#       # get manual approval
+#       - Name: ManualApproval
+#         Actions:
+#           - Name: GetManualApproval
+#             ActionTypeId:
+#               Category: Approval
+#               Owner: AWS
+#               Provider: Manual
+#               Version: 1
+#             Configuration:
+#               CustomData: Manual approval needed for deployment
+#               ExternalEntiyLink: staging.turncar.com
+#               NotificationArn: !Ref SnsApprovals
+#             InputArtifacts:
+#               - Name: String
+#             ################
+#             Namespace: GetManualApproval
+#             OutputArtifacts:
+#               - Name: String
+#             RunOrder: 1
+
+        # deploy serverless
+        - Name: DeployServerless
+          Actions:
+            - Name: BuildServerless
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Provider: CodeBuild
+                Version: 1
+              Configuration:
+                ProjectName: !Ref ServerlessCodeBuildProjectName
+                PrimarySource: GitHubSource
+                # EnvironmentVariables: '[{"name":"TEST_VARIABLE","value":"TEST_VALUE","type":"PLAINTEXT"},{"name":"ParamStoreTest","value":"PARAMETER_NAME","type":"PARAMETER_STORE"}]'
+              Namespace: BuildServerless
+              InputArtifacts:
+                - Name: GitHubSource
+              # OutputArtifacts:
+              #   - Name: GitHubSource
+              RunOrder: 1
+
+#     ######## stage/action template [begin] (TODO: remove) ################
+#       - Name: DeployServerless
+#         Actions:
+#           - Name: ActionName
+#             ActionTypeId:
+#               Category: Source, Build, Test, Deploy, Invoke, Approval
+#               Owner: AWS, ThirdParty, Custom
+#               Provider: ProviderName
+#               # Approval: Manual
+#               # Build: CodeBuild, Custom Jenkins, Custom TeamCity
+#               # Deploy: Amazon S3, AWS CloudFormation, CodeDeploy
+#               # Invoke: AWS Lambda
+#               # Source: Amazon S3, Amazon ECR, CodeCommit, GitHub
+#               # Test: CodeBuild, AWS Device Farm, Custom Jenkins
+#               Version: 1
+#             Configuration:
+#               ApplicationName: !Ref ApplicationName
+#               DeploymentGroupName: !Ref DeploymentGroupName
+#               S3Bucket: !Ref SourceS3Bucket
+#               S3ObjectKey: !Ref SourceS3ObjectKey
+#             InputArtifacts:
+#               - Name: SeeDocsForProvider
+#             Namespace: ActionName
+#             OutputArtifacts:
+#               - Name: SeeDocsForProvider
+#             RunOrder: Integer
+#     ######## stage/action template [end] (TODO: remove) ################
+
       Tags:
         - Key: Name
-          Value: !If [ProjectNameGiven, !Ref Name, !Sub '${Project}-${Environment}']
-        # as of 09-jan-2020, CloudFormation tags aren't propagated for this resource type
-        - {Key: Project, Value: !Ref Project}
-        - {Key: Environment, Value: !Ref Environment}
-        - {Key: Provisioner, Value: CloudFormation}
-      TimeoutInMinutes: !Ref TimeoutInMinutes
-      Triggers:
-        Webhook: true
-        FilterGroups:
-          - - Type: EVENT
-              Pattern: PUSH
-            - Type: HEAD_REF
-              Pattern: ^refs/heads/.*
-            - Type: FILE_PATH
-              Pattern: READ_ME
-              ExcludeMatchedPattern: true
+          Value: !If [PipelineNameGiven, !Ref Name, !Sub '${Project}-${Environment}']
+
+  CodePipelineWebhook:
+    Type: AWS::CodePipeline::Webhook
+    Properties:
+      Authentication: GITHUB_HMAC
+      AuthenticationConfiguration:
+        SecretToken: !Ref WebHookSecret
+      Filters:
+        # up to 5 rules allowed - all must pass
+        - JsonPath: '$.ref'
+          MatchEquals: refs/heads/{Branch}
+        # - JsonPath: '$.pusher.name'
+        #   MatchEquals: $GITHUB_USER
+      Name: !If
+        - PipelineNameGiven
+        - !Sub '${Name}-github'
+        - !Sub '${Project}-${Environment}-github'
+      RegisterWithThirdParty: true
+      TargetAction: GetGitHubSourceCode
+      TargetPipeline: !Ref CodePipelinePipeline
+      TargetPipelineVersion: !GetAtt CodePipelinePipeline.Version
 
 
 Outputs:
 
-  CodeBuildProjectName:
-    Description: 'The name of the CodeBuild Project'
-    Export: {'Name': !Sub '${AWS::StackName}-CodeBuildProjectName'}
+  PipelineName:
+    Description: 'The name of the CodePipeline Pipeline'
+    Export: {'Name': !Sub '${AWS::StackName}-PipelineName'}
     Value: !Ref CodePipelinePipeline
 
-  CodeBuildProjectArn:
-    Description: 'The ARN of the CodeBuild Project'
-    Export: {'Name': !Sub '${AWS::StackName}-CodeBuildProjectArn'}
-    Value: !GetAtt CodePipelinePipeline.Arn
+  PipelineVersion:
+    Description: 'The version of the CodePipeline Pipeline'
+    Export: {'Name': !Sub '${AWS::StackName}-PipelineVersion'}
+    Value: !GetAtt CodePipelinePipeline.Version

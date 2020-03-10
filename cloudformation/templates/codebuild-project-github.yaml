@@ -5,19 +5,19 @@ Description: 'Creates an AWS CodeBuild Project from a GitHub source'
 
 Parameters:
 
+  ArtifactName:
+    Default: ''
+    Description: 'Along with ArtifactPath and ArtifactsUseBuildId, the pattern that AWS CodeBuild uses to name and store the output artifact'
+    Type: String
+
+  ArtifactPath:
+    Default: ''
+    Description: 'Along with ArtifactName and ArtifactsUseBuildId, the pattern that AWS CodeBuild uses to name and store the output artifact'
+    Type: String
+
   ArtifactsBucket:
     Default: ''
     Description: 'If ArtifactsType is set to S3, this is the name of the output bucket'
-    Type: String
-
-  ArtifactsName:
-    Default: ''
-    Description: 'Along with ArtifactsPath and ArtifactsUseBuildId, the pattern that AWS CodeBuild uses to name and store the output artifact'
-    Type: String
-
-  ArtifactsPath:
-    Default: ''
-    Description: 'Along with ArtifactsName and ArtifactsUseBuildId, the pattern that AWS CodeBuild uses to name and store the output artifact'
     Type: String
 
   ArtifactsType:
@@ -29,7 +29,7 @@ Parameters:
   ArtifactsUseBuildId:
     AllowedValues: ['true', 'false']
     Default: 'true'
-    Description: 'Along with ArtifactsName and ArtifactsPath, the pattern that AWS CodeBuild uses to name and store the output artifact'
+    Description: 'Along with ArtifactName and ArtifactPath, the pattern that AWS CodeBuild uses to name and store the output artifact'
     Type: String
 
   BadgeEnabled:
@@ -67,6 +67,31 @@ Parameters:
     AllowedValues: ['ARM_CONTAINER', 'LINUX_CONTAINER', 'LINUX_GPU_CONTAINER', 'WINDOWS_CONTAINER']
     Default: 'LINUX_CONTAINER'
     Description: 'The type of build environment to use for related builds. (default: LINUX_CONTAINER)'
+    Type: String
+
+  EnvironmentVariable1:
+    Default: ''
+    Description: 'An environment variable setting (key=val) to assign to the project'
+    Type: String
+
+  EnvironmentVariable2:
+    Default: ''
+    Description: 'Another environment variable setting (key=val) to assign to the project'
+    Type: String
+
+  EnvironmentVariable3:
+    Default: ''
+    Description: 'Another environment variable setting (key=val) to assign to the project'
+    Type: String
+
+  EnvironmentVariable4:
+    Default: ''
+    Description: 'Another environment variable setting (key=val) to assign to the project'
+    Type: String
+
+  EnvironmentVariable5:
+    Default: ''
+    Description: 'Another environment variable setting (key=val) to assign to the project'
     Type: String
 
   GitCloneDepth:
@@ -126,11 +151,17 @@ Parameters:
 
 Conditions:
 
-  ArtifactsNameGiven: !Not [!Equals [!Ref ArtifactsName, '']]
-  ArtifactsPathGiven: !Not [!Equals [!Ref ArtifactsPath, '']]
+  ArtifactNameGiven: !Not [!Equals [!Ref ArtifactName, '']]
+  ArtifactPathGiven: !Not [!Equals [!Ref ArtifactPath, '']]
   ArtifactsUseBuildId: !Equals [!Ref ArtifactsUseBuildId, 'true']
   BuildSpecGiven: !Not [!Equals [!Ref BuildSpec, '']]
+  EnvironmentVariable1Given: !Not [!Equals [!Ref EnvironmentVariable1, '']]
+  EnvironmentVariable2Given: !Not [!Equals [!Ref EnvironmentVariable2, '']]
+  EnvironmentVariable3Given: !Not [!Equals [!Ref EnvironmentVariable3, '']]
+  EnvironmentVariable4Given: !Not [!Equals [!Ref EnvironmentVariable4, '']]
+  EnvironmentVariable5Given: !Not [!Equals [!Ref EnvironmentVariable5, '']]
   GenerateArtifacts: !Not [!Equals [!Ref ArtifactsBucket, '']]
+  NoArtifacts: !Equals [!Ref ArtifactsType, 'NO_ARTIFACTS']
   ProjectNameGiven: !Not [!Equals [!Ref Name, 'not-given']]
   SourceVersionGiven: !Not [!Equals [!Ref SourceVersion, '']]
   ZipArtifacts: !Equals [!Ref ZipArtifacts, 'true']
@@ -139,6 +170,7 @@ Conditions:
 Resources:
 
   IamRoleCodeBuildService:
+    Type: AWS::IAM::Role
     Properties:
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
@@ -152,27 +184,72 @@ Resources:
         - ProjectNameGiven
         - !Sub 'codebuild-${Name}-service-role'
         - !Sub 'codebuild-${Project}-${Environment}-service-role'
-    Type: AWS::IAM::Role
 
   CodeBuildProject:
     Type: AWS::CodeBuild::Project
     Properties: 
       Artifacts: 
         Location: !If [GenerateArtifacts, !Ref ArtifactsBucket, !Ref 'AWS::NoValue']
-        Name: !If [ArtifactsNameGiven, !Ref ArtifactsName, !Ref 'AWS::NoValue']
-        NamespaceType: !If [ArtifactsUseBuildId, BUILD_ID, !Ref 'AWS::NoValue']
+        Name: !If [ArtifactNameGiven, !Ref ArtifactName, !Ref 'AWS::NoValue']
+        NamespaceType: !If
+          - NoArtifacts
+          - !Ref 'AWS::NoValue'
+          - !If [ArtifactsUseBuildId, BUILD_ID, !Ref 'AWS::NoValue']
         OverrideArtifactName: !Ref OverrideArtifactName
-        Packaging: !If [ZipArtifacts, ZIP, !Ref 'AWS::NoValue']
-        Path: !If [ArtifactsPathGiven, !Ref ArtifactsPath, !Ref 'AWS::NoValue']
+        Packaging: !If
+          - NoArtifacts
+          - !Ref 'AWS::NoValue'
+          - !If [ZipArtifacts, ZIP, !Ref 'AWS::NoValue']
+        Path: !If [ArtifactPathGiven, !Ref ArtifactPath, !Ref 'AWS::NoValue']
         Type: !Ref ArtifactsType
       BadgeEnabled: !Ref BadgeEnabled
       Description: !Ref Description
       Environment: 
         ComputeType: !Ref EnvironmentComputeType
         EnvironmentVariables: 
+          - !If
+            - GenerateArtifacts
+            - Name: ARTIFACTS_LOC
+              Type: PLAINTEXT
+              Value: !If
+                - ArtifactPathGiven
+                - !Sub '${ArtifactsBucket}/${ArtifactPath}'
+                - !Sub '${ArtifactsBucket}'
+            - !Ref 'AWS::NoValue'
+          - !If
+            - ArtifactNameGiven
+            - Name: ARTIFACT_NAME
+              Type: PLAINTEXT
+              Value: !Ref ArtifactName
+            - !Ref 'AWS::NoValue'
           - Name: ENVIRONMENT
             Type: PLAINTEXT
             Value: !Ref Environment
+          - !If
+            - EnvironmentVariable1Given
+            - Name: !Select [0, !Split ["=", !Ref EnvironmentVariable1]]
+              Value: !Select [1, !Split ["=", !Ref EnvironmentVariable1]]
+            - !Ref 'AWS::NoValue'
+          - !If
+            - EnvironmentVariable2Given
+            - Name: !Select [0, !Split ["=", !Ref EnvironmentVariable2]]
+              Value: !Select [1, !Split ["=", !Ref EnvironmentVariable2]]
+            - !Ref 'AWS::NoValue'
+          - !If
+            - EnvironmentVariable3Given
+            - Name: !Select [0, !Split ["=", !Ref EnvironmentVariable3]]
+              Value: !Select [1, !Split ["=", !Ref EnvironmentVariable3]]
+            - !Ref 'AWS::NoValue'
+          - !If
+            - EnvironmentVariable4Given
+            - Name: !Select [0, !Split ["=", !Ref EnvironmentVariable4]]
+              Value: !Select [1, !Split ["=", !Ref EnvironmentVariable4]]
+            - !Ref 'AWS::NoValue'
+          - !If
+            - EnvironmentVariable5Given
+            - Name: !Select [0, !Split ["=", !Ref EnvironmentVariable5]]
+              Value: !Select [1, !Split ["=", !Ref EnvironmentVariable5]]
+            - !Ref 'AWS::NoValue'
         Image: !Ref EnvironmentImage
         ImagePullCredentialsType: CODEBUILD
         Type: !Ref EnvironmentType
@@ -198,17 +275,6 @@ Resources:
         - {Key: Environment, Value: !Ref Environment}
         - {Key: Provisioner, Value: CloudFormation}
       TimeoutInMinutes: !Ref TimeoutInMinutes
-      # the CodeBuild project should be triggered by CodePipeline (saving for reference in case desired)
-      # Triggers:
-      #   Webhook: true
-      #   FilterGroups:
-      #     - - Type: EVENT
-      #         Pattern: PUSH
-      #       - Type: HEAD_REF
-      #         Pattern: ^refs/heads/.*
-      #       - Type: FILE_PATH
-      #         Pattern: READ_ME
-      #         ExcludeMatchedPattern: true
 
 
 Outputs:

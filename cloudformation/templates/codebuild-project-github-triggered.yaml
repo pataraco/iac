@@ -1,9 +1,36 @@
 ---
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'Creates an AWS CodeBuild Project from a GitHub source and triggered by pushes to the version'
+Description: 'Creates an AWS CodeBuild Project from a GitHub source that is triggered by code changes in the repo'
 
 
 Parameters:
+
+  ArtifactName:
+    Default: ''
+    Description: 'Along with ArtifactPath and ArtifactsUseBuildId, the pattern that AWS CodeBuild uses to name and store the output artifact'
+    Type: String
+
+  ArtifactPath:
+    Default: ''
+    Description: 'Along with ArtifactName and ArtifactsUseBuildId, the pattern that AWS CodeBuild uses to name and store the output artifact'
+    Type: String
+
+  ArtifactsBucket:
+    Default: ''
+    Description: 'If ArtifactsType is set to S3, this is the name of the output bucket'
+    Type: String
+
+  ArtifactsType:
+    AllowedValues: ['CODEPIPELINE', 'NO_ARTIFACTS', 'S3']
+    Default: 'NO_ARTIFACTS'
+    Description: 'The type of build output artifact (default: NO_ARTIFACTS)'
+    Type: String
+
+  ArtifactsUseBuildId:
+    AllowedValues: ['true', 'false']
+    Default: 'true'
+    Description: 'Along with ArtifactName and ArtifactPath, the pattern that AWS CodeBuild uses to name and store the output artifact'
+    Type: String
 
   BadgeEnabled:
     AllowedValues: ['true', 'false']
@@ -42,6 +69,31 @@ Parameters:
     Description: 'The type of build environment to use for related builds. (default: LINUX_CONTAINER)'
     Type: String
 
+  EnvironmentVariable1:
+    Default: ''
+    Description: 'An environment variable setting (key=val) to assign to the project'
+    Type: String
+
+  EnvironmentVariable2:
+    Default: ''
+    Description: 'Another environment variable setting (key=val) to assign to the project'
+    Type: String
+
+  EnvironmentVariable3:
+    Default: ''
+    Description: 'Another environment variable setting (key=val) to assign to the project'
+    Type: String
+
+  EnvironmentVariable4:
+    Default: ''
+    Description: 'Another environment variable setting (key=val) to assign to the project'
+    Type: String
+
+  EnvironmentVariable5:
+    Default: ''
+    Description: 'Another environment variable setting (key=val) to assign to the project'
+    Type: String
+
   GitCloneDepth:
     Default: 1
     Description: 'The depth of history to download. Minimum value is 0. If this value is 0, greater than 25, or not provided, then the full history is downloaded with each build project (default: 1)'
@@ -58,6 +110,12 @@ Parameters:
     Description: 'The name of the build project. The name must be unique across all of the projects in your AWS account'
     MinLength: 1
     MaxLength: 254
+    Type: String
+
+  OverrideArtifactName:
+    AllowedValues: ['true', 'false']
+    Default: 'true'
+    Description: 'If set to true a name specified in the buildspec file overrides the artifact name. The name specified in a buildspec file is calculated at build time and uses the Shell command language. For example, you can append a date and time to your artifact name so that it is always unique (default: true)'
     Type: String
 
   Project:
@@ -84,17 +142,65 @@ Parameters:
     MaxValue: 480
     Type: Number
 
+  WebhookFilter1:
+    Default: ''
+    Description: 'A webhook filter to trigger the project with. Format: Type|Pattern|Exclude. Valid Types: EVENT, ACTOR_ACCOUNT_ID, HEAD_REF, BASE_REF, FILE_PATH. Pattern depends on the type. For EVENT types, can be a list of: PUSH, PULL_REQUEST_CREATED, PULL_REQUEST_UPDATED, PULL_REQUEST_REOPENED, PULL_REQUEST_MERGED. For all other types, a regular expression to match. Exclude (true/false), whether or not to exclude changes that match the pattern. (At least one EVENT type required)'
+    Type: String
+
+  WebhookFilter2:
+    Default: ''
+    Description: 'Another webhook filter to trigger the project with. Format: Type|Pattern|Exclude. Valid Types: EVENT, ACTOR_ACCOUNT_ID, HEAD_REF, BASE_REF, FILE_PATH. Pattern depends on the type. For EVENT types, can be a list of: PUSH, PULL_REQUEST_CREATED, PULL_REQUEST_UPDATED, PULL_REQUEST_REOPENED, PULL_REQUEST_MERGED. For all other types, a regular expression to match. Exclude (true/false), whether or not to exclude changes that match the pattern. (At least one EVENT type required)'
+    Type: String
+
+  WebhookFilter3:
+    Default: ''
+    Description: 'Another webhook filter to trigger the project with. Format: Type|Pattern|Exclude. Valid Types: EVENT, ACTOR_ACCOUNT_ID, HEAD_REF, BASE_REF, FILE_PATH. Pattern depends on the type. For EVENT types, can be a list of: PUSH, PULL_REQUEST_CREATED, PULL_REQUEST_UPDATED, PULL_REQUEST_REOPENED, PULL_REQUEST_MERGED. For all other types, a regular expression to match. Exclude (true/false), whether or not to exclude changes that match the pattern. (At least one EVENT type required)'
+    Type: String
+
+  WebhookFilter4:
+    Default: ''
+    Description: 'Another webhook filter to trigger the project with. Format: Type|Pattern|Exclude. Valid Types: EVENT, ACTOR_ACCOUNT_ID, HEAD_REF, BASE_REF, FILE_PATH. Pattern depends on the type. For EVENT types, can be a list of: PUSH, PULL_REQUEST_CREATED, PULL_REQUEST_UPDATED, PULL_REQUEST_REOPENED, PULL_REQUEST_MERGED. For all other types, a regular expression to match. Exclude (true/false), whether or not to exclude changes that match the pattern. (At least one EVENT type required)'
+    Type: String
+
+  WebhookFilter5:
+    Default: ''
+    Description: 'Another webhook filter to trigger the project with. Format: Type|Pattern|Exclude. Valid Types: EVENT, ACTOR_ACCOUNT_ID, HEAD_REF, BASE_REF, FILE_PATH. Pattern depends on the type. For EVENT types, can be a list of: PUSH, PULL_REQUEST_CREATED, PULL_REQUEST_UPDATED, PULL_REQUEST_REOPENED, PULL_REQUEST_MERGED. For all other types, a regular expression to match. Exclude (true/false), whether or not to exclude changes that match the pattern. (At least one EVENT type required)'
+    Type: String
+
+  ZipArtifacts:
+    AllowedValues: ['true', 'false']
+    Default: 'true'
+    Description: 'If ArtifactsType is set to S3, valid values include: false - AWS CodeBuild creates in the output bucket a folder that contains the build output.  true: AWS CodeBuild creates in the output bucket a ZIP file that contains the build output (default: true)'
+    Type: String
+
 
 Conditions:
 
-  ProjectNameGiven: !Not [!Equals [!Ref Name, 'not-given']]
+  ArtifactNameGiven: !Not [!Equals [!Ref ArtifactName, '']]
+  ArtifactPathGiven: !Not [!Equals [!Ref ArtifactPath, '']]
+  ArtifactsUseBuildId: !Equals [!Ref ArtifactsUseBuildId, 'true']
   BuildSpecGiven: !Not [!Equals [!Ref BuildSpec, '']]
+  EnvironmentVariable1Given: !Not [!Equals [!Ref EnvironmentVariable1, '']]
+  EnvironmentVariable2Given: !Not [!Equals [!Ref EnvironmentVariable2, '']]
+  EnvironmentVariable3Given: !Not [!Equals [!Ref EnvironmentVariable3, '']]
+  EnvironmentVariable4Given: !Not [!Equals [!Ref EnvironmentVariable4, '']]
+  EnvironmentVariable5Given: !Not [!Equals [!Ref EnvironmentVariable5, '']]
+  GenerateArtifacts: !Not [!Equals [!Ref ArtifactsBucket, '']]
+  NoArtifacts: !Equals [!Ref ArtifactsType, 'NO_ARTIFACTS']
+  ProjectNameGiven: !Not [!Equals [!Ref Name, 'not-given']]
   SourceVersionGiven: !Not [!Equals [!Ref SourceVersion, '']]
+  WebhookFilter1Given: !Not [!Equals [!Ref WebhookFilter1, '']]
+  WebhookFilter2Given: !Not [!Equals [!Ref WebhookFilter2, '']]
+  WebhookFilter3Given: !Not [!Equals [!Ref WebhookFilter3, '']]
+  WebhookFilter4Given: !Not [!Equals [!Ref WebhookFilter4, '']]
+  WebhookFilter5Given: !Not [!Equals [!Ref WebhookFilter5, '']]
+  ZipArtifacts: !Equals [!Ref ZipArtifacts, 'true']
 
 
 Resources:
 
   IamRoleCodeBuildService:
+    Type: AWS::IAM::Role
     Properties:
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
@@ -106,23 +212,74 @@ Resources:
       Description: !Sub 'Allows CodeBuild to build/deploy resources for ${Project} ${Environment}'
       RoleName: !If
         - ProjectNameGiven
-        - !Sub 'codebuild-${Name}-service-role'
-        - !Sub 'codebuild-${Project}-${Environment}-service-role'
-    Type: AWS::IAM::Role
+        - !Sub 'codebuild-${Name}-service'
+        - !Sub 'codebuild-${Project}-${Environment}-service'
 
   CodeBuildProject:
     Type: AWS::CodeBuild::Project
     Properties: 
       Artifacts: 
-        Type: no_artifacts
+        Location: !If [GenerateArtifacts, !Ref ArtifactsBucket, !Ref 'AWS::NoValue']
+        Name: !If [ArtifactNameGiven, !Ref ArtifactName, !Ref 'AWS::NoValue']
+        NamespaceType: !If
+          - NoArtifacts
+          - !Ref 'AWS::NoValue'
+          - !If [ArtifactsUseBuildId, BUILD_ID, !Ref 'AWS::NoValue']
+        OverrideArtifactName: !Ref OverrideArtifactName
+        Packaging: !If
+          - NoArtifacts
+          - !Ref 'AWS::NoValue'
+          - !If [ZipArtifacts, ZIP, !Ref 'AWS::NoValue']
+        Path: !If [ArtifactPathGiven, !Ref ArtifactPath, !Ref 'AWS::NoValue']
+        Type: !Ref ArtifactsType
       BadgeEnabled: !Ref BadgeEnabled
       Description: !Ref Description
       Environment: 
         ComputeType: !Ref EnvironmentComputeType
         EnvironmentVariables: 
+          - !If
+            - GenerateArtifacts
+            - Name: ARTIFACTS_LOC
+              Type: PLAINTEXT
+              Value: !If
+                - ArtifactPathGiven
+                - !Sub '${ArtifactsBucket}/${ArtifactPath}'
+                - !Sub '${ArtifactsBucket}'
+            - !Ref 'AWS::NoValue'
+          - !If
+            - ArtifactNameGiven
+            - Name: ARTIFACT_NAME
+              Type: PLAINTEXT
+              Value: !Ref ArtifactName
+            - !Ref 'AWS::NoValue'
           - Name: ENVIRONMENT
             Type: PLAINTEXT
             Value: !Ref Environment
+          - !If
+            - EnvironmentVariable1Given
+            - Name: !Select [0, !Split ["=", !Ref EnvironmentVariable1]]
+              Value: !Select [1, !Split ["=", !Ref EnvironmentVariable1]]
+            - !Ref 'AWS::NoValue'
+          - !If
+            - EnvironmentVariable2Given
+            - Name: !Select [0, !Split ["=", !Ref EnvironmentVariable2]]
+              Value: !Select [1, !Split ["=", !Ref EnvironmentVariable2]]
+            - !Ref 'AWS::NoValue'
+          - !If
+            - EnvironmentVariable3Given
+            - Name: !Select [0, !Split ["=", !Ref EnvironmentVariable3]]
+              Value: !Select [1, !Split ["=", !Ref EnvironmentVariable3]]
+            - !Ref 'AWS::NoValue'
+          - !If
+            - EnvironmentVariable4Given
+            - Name: !Select [0, !Split ["=", !Ref EnvironmentVariable4]]
+              Value: !Select [1, !Split ["=", !Ref EnvironmentVariable4]]
+            - !Ref 'AWS::NoValue'
+          - !If
+            - EnvironmentVariable5Given
+            - Name: !Select [0, !Split ["=", !Ref EnvironmentVariable5]]
+              Value: !Select [1, !Split ["=", !Ref EnvironmentVariable5]]
+            - !Ref 'AWS::NoValue'
         Image: !Ref EnvironmentImage
         ImagePullCredentialsType: CODEBUILD
         Type: !Ref EnvironmentType
@@ -143,21 +300,52 @@ Resources:
       Tags:
         - Key: Name
           Value: !If [ProjectNameGiven, !Ref Name, !Sub '${Project}-${Environment}']
-        # as of 09-jan-2020, CloudFormation tags aren't propagated for this resource type
+        # as of 06-Mar-2020, CloudFormation tags aren't propagated for this resource type
         - {Key: Project, Value: !Ref Project}
         - {Key: Environment, Value: !Ref Environment}
         - {Key: Provisioner, Value: CloudFormation}
       TimeoutInMinutes: !Ref TimeoutInMinutes
-      Triggers:
-        Webhook: true
-        FilterGroups:
-          - - Type: EVENT
-              Pattern: PUSH
-            - Type: HEAD_REF
-              Pattern: ^refs/heads/.*
-            - Type: FILE_PATH
-              Pattern: READ_ME
-              ExcludeMatchedPattern: true
+      Triggers: !If
+        - WebhookFilter1Given
+        - Webhook: true
+          FilterGroups:
+            # Types: EVENT, ACTOR_ACCOUNT_ID, HEAD_REF, BASE_REF, and FILE_PATH
+            #   EVENT:    (see patterns)
+            #   HEAD_REF: The head reference
+            #   BASE_REF: The reference in the PR to be merged to HEAD
+            # Patterns:
+            #   EVENT Type : PUSH, PULL_REQUEST_CREATED, PULL_REQUEST_UPDATED,
+            #                PULL_REQUEST_REOPENED, PULL_REQUEST_MERGED
+            #   Other Types: A regular expression - e.g. '^refs/heads/.*'
+            # ExcludeMatchedPattern: true/false
+            - - Type: !Select [0, !Split ["|", !Ref WebhookFilter1]]
+                Pattern: !Select [1, !Split ["|", !Ref WebhookFilter1]]
+                ExcludeMatchedPattern: !Select [2, !Split ["|", !Ref WebhookFilter1]]
+              - !If
+                - WebhookFilter2Given
+                - Type: !Select [0, !Split ["|", !Ref WebhookFilter2]]
+                  Pattern: !Select [1, !Split ["|", !Ref WebhookFilter2]]
+                  ExcludeMatchedPattern: !Select [2, !Split ["|", !Ref WebhookFilter2]]
+                - !Ref 'AWS::NoValue'
+              - !If
+                - WebhookFilter3Given
+                - Type: !Select [0, !Split ["|", !Ref WebhookFilter3]]
+                  Pattern: !Select [1, !Split ["|", !Ref WebhookFilter3]]
+                  ExcludeMatchedPattern: !Select [2, !Split ["|", !Ref WebhookFilter3]]
+                - !Ref 'AWS::NoValue'
+              - !If
+                - WebhookFilter4Given
+                - Type: !Select [0, !Split ["|", !Ref WebhookFilter4]]
+                  Pattern: !Select [1, !Split ["|", !Ref WebhookFilter4]]
+                  ExcludeMatchedPattern: !Select [2, !Split ["|", !Ref WebhookFilter5]]
+                - !Ref 'AWS::NoValue'
+              - !If
+                - WebhookFilter5Given
+                - Type: !Select [0, !Split ["|", !Ref WebhookFilter5]]
+                  Pattern: !Select [1, !Split ["|", !Ref WebhookFilter5]]
+                  ExcludeMatchedPattern: !Select [2, !Split ["|", !Ref WebhookFilter5]]
+                - !Ref 'AWS::NoValue'
+        - !Ref 'AWS::NoValue'
 
 
 Outputs:

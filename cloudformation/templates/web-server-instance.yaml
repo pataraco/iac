@@ -1,6 +1,6 @@
 ---
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'Creates an EC2 Windows Web Server Instance, installs IIS and joins it to a Windows Domain - Esri ArcGIS must be installed manually'
+Description: 'Creates an EC2 Windows Web Server Instance, installs IIS and joins it to a Windows Domain'
 
 Parameters:
   BackupDaily: {Default: 'True', Type: String}

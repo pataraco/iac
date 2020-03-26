@@ -1,7 +1,7 @@
 ---
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'Creates an EC2 Security Group and ingress rules for an ArcGIS
-  server to allow traffic from the ArcGIS web servers web adapter'
+Description: 'Creates an EC2 Security Group and ingress rules for an APP Server
+  server to allow traffic from the App Server web servers web adapter'
 
 
 Parameters:
@@ -43,8 +43,8 @@ Resources:
         - {FromPort: 445, ToPort: 445, IpProtocol: tcp, CidrIp: !Ref PrivateCidr10, Description: SMB from !Ref PrivateCidr10}
         - {FromPort: 445, ToPort: 445, IpProtocol: tcp, CidrIp: !Ref PrivateCidr172, Description: SMB from !Ref PrivateCidr172}
         - {FromPort: 445, ToPort: 445, IpProtocol: tcp, CidrIp: !Ref PrivateCidr192, Description: SMB from !Ref PrivateCidr192}
-        - {FromPort: 6080, ToPort: 6080, IpProtocol: tcp, SourceSecurityGroupId: !Ref SourceSgId, Description: ArcGIS Web Adapter traffic}
-        - {FromPort: 6443, ToPort: 6443, IpProtocol: tcp, SourceSecurityGroupId: !Ref SourceSgId, Description: ArcGIS Web Adapter traffic}
+        - {FromPort: 6080, ToPort: 6080, IpProtocol: tcp, SourceSecurityGroupId: !Ref SourceSgId, Description: App Server Web Adapter traffic}
+        - {FromPort: 6443, ToPort: 6443, IpProtocol: tcp, SourceSecurityGroupId: !Ref SourceSgId, Description: App Server Web Adapter traffic}
       Tags:
         - {Key: Name, Value: !Ref GroupName}
       VpcId: !Ref VpcId
@@ -52,7 +52,7 @@ Resources:
 
   Ec2SecurityGroupIngressServer:
     Properties:
-      Description: ArcGIS Server traffic
+      Description: App Server Server traffic
       FromPort: 4000
       ToPort: 4002
       GroupId: !GetAtt Ec2SecurityGroup.GroupId
@@ -62,7 +62,7 @@ Resources:
 
   Ec2SecurityGroupIngress6080:
     Properties:
-      Description: ArcGIS Internal traffic
+      Description: App Server Internal traffic
       FromPort: 6080
       ToPort: 6080
       GroupId: !GetAtt Ec2SecurityGroup.GroupId
@@ -72,7 +72,7 @@ Resources:
 
   Ec2SecurityGroupIngress6443:
     Properties:
-      Description: ArcGIS Internal traffic
+      Description: App Server Internal traffic
       FromPort: 6443
       ToPort: 6443
       GroupId: !GetAtt Ec2SecurityGroup.GroupId

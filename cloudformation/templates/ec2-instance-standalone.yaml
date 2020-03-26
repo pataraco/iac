@@ -1,6 +1,6 @@
 ---
 AWSTemplateFormatVersion: "2010-09-09"
-Description: Create an AWS EC2 instance for ArcGIS System Monitor
+Description: Create a standalone AWS EC2 instance
 
 Parameters:
   BackupDaily:

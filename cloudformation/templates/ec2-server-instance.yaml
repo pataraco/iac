@@ -1,6 +1,6 @@
 ---
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'Creates an EC2 Windows ArcGIS Server Instance and joins it to a Windows Domain'
+Description: 'Creates an EC2 Windows App Server Server Instance and joins it to a Windows Domain'
 
 Parameters:
   BackupDaily: {Default: 'True', Type: String}

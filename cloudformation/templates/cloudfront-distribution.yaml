@@ -1,6 +1,6 @@
 ---
 AWSTemplateFormatVersion: '2010-09-09'
-Description: Creates a CloudFront distribution for ArcGIS
+Description: Creates a CloudFront distribution for App Server
 
 
 Parameters:

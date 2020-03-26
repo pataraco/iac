@@ -31,8 +31,8 @@ Resources:
         - {FromPort: 443, ToPort: 443, IpProtocol: tcp, CidrIp: !Ref FromCidr, Description: HTTPS}
         - {FromPort: 445, ToPort: 445, IpProtocol: tcp, CidrIp: !Ref FromCidr, Description: SMB}
         - {FromPort: 27017, ToPort: 27019, IpProtocol: tcp, CidrIp: !Ref FromCidr, Description: MongoDB}
-        # ArcGIS Monitor Specific
-        - {FromPort: 7999, ToPort: 8000, IpProtocol: tcp, CidrIp: !Ref FromCidr, Description: ArcGIS Monitor Administrator}
+        # App Monitor Specific
+        - {FromPort: 7999, ToPort: 8000, IpProtocol: tcp, CidrIp: !Ref FromCidr, Description: App Monitor Administrator}
       Tags:
         - {Key: Name, Value: !Ref Name}
 

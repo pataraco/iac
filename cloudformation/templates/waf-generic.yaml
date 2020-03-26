@@ -2,7 +2,7 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Description: 'Creates an AWS WAF configuration (match sets, rules and web ACL)
   to identify the Amazon CloudFront web requests to allow, block, or count
-  for ArcGIS'
+  for App Server'
 
 
 Parameters:

@@ -1,0 +1,55 @@
+# CodeBuild project Buildspec to deploy serverless resources
+# via Serverless Framework
+#
+# required environment variables
+#
+#  ARTIFACTS_LOCATION         = S3 bucket name/path for the artifacts upload
+#  ARTIFACT_NAME              = Artifact to create
+#  ENVIRONMENT                = Environment
+#  LAMBDA_LAYER               = Lambda layer to update
+#  LAMBDA_LAYER_ARN_SSM_PARAM = SSM parameter containing the Lambda layer's ARN
+
+version: 0.2
+
+phases:
+  install:
+    runtime-versions:
+      python: 3.7
+      # nodejs: 10  # nodejs 10.x already included (choices: 8, 10)
+    commands:
+      - phase="INSTALL"
+      - npm install --global serverless
+      - npm install
+      - pip install --upgrade pip
+      - node --version
+      - pip --version
+      - python --version
+      - serverless --version
+    finally:
+      - echo "$phase - phase COMPLETE"
+  pre_build:
+    commands:
+      - phase="PRE_BUILD"
+      # get info about Serverless infra
+      - echo "$phase - testing serverless configurations"
+      - bash sls_control.sh -a info -s $ENVIRONMENT -v -x
+      - echo "$phase - all serverless configuration tests PASSED"
+    finally:
+      - echo "$phase - phase COMPLETE"
+  build:
+    commands:
+      - phase="BUILD"
+      # update Lambda Layer (script checks for mandatory change(s) first)
+      - echo "$phase - attempting to update the Python third-party Lambda layer"
+      - bash update_third_party_python_lambda_layer.sh
+      - echo "$phase - the Python third-party Lambda layer update script SUCCEEDED"
+      # deploy Serverless infra
+      # TODO - delete these lines (dry-run) and un-comment the rest when ready
+      - echo "$phase - deploying serverless infrastructure (DRY-RUN)" # dry-run
+      - bash sls_control.sh -a deploy -s $ENVIRONMENT -v -x -d        # dry-run (-d)
+      # TODO - un-comment when ready
+      # - echo "$phase - deploying serverless infrastructure"
+      # - bash sls_control.sh -a deploy -s $ENVIRONMENT -v -x
+      - echo "$phase - all serverless deployments SUCCEEDED"
+    finally:
+      - echo "$phase - phase COMPLETE"

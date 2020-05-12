@@ -276,6 +276,7 @@ Resources:
 
   # uncomment/modify to attach a bucket policy
   # RequireChefDataS3BucketEncryption:
+  #   Type: AWS::S3::BucketPolicy
   #   Properties:
   #     Bucket: !Ref S3Bucket
   #     PolicyDocument:
@@ -295,7 +296,6 @@ Resources:
   #           Resource: !Sub '${S3Bucket.Arn}/*'
   #           Sid: DenyUnEncryptedObjectUploads
   #       Version: '2012-10-17'
-  #   Type: AWS::S3::BucketPolicy
 
   S3Bucket:
     Properties:

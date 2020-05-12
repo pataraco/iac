@@ -1,0 +1,18 @@
+# Common configurations used in most service stacks
+project: app
+provider:
+  deploymentBucket:
+    name: ag-devops-sandbox
+  runtime: python3.7
+  region: us-west-2
+  memorySize: 256
+  timeout: 15
+allowed-headers:
+  - Content-Type
+  - X-Amz-Date
+  - Authorization
+  - X-Api-Key
+  - X-Amz-Security-Token
+  - X-Amz-User-Agent
+  - cognito-access-token
+  - Stripe-Signature

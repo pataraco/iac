@@ -1,0 +1,83 @@
+service: cloudwatch-logs-to-elasticsearch
+
+provider:
+  deploymentBucket:
+    name: ${self:custom.common.provider.deploymentBucket.name}
+  name: aws
+  stackName: ${self:custom.stack_name}
+  stackTags:
+    Environment: ${self:custom.environment}
+    Project: ${self:custom.project}
+    Provisioner: serverless
+  stage: ${opt:stage, 'dev'}
+  region: ${file(${self:custom.common_serverless}):provider.region}
+  iamManagedPolicies:
+    - 'arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole'
+  iamRoleStatements:
+    - Sid: PostAccessToSpecificElasticsearchResource
+      Action:
+        - 'es:ESHttpPost'
+      Effect: Allow
+      Resource:
+        - ${self:custom.es_domain_arn}
+        - ${self:custom.es_domain_arn}/*
+    - Sid: GetSsmParameterValues
+      Action:
+        - 'ssm:GetParameter'
+      Effect: Allow
+      Resource:
+        - '*'
+
+custom:
+  common:
+    provider: ${file(serverless_common.yaml):provider}
+  common_serverless: serverless_common.yaml
+  environment: ${self:provider.stage}
+  es_domain_arn: ${ssm:/${self:custom.project}/${self:custom.environment}/elasticsearch/domain-arn}
+  es_domain_endpoint: ${ssm:/${self:custom.project}/${self:custom.environment}/elasticsearch/domain-endpoint}
+  es_domain_name: ${ssm:/${self:custom.project}/${self:custom.environment}/elasticsearch/domain-name}
+  function_name: ${self:custom.project}-${self:custom.environment}-${self:custom.service_short_name}
+  service_short_name: cw-logs-to-es-service
+  project: ${file(${self:custom.common_serverless}):project}
+  region: ${self:provider.region}
+  stack_name: ${self:custom.project}-${self:custom.environment}-lambda-${self:service}
+
+package:
+  individually: true
+  exclude: [./**]
+  include: [./lambda_cloudwatch_logs_to_elasticsearch.js]
+
+functions:
+  CwLogsToEs:
+    name: ${self:custom.function_name}
+    description: CloudWatch Logs streaming to Amazon Elasticsearch domain ${self:custom.es_domain_name} for ${self:custom.project} ${self:custom.environment}
+    environment:
+      ELASTICSEARCH_ENDPOINT: ${self:custom.es_domain_endpoint}
+      ENVIRONMENT: ${self:custom.environment}
+      PROJECT: ${self:custom.project}
+      REGION: ${self:custom.region}
+    handler: lambda_cloudwatch_logs_to_elasticsearch.handler
+    runtime: nodejs12.x
+    memorySize: 128
+    timeout: 60
+    tags:
+      Environment: ${self:custom.environment}
+      Name: ${self:custom.function_name}
+      Project: ${self:custom.project}
+      Provisioner: serverless
+
+resources:
+  Description: Creates a lambda function used to stream CloudWatch logs to Elasticsearch
+  Resources:
+    SsmParamLambdaFunctionArn:
+      Type: AWS::SSM::Parameter
+      Properties:
+        Description: Lambda Function ARN for streaming CloudWatch Logs to Amazon Elasticsearch for ${self:custom.project} ${self:custom.environment}
+        Name: /${self:custom.project}/${self:custom.environment}/lambda/${self:custom.service_short_name}/arn
+        Type: String
+        Value: !GetAtt CwLogsToEsLambdaFunction.Arn
+  Outputs:
+    LambdaArn:
+      Description: The ARN of the Lambda function
+      Export: {'Name': '${self:custom.stack_name}-LambdaArn'}
+      Value: !GetAtt CwLogsToEsLambdaFunction.Arn

@@ -1,0 +1,54 @@
+# This stack creates the APIGateway Custom Domain and maps it to the stage
+# specific API paths.  Because a stage cannot exist without a deployment
+# and API methods, this stack MUST be deployed after all other lamnda stacks.
+service: app-api-domain
+
+provider:
+  deploymentBucket:
+    name: ${self:custom.common.provider.deploymentBucket.name}
+  name: aws
+  region: us-west-2
+  stage: ${opt:stage, 'dev'}
+  runtime: python3.7
+
+custom:
+  common:
+    provider: ${file(serverless_common.yaml):provider}
+  project: ${file(serverless_common.yaml):project}
+  certificateArn: ${ssm:/${self:custom.project}/acm/com/wildcard-cert-arn}
+  hostedZoneId: ${ssm:/${self:custom.project}/route53/com/public-hosted-zone-id}
+  domainName: ${ssm:/${self:custom.project}/${self:provider.stage}/route53/api/domain}
+
+resources:
+  # here's some resources
+  Resources:
+    CustomDomain:
+      Type: AWS::ApiGateway::DomainName
+      Properties:
+        DomainName: ${self:custom.domainName}
+        CertificateArn: ${self:custom.certificateArn}
+        SecurityPolicy: TLS_1_2
+    BasePathMapping:
+      DependsOn: CustomDomain
+      Type: AWS::ApiGateway::BasePathMapping
+      Properties:
+        DomainName: ${self:custom.domainName}
+        RestApiId:
+          "Fn::ImportValue": ${self:provider.stage}-ApiGateway-restApiId
+        Stage: ${self:provider.stage}
+    Route53Entry:
+      DependsOn: BasePathMapping
+      Type: AWS::Route53::RecordSet
+      Properties:
+        HostedZoneId: ${self:custom.hostedZoneId}
+        Name: ${self:custom.domainName}
+        Type: A
+        AliasTarget:
+          DNSName: 
+            Fn::GetAtt:
+              - CustomDomain
+              - DistributionDomainName
+          HostedZoneId:
+            Fn::GetAtt:
+              - CustomDomain
+              - DistributionHostedZoneId

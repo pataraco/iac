@@ -1,0 +1,470 @@
+service: app-api-gateway
+
+custom:
+  common:
+    provider: ${file(serverless_common.yaml):provider}
+  project: ${file(serverless_common.yaml):project}
+
+provider:
+  deploymentBucket:
+    name: ${self:custom.common.provider.deploymentBucket.name}
+  name: aws
+  region: us-west-2
+  stage: ${opt:stage, "dev"}
+  runtime: python3.7
+  logRetentionInDays: 60
+  logs:
+    restApi:
+      accessLogging: true
+
+resources:
+  # here's some resources
+  Resources:
+    ApiGateway:
+      Type: AWS::ApiGateway::RestApi
+      Properties:
+        Name: ${self:service}-${self:provider.stage}
+        Description: ${self:service}-${self:provider.stage} API
+        BinaryMediaTypes:
+          - "application/pdf"
+    AdminResource:
+      # api base path /admin
+      Type: AWS::ApiGateway::Resource
+      Properties:
+        ParentId:
+          Fn::GetAtt:
+            - ApiGateway
+            - RootResourceId
+        PathPart: admin
+        RestApiId:
+          Ref: ApiGateway
+    AdverseLetterResource:
+      # api base path /adverse-letter
+      Type: AWS::ApiGateway::Resource
+      Properties:
+        ParentId:
+          Fn::GetAtt:
+            - ApiGateway
+            - RootResourceId
+        PathPart: adverse-letter
+        RestApiId:
+          Ref: ApiGateway
+    CreditCheckResource:
+      # api base path /creditcheck
+      Type: AWS::ApiGateway::Resource
+      Properties:
+        ParentId:
+          Fn::GetAtt:
+            - ApiGateway
+            - RootResourceId
+        PathPart: creditcheck
+        RestApiId:
+          Ref: ApiGateway
+    CreditCheckUserIdVarResource:
+      # api path /creditcheck/{user-id}/
+      Type: AWS::ApiGateway::Resource
+      Properties:
+        ParentId: !Ref CreditCheckResource
+        PathPart: "{user-id}"
+        RestApiId:
+          Ref: ApiGateway
+    CreditCheckCreditCheckIdVarResource:
+      # api path /creditcheck/{user-id}/{credit-check-id}/
+      Type: AWS::ApiGateway::Resource
+      Properties:
+        ParentId: !Ref CreditCheckUserIdVarResource
+        PathPart: "{credit-check-id}"
+        RestApiId:
+          Ref: ApiGateway
+    CustomerResource:
+      # api base path /customer
+      Type: AWS::ApiGateway::Resource
+      Properties:
+        ParentId:
+          Fn::GetAtt:
+            - ApiGateway
+            - RootResourceId
+        PathPart: customer
+        RestApiId:
+          Ref: ApiGateway
+    InventoryResource:
+      # api base path /inventory
+      Type: AWS::ApiGateway::Resource
+      Properties:
+        ParentId:
+          Fn::GetAtt:
+            - ApiGateway
+            - RootResourceId
+        PathPart: inventory
+        RestApiId:
+          Ref: ApiGateway
+    InventoryVehicleResource:
+      # api path /inventory/vehicle
+      Type: AWS::ApiGateway::Resource
+      Properties:
+        ParentId: !Ref InventoryResource
+        PathPart: vehicle
+        RestApiId:
+          Ref: ApiGateway
+    InventoryVehicleVehicleIdVarResource:
+      # api path /inventory/vehicle/{vehicle-id}
+      Type: AWS::ApiGateway::Resource
+      Properties:
+        ParentId: !Ref InventoryVehicleResource
+        PathPart: "{vehicle-id}"
+        RestApiId:
+          Ref: ApiGateway
+    LeasingCompanyResource:
+      # api base path /leasing-company
+      Type: AWS::ApiGateway::Resource
+      Properties:
+        ParentId:
+          Fn::GetAtt:
+            - ApiGateway
+            - RootResourceId
+        PathPart: leasing-company
+        RestApiId:
+          Ref: ApiGateway
+    LeasingCompanyLeasingCompanyIdVarResource:
+      # api path /leasing-company/{leasing-company-id}
+      Type: AWS::ApiGateway::Resource
+      Properties:
+        ParentId: !Ref LeasingCompanyResource
+        PathPart: "{leasing-company-id}"
+        RestApiId:
+          Ref: ApiGateway
+    MarketingResource:
+      # api base path /marketing
+      Type: AWS::ApiGateway::Resource
+      Properties:
+        ParentId:
+          Fn::GetAtt:
+            - ApiGateway
+            - RootResourceId
+        PathPart: marketing
+        RestApiId:
+          Ref: ApiGateway
+    SignedDocumentUrlResource:
+      # api base path /signed-document-url
+      Type: AWS::ApiGateway::Resource
+      Properties:
+        ParentId:
+          Fn::GetAtt:
+            - ApiGateway
+            - RootResourceId
+        PathPart: signed-document-url
+        RestApiId:
+          Ref: ApiGateway
+    # api base path /user
+    UserResource:
+      Type: AWS::ApiGateway::Resource
+      Properties:
+        ParentId:
+          Fn::GetAtt:
+            - ApiGateway
+            - RootResourceId
+        PathPart: user
+        RestApiId:
+          Ref: ApiGateway
+    # api /user children paths
+    UserSubscribeResource:
+      # api path /user/subscribe
+      Type: AWS::ApiGateway::Resource
+      Properties:
+        ParentId: !Ref UserResource
+        PathPart: subscribe
+        RestApiId:
+          Ref: ApiGateway
+    UserSubscribeSubIdVarResource:
+      # api path /user/subscribe/{subscription-id}
+      Type: AWS::ApiGateway::Resource
+      Properties:
+        ParentId: !Ref UserSubscribeResource
+        PathPart: "{subscription-id}"
+        RestApiId:
+          Ref: ApiGateway
+    UserSubscribeCodeResource:
+      # api path /user/subscribe/code
+      Type: AWS::ApiGateway::Resource
+      Properties:
+        ParentId: !Ref UserSubscribeResource
+        PathPart: code
+        RestApiId:
+          Ref: ApiGateway
+    emailResource:
+      # api base path /email
+      Type: AWS::ApiGateway::Resource
+      Properties:
+        ParentId:
+          Fn::GetAtt:
+            - ApiGateway
+            - RootResourceId
+        PathPart: email
+        RestApiId:
+          Ref: ApiGateway
+    webhooksResource:
+      # api base path /webhooks
+      Type: AWS::ApiGateway::Resource
+      Properties:
+        ParentId:
+          Fn::GetAtt:
+            - ApiGateway
+            - RootResourceId
+        PathPart: webhooks
+        RestApiId:
+          Ref: ApiGateway
+
+    # Authorizer
+    PortalAuthorizer:
+      Type: AWS::ApiGateway::Authorizer
+      Properties:
+        Name: "PortalAuthorizer"
+        RestApiId: !Ref ApiGateway
+        Type: COGNITO_USER_POOLS
+        IdentitySource: method.request.header.Authorization
+        ProviderARNs:
+          - ${file(${self:provider.stage}-aws-resources.yml):cognitoPortalPool.arn}
+
+    # API GATEWAY REQUEST VALIDATORS
+    HeadersAndQueryStringValidator:
+      Type: AWS::ApiGateway::RequestValidator
+      Properties:
+        Name: "Headers and Query String Parameters"
+        RestApiId: !Ref ApiGateway
+        ValidateRequestBody: false
+        ValidateRequestParameters: true
+    BodyOnlyValidator:
+      Type: AWS::ApiGateway::RequestValidator
+      Properties:
+        Name: "Body"
+        RestApiId: !Ref ApiGateway
+        ValidateRequestBody: true
+        ValidateRequestParameters: false
+    BodyHeadersAndQueryStringValidator:
+      Type: AWS::ApiGateway::RequestValidator
+      Properties:
+        Name: "Body, Headers and Query String Parameters"
+        RestApiId: !Ref ApiGateway
+        ValidateRequestBody: true
+        ValidateRequestParameters: true
+
+    # API GATEWAY RESPONSES
+    GatewayResponseBadRequestParameters:
+      Type: AWS::ApiGateway::GatewayResponse
+      Properties:
+        ResponseParameters:
+          gatewayresponse.header.Access-Control-Allow-Origin: "'*'"
+        ResponseType: BAD_REQUEST_PARAMETERS
+        RestApiId: !Ref ApiGateway
+        StatusCode: "400"
+    GatewayResponseUnauthorized:
+      Type: AWS::ApiGateway::GatewayResponse
+      Properties:
+        ResponseParameters:
+          gatewayresponse.header.Access-Control-Allow-Origin: "'*'"
+        ResponseType: UNAUTHORIZED
+        RestApiId: !Ref ApiGateway
+        StatusCode: "401"
+    GatewayResponseBadRequestBody400:
+      Type: "AWS::ApiGateway::GatewayResponse"
+      Properties:
+        ResponseParameters:
+          gatewayresponse.header.Access-Control-Allow-Origin: "'*'"
+        ResponseTemplates:
+          application/json: "{'message':'$context.error.validationErrorString', 'type': '$context.error.responseType'}"
+        ResponseType: BAD_REQUEST_BODY
+        RestApiId: !Ref ApiGateway
+    GatewayResponseDefault4XX:
+      Type: "AWS::ApiGateway::GatewayResponse"
+      Properties:
+        ResponseParameters:
+          gatewayresponse.header.Access-Control-Allow-Origin: "'*'"
+        ResponseType: DEFAULT_4XX
+        RestApiId: !Ref ApiGateway
+    GatewayResponseDefault5XX:
+      Type: "AWS::ApiGateway::GatewayResponse"
+      Properties:
+        ResponseParameters:
+          gatewayresponse.header.Access-Control-Allow-Origin: "'*'"
+          gatewayresponse.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+          gatewayresponse.header.Access-Control-Allow-Methods: "'GET,OPTIONS,POST'"
+        ResponseType: DEFAULT_5XX
+        RestApiId: !Ref ApiGateway
+    GatewayResponseAccessDenied:
+      Type: "AWS::ApiGateway::GatewayResponse"
+      Properties:
+        ResponseParameters:
+          gatewayresponse.header.Access-Control-Allow-Origin: "'*'"
+        ResponseType: ACCESS_DENIED
+        RestApiId: !Ref ApiGateway
+    GatewayResponseExpiredToken:
+      Type: "AWS::ApiGateway::GatewayResponse"
+      Properties:
+        ResponseParameters:
+          gatewayresponse.header.Access-Control-Allow-Origin: "'*'"
+        ResponseType: EXPIRED_TOKEN
+        RestApiId: !Ref ApiGateway
+    GatewayResponseQuotaExceeded:
+      Type: "AWS::ApiGateway::GatewayResponse"
+      Properties:
+        ResponseParameters:
+          gatewayresponse.header.Access-Control-Allow-Origin: "'*'"
+        ResponseType: QUOTA_EXCEEDED
+        RestApiId: !Ref ApiGateway
+    GatewayResponseRequestTooLarge:
+      Type: "AWS::ApiGateway::GatewayResponse"
+      Properties:
+        ResponseParameters:
+          gatewayresponse.header.Access-Control-Allow-Origin: "'*'"
+        ResponseType: REQUEST_TOO_LARGE
+        RestApiId: !Ref ApiGateway
+    GatewayResponseThrottled:
+      Type: "AWS::ApiGateway::GatewayResponse"
+      Properties:
+        ResponseParameters:
+          gatewayresponse.header.Access-Control-Allow-Origin: "'*'"
+        ResponseType: THROTTLED
+        RestApiId: !Ref ApiGateway
+
+  # Cloud Formation Outputs for usage in other service stacks
+  Outputs:
+    # Gateway API Outputs
+    apiGatewayRestApiId:
+      Value:
+        Ref: ApiGateway
+      Export:
+        Name: ${self:provider.stage}-ApiGateway-restApiId
+    apiGatewayRestApiRootResourceId:
+      Value:
+        Fn::GetAtt:
+          - ApiGateway
+          - RootResourceId
+      Export:
+        Name: ${self:provider.stage}-ApiGateway-rootResourceId
+    AdminResourceId:
+      Value:
+        Ref: AdminResource
+      Export:
+        Name: ${self:provider.stage}-ApiGateway-adminResourceId
+    AdverseLetterResourceId:
+      Value:
+        Ref: AdverseLetterResource
+      Export:
+        Name: ${self:provider.stage}-ApiGateway-adverseLetterResourceId
+    CreditCheckResourceId:
+      Value:
+        Ref: CreditCheckResource
+      Export:
+        Name: ${self:provider.stage}-ApiGateway-creditCheckResourceId
+    CustomerResourceId:
+      Value:
+        Ref: CustomerResource
+      Export:
+        Name: ${self:provider.stage}-ApiGateway-customerResourceId
+    InventoryResourceId:
+      Value:
+        Ref: InventoryResource
+      Export:
+        Name: ${self:provider.stage}-ApiGateway-inventoryResourceId
+    LeasingCompanyResourceId:
+      Value:
+        Ref: LeasingCompanyResource
+      Export:
+        Name: ${self:provider.stage}-ApiGateway-leasingCompanyResourceId
+    MarketingResourceId:
+      Value:
+        Ref: MarketingResource
+      Export:
+        Name: ${self:provider.stage}-ApiGateway-marketingResourceId
+    SignedDocumentUrlResourceId:
+      Value:
+        Ref: SignedDocumentUrlResource
+      Export:
+        Name: ${self:provider.stage}-ApiGateway-signedDocumentUrlResourceId
+    UserResourceId:
+      Value:
+        Ref: UserResource
+      Export:
+        Name: ${self:provider.stage}-ApiGateway-userResourceId
+    UserSubscribeResourceId:
+      # export id for /user/subscribe
+      Value:
+        Ref: UserSubscribeResource
+      Export:
+        Name: ${self:provider.stage}-ApiGateway-userSubscribeResourceId
+    UserSubscribeSubIdVarResourceId:
+      # export id for /user/subscribe/{subscription-id}
+      Value:
+        Ref: UserSubscribeSubIdVarResource
+      Export:
+        Name: ${self:provider.stage}-ApiGateway-userSubscribeSubIdVarResourceId
+    UserSubscribeCodeResourceId:
+      # export id for /user/subscribe/code
+      Value:
+        Ref: UserSubscribeCodeResource
+      Export:
+        Name: ${self:provider.stage}-ApiGateway-userSubscribeCodeResourceId
+    LeasingCompanyLeasingCompanyIdVarResourceId:
+      # export id for /leasing-company/{leasing-company-id}
+      Value:
+        Ref: LeasingCompanyLeasingCompanyIdVarResource
+      Export:
+        Name: ${self:provider.stage}-ApiGateway-leasingCompanyLeasingCompanyIdVarResourceId
+    InventoryVehicleResourceId:
+      # export id for /inventory/vehicle
+      Value:
+        Ref: InventoryVehicleResource
+      Export:
+        Name: ${self:provider.stage}-ApiGateway-inventoryVehicleResourceId
+    InventoryVehicleVehicleIdVarResourceId:
+      # export id for /inventory/vehicle/{vehicle-id}
+      Value:
+        Ref: InventoryVehicleVehicleIdVarResource
+      Export:
+        Name: ${self:provider.stage}-ApiGateway-inventoryVehicleVehicleIdVarResourceId
+    CreditCheckUserIdVarResourceId:
+      # export id for /creditcheck/{user-id}
+      Value:
+        Ref: CreditCheckUserIdVarResource
+      Export:
+        Name: ${self:provider.stage}-ApiGateway-creditCheckUserIdVarResourceId
+    CreditCheckCreditCheckIdVarResourceId:
+      # export id for /creditcheck/{credit-check-id}
+      Value:
+        Ref: CreditCheckCreditCheckIdVarResource
+      Export:
+        Name: ${self:provider.stage}-ApiGateway-creditCheckCreditCheckIdVarResourceId
+    emailResourceId:
+      Value:
+        Ref: emailResource
+      Export:
+        Name: ${self:provider.stage}-ApiGateway-emailResourceId
+    webhooksResourceId:
+      Value:
+        Ref: webhooksResource
+      Export:
+        Name: ${self:provider.stage}-ApiGateway-webhooksResourceId
+
+    # Authorizer
+    ApiGatewayPortalAuthorizerId:
+      Value:
+        Ref: PortalAuthorizer
+      Export:
+        Name: ${self:provider.stage}-ApiGateway-portalAuthorizerId
+
+    # Gateway API Request Validators Outputs
+    HeadersAndQueryStringValidatorId:
+      Value:
+        Ref: HeadersAndQueryStringValidator
+      Export:
+        Name: ${self:provider.stage}-ApiGateway-headersAndQueryStringValidatorId
+    BodyOnlyValidatorId:
+      Value:
+        Ref: BodyOnlyValidator
+      Export:
+        Name: ${self:provider.stage}-ApiGateway-bodyOnlyValidatorId
+    BodyHeadersAndQueryStringValidatorId:
+      Value:
+        Ref: BodyHeadersAndQueryStringValidator
+      Export:
+        Name: ${self:provider.stage}-ApiGateway-bodyHeadersAndQueryStringValidatorId

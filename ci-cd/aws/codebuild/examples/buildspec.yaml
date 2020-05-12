@@ -1,0 +1,21 @@
+version: 0.2
+
+phases:
+  install:
+    runtime-versions:
+      python: 3.7
+    commands:
+      - echo "Installing Serverless..."
+      - npm install -g serverless
+  pre_build:
+    commands:
+      - echo "Installing source NPM dependencies..."
+      - npm install
+  build:
+    commands:
+      - echo "Build started on `date`"
+      - echo "Deploying with Serverless Framework..."
+      - sls deploy -v -s $ENVIRONMENT
+  post_build:
+    commands:
+      - echo "Build completed on `date`"

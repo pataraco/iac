@@ -1,0 +1,17 @@
+version: 0.2
+
+phases:
+  install:
+    runtime-versions:
+      python: 3.7
+  build:
+    commands:
+      - mkdir -p build/python
+      - pipenv lock -r > build/requirements.txt
+      - cd build
+      - pip install -r requirements.txt --target python
+      - ls -lah
+artifacts:
+  base-directory: build
+  files: "**/*"
+  name: layers.zip

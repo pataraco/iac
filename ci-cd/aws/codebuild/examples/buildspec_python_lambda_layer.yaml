@@ -1,0 +1,171 @@
+# CodeBuild project Buildspec to deploy serverless resources via Serverless Framework
+#
+# required environment variables
+#
+#  ARTIFACTS_LOC              = S3 bucket name/path for the artifacts upload
+#  ARTIFACT_NAME              = Artifact to create
+#  ENVIRONMENT                = Environment
+#  LAMBDA_LAYER               = Lambda layer to update
+#  LAMBDA_LAYER_ARN_SSM_PARAM = SSM parameter containing the Lambda layer's ARN
+#  LATEST_ARTIFACT_SSM_PARAM  = SSM parameter containing the latest build info
+
+version: 0.2
+
+phases:
+  install:
+    runtime-versions:
+      python: 3.7
+    commands:
+      - phase="INSTALL"
+      - pip install --upgrade pip
+    finally:
+      - 'echo "$phase: phase COMPLETE"'
+  pre_build:
+    commands:
+      - phase="PRE_BUILD"
+      # cannot run `git` commands because BuildSpec just uses the artifact of
+      # CodePipeline which is a ZIP of the repo
+      # - git show --pretty="" --name-only $CODEBUILD_RESOLVED_SOURCE_VERSION
+      # - git diff-tree --no-commit-id --name-only -r $CODEBUILD_RESOLVED_SOURCE_VERSION
+      - reqs_file=requirements.txt
+      - mkdir -p build/python
+      - pipenv lock -r > build/$reqs_file 2> /dev/null
+      - 'echo "$phase: created current [Python] requirements file: $reqs_file"'
+      - |
+        echo "$phase: checking for any changes to the [Python] requirements"
+        new_layer_needed="true"
+        latest_artifact=$(aws ssm get-parameter --name $LATEST_ARTIFACT_SSM_PARAM --query Parameter.Value --output text)
+        if [ $? -eq 0 ]; then
+           echo "$phase: found SSM Parameter: $LATEST_ARTIFACT_SSM_PARAM"
+           echo "$phase: retrieved latest artifact source: $latest_artifact"
+           aws s3 cp --quiet s3://$latest_artifact latest_artifact.zip
+           if [ $? -eq 0 ]; then
+              echo "$phase: downloaded latest artifact to: latest_artifact.zip"
+              unzip latest_artifact.zip $reqs_file
+              if [ $? -eq 0 ]; then
+                 echo "$phase: extracted latest requirements file: $reqs_file"
+                 mv $reqs_file $reqs_file.latest
+                 if [ $? -eq 0 ]; then
+                    echo "$phase: renamed requirements file to: $reqs_file.latest"
+                    echo "$phase: comparing current requirements with latest"
+                    if [[ $(diff -q $reqs_file.latest build/$reqs_file) ]]; then
+                       echo "$phase: requirements have changed - need to create a new Lambda layer"
+                    else
+                       echo "$phase: requirements have NOT changed - a new Lambda layer is NOT needed"
+                       new_layer_needed="false"
+                    fi
+                 else
+                    echo "$phase: could not rename extracted requirements file to: $reqs_file.latest - a new artifact will be created"
+                 fi
+              else
+                 echo "$phase: could not extract latest requirements file: $reqs_file - a new artifact will be created"
+              fi
+           else
+              echo "$phase: could not download latest artifact from S3: $latest_artifact - a new artifact will be created"
+           fi
+        else
+           echo "$phase: could not get latest artifact SSM Parameter: $LATEST_ARTIFACT_SSM_PARAM - a new artifact will be created"
+        fi
+    finally:
+      - 'echo "$phase: phase COMPLETE"'
+  build:
+    commands:
+      - phase="BUILD"
+      - cd build
+      - |
+        echo "$phase: preparing to build new Lambda layer (install third-party Python packages)"
+        if [ "$new_layer_needed" == "true" ]; then
+           echo "$phase: a new Lambda layer is needed - installing third-party Python packages"
+           pip install -q -r $reqs_file --target python
+           if [ $? -eq 0 ]; then
+              echo "$phase: installed third-party Python packages"
+           else
+              echo "$phase: FAILED to install third-party Python packages"
+              exit 1
+           fi
+        else
+           echo "$phase: new Lambda layer NOT needed - NOT installing third-party Python packages"
+        fi
+      - |
+        echo "$phase: preparing to create new artifact"
+        if [ "$new_layer_needed" == "true" ]; then
+           echo "$phase: a new Lambda layer is needed"
+           echo "$phase: creating new artifact (ZIP) from installed packages"
+           zip -q -r $ARTIFACT_NAME .
+           if [ $? -eq 0 ]; then
+              echo "$phase: created new artifact: $ARTIFACT_NAME"
+           else
+              echo "$phase: FAILED to create artifact: $ARTIFACT_NAME"
+              exit 1
+           fi
+           artifact_destination=$ARTIFACTS_LOC/${CODEBUILD_BUILD_ID#*:}/$ARTIFACT_NAME
+           echo "$phase: uploading new artifact to AWS S3: $artifact_destination"
+           aws s3 cp --quiet $ARTIFACT_NAME s3://$artifact_destination
+           if [ $? -eq 0 ]; then
+              echo "$phase: uploaded artifact to AWS S3: $artifact_destination"
+           else
+              echo "$phase: FAILED to upload artifact to AWS S3: $artifact_destination"
+              exit 1
+           fi
+        else
+           echo "$phase: new Lambda layer NOT needed - NOT creating artifact"
+        fi
+    finally:
+      - 'echo "$phase: phase COMPLETE"'
+  post_build:
+    commands:
+      - phase="POST_BUILD"
+      # the SSM parameter update is a separated into it's own step to
+      # prevent the parameter from getting updated if/when the zip/upload fails
+      - |
+        echo "$phase: preparing to update the latest artifact SSM Parameter value"
+        if [ "$new_layer_needed" == "true" ]; then
+           echo "$phase: a new artifact was built - updating latest artifact SSM Parameter: $LATEST_ARTIFACT_SSM_PARAM"
+           aws ssm put-parameter \
+              --name $LATEST_ARTIFACT_SSM_PARAM --value $artifact_destination \
+              --description "Latest third-party Python Lambda layer artifact for $ENVIRONMENT" \
+              --type String --overwrite
+           if [ $? -eq 0 ]; then
+              echo "$phase: updated SSM Parameter ($LATEST_ARTIFACT_SSM_PARAM) to: $artifact_destination"
+           else
+              echo "$phase: FAILED to update SSM Parameter: $LATEST_ARTIFACT_SSM_PARAM"
+              exit 1
+           fi
+        else
+           echo "$phase: new artifact was NOT built - NOT updating the latest artifact SSM Parameter: $LATEST_ARTIFACT_SSM_PARAM"
+        fi
+      # the Lambda layer update is a separated into it's own step to
+      # prevent the layer from getting updated if/when the zip/upload fails
+      - |
+        echo "$phase: preparing to update the Lambda layer"
+        if [ "$new_layer_needed" == "true" ]; then
+           echo "$phase: a new Lambda layer is needed - updating the Lambda layer: $LAMBDA_LAYER"
+           layer_version_arn=$(aws lambda publish-layer-version --layer-name $LAMBDA_LAYER --description "Third-party Python libraries" --zip-file fileb://$ARTIFACT_NAME --query LayerVersionArn)
+           if [ $? -eq 0 ]; then
+              echo "$phase: updated Lambda layer ($LAMBDA_LAYER) - new ARN: $layer_version_arn"
+           else
+              echo "$phase: FAILED to update Lambda layer: $LAMBDA_LAYER"
+              exit 1
+           fi
+        else
+           echo "$phase: new Lambda layer NOT needed - NOT updating the Lambda layer: $LAMBDA_LAYER"
+        fi
+      # the SSM parameter update is a separated into it's own step to prevent
+      # the parameter from getting updated if/when the Lambda layer update fails
+      - |
+        echo "$phase: preparing to update the Lambda layer ARN SSM Parameter value"
+        if [ "$new_layer_needed" == "true" ]; then
+           echo "$phase: the Lambda layer was updated - updating Lambda layer ARN SSM Parameter: $LAMBDA_LAYER_ARN_SSM_PARAM"
+           aws ssm put-parameter --name $LAMBDA_LAYER_ARN_SSM_PARAM --value $layer_version_arn \
+              --description "Third-party Python Lambda layer ARN for $ENVIRONMENT" --type String --overwrite
+           if [ $? -eq 0 ]; then
+              echo "$phase: updated SSM Parameter ($LAMBDA_LAYER_ARN_SSM_PARAM) to: $layer_version_arn"
+           else
+              echo "$phase: FAILED to update SSM Parameter: $LAMBDA_LAYER_ARN_SSM_PARAM"
+              exit 1
+           fi
+        else
+           echo "$phase: the Lambda layer was NOT updated - NOT updating the Lambda layer ARN SSM Parameter: $LAMBDA_LAYER_ARN_SSM_PARAM"
+        fi
+    finally:
+      - 'echo "$phase: phase COMPLETE"'

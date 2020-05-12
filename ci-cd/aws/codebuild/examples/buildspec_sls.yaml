@@ -1,0 +1,25 @@
+# CodeBuild project Buildspec to deploy serverless resources via Serverless Framework
+#
+# Required environment variables
+#
+#  ENVIRONMENT               = name of the environment
+
+version: 0.2
+
+phases:
+  install:
+#   runtime-versions:
+#     # nodejs 10.x included (choices: 8, 10)
+#     nodejs: 10
+    commands:
+      - node --version
+      - npm install --global serverless
+      - serverless --version
+      - npm install
+  pre_build:
+    commands:
+      - bash sls_control.sh -a info -s $ENVIRONMENT -v -x
+  build:
+    commands:
+      # testing: just a dry-run for now
+      - bash sls_control.sh -a deploy -s $ENVIRONMENT -d

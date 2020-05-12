@@ -1,0 +1,145 @@
+# CodeBuild project Buildspec to deploy serverless resources via Serverless Framework
+#
+# required environment variables
+#
+#  ARTIFACTS_LOC              = S3 bucket name/path for the artifacts upload
+#  ARTIFACT_NAME              = Artifact to create
+#  ENVIRONMENT                = Environment
+#  LAMBDA_LAYER               = Lambda layer to update
+#  LAMBDA_LAYER_ARN_SSM_PARAM = SSM parameter containing the Lambda layer's ARN
+#  LATEST_ARTIFACT_SSM_PARAM  = SSM parameter containing the latest build info
+
+version: 0.2
+
+phases:
+  install:
+    runtime-versions:
+      python: 3.7
+      # nodejs: 10  # nodejs 10.x included (choices: 8, 10)
+    commands:
+      - python --version
+      - phase="INSTALL"
+      - pip install --upgrade pip
+      - node --version
+      - npm install --global serverless
+      - serverless --version
+      - npm install
+      - env
+    finally:
+      - 'echo "$phase: phase COMPLETE"'
+  pre_build:
+    commands:
+      - phase="PRE_BUILD"
+      - reqs_file=requirements.txt
+      - |
+        echo "$phase: checking if git repo and if so, running some git commands"
+        if [ -d .git ]; then
+           echo "this is a git repo, these are the files that changed:"
+           git show --pretty="" --name-only $CODEBUILD_RESOLVED_SOURCE_VERSION
+           git diff-tree --no-commit-id --name-only -r $CODEBUILD_RESOLVED_SOURCE_VERSION
+        else
+           # if/when the CodeBuild project is triggered by CodePipeline, cannot
+           # run `git` commands because BuildSpec just uses the artifact of
+           # CodePipeline which is a ZIP of the repo
+           echo "this is NOT a git repo, can't use git to get repo info"
+        fi
+      - mkdir -p build/python
+      - |
+        echo "$phase: creating current [Python] requirements file: $reqs_file"
+        pipenv lock -r > build/$reqs_file 2> /dev/null
+        if [ $? -eq 0 ]; then
+           echo "$phase: created current [Python] requirements file: $reqs_file"
+        else
+           echo "$phase: FAILED to create current [Python] requirements file: $reqs_file"
+           exit 1
+        fi
+      - |
+        echo "$phase: testing serverless configurations"
+        bash sls_control.sh -a info -s $ENVIRONMENT -v -x
+        if [ $? -eq 0 ]; then
+           echo "$phase: all serverless configuration tests PASSED"
+        else
+           echo "$phase: one or more serverless configuration tests FAILED"
+           exit 1
+        fi
+    finally:
+      - 'echo "$phase: phase COMPLETE"'
+  build:
+    commands:
+      - phase="BUILD"
+      - cd build
+      - |
+        echo "$phase: building new Python Lambda layer (third-party Python packages)"
+        pip install -q -r $reqs_file --target python
+        if [ $? -eq 0 ]; then
+           echo "$phase: installed third-party Python packages"
+        else
+           echo "$phase: FAILED to install third-party Python packages"
+           exit 1
+        fi
+      - |
+        echo "$phase: creating new artifact (ZIP) from installed packages"
+        zip -q -r $ARTIFACT_NAME .
+        if [ $? -eq 0 ]; then
+           echo "$phase: created new artifact: $ARTIFACT_NAME"
+        else
+           echo "$phase: FAILED to create artifact: $ARTIFACT_NAME"
+           exit 1
+        fi
+      - |
+        echo "$phase: uploading new artifact to AWS S3: $artifact_destination"
+        artifact_destination=$ARTIFACTS_LOC/${CODEBUILD_BUILD_ID#*:}/$ARTIFACT_NAME
+        aws s3 cp --quiet $ARTIFACT_NAME s3://$artifact_destination
+        if [ $? -eq 0 ]; then
+           echo "$phase: uploaded artifact to AWS S3: $artifact_destination"
+        else
+           echo "$phase: FAILED to upload artifact to AWS S3: $artifact_destination"
+           exit 1
+        fi
+      - |
+        echo "$phase: updating latest artifact SSM Parameter: $LATEST_ARTIFACT_SSM_PARAM"
+        aws ssm put-parameter \
+           --name $LATEST_ARTIFACT_SSM_PARAM --value $artifact_destination \
+           --description "Latest third-party Python Lambda layer artifact for $ENVIRONMENT" \
+           --type String --overwrite
+        if [ $? -eq 0 ]; then
+           echo "$phase: updated SSM Parameter ($LATEST_ARTIFACT_SSM_PARAM) to: $artifact_destination"
+        else
+           echo "$phase: FAILED to update SSM Parameter: $LATEST_ARTIFACT_SSM_PARAM"
+           exit 1
+        fi
+      - |
+        echo "$phase: updating the Lambda layer: $LAMBDA_LAYER"
+        layer_version_arn=$(aws lambda publish-layer-version --layer-name $LAMBDA_LAYER --description "Third-party Python libraries" --zip-file fileb://$ARTIFACT_NAME --query LayerVersionArn)
+        if [ $? -eq 0 ]; then
+           echo "$phase: updated Lambda layer ($LAMBDA_LAYER) - new ARN/Version: $layer_version_arn"
+        else
+           echo "$phase: FAILED to update Lambda layer: $LAMBDA_LAYER"
+           exit 1
+        fi
+      - |
+        echo "$phase: updating Lambda layer ARN SSM Parameter: $LAMBDA_LAYER_ARN_SSM_PARAM"
+        aws ssm put-parameter --name $LAMBDA_LAYER_ARN_SSM_PARAM --value $layer_version_arn \
+           --description "Third-party Python Lambda layer ARN for $ENVIRONMENT" --type String --overwrite
+        if [ $? -eq 0 ]; then
+           echo "$phase: updated SSM Parameter ($LAMBDA_LAYER_ARN_SSM_PARAM) to: $layer_version_arn"
+        else
+           echo "$phase: FAILED to update SSM Parameter: $LAMBDA_LAYER_ARN_SSM_PARAM"
+           exit 1
+        fi
+      - |
+        echo "$phase: deploying serverless infrastructure"
+        bash sls_control.sh -a deploy -s $ENVIRONMENT -v -x -d  # dry-run (-d) for now
+        if [ $? -eq 0 ]; then
+           echo "$phase: all serverless deployments SUCCEEDED"
+        else
+           echo "$phase: one or more serverless deployments FAILED"
+           exit 1
+        fi
+    finally:
+      - 'echo "$phase: phase COMPLETE"'
+  post_build:
+    commands:
+      - phase="POST_BUILD"
+    finally:
+      - 'echo "$phase: phase COMPLETE"'

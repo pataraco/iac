@@ -1,0 +1,54 @@
+# CodeBuild project Buildspec to get information about serverless resources
+# via Serverless Framework
+#
+# required environment variables
+#
+#  ENVIRONMENT                = Environment
+
+version: 0.2
+
+phases:
+  install:
+    runtime-versions:
+      python: 3.7
+      # nodejs: 10  # nodejs 10.x already included (choices: 8, 10)
+    commands:
+      - phase="INSTALL"
+      - if [ "$CODEBUILD_WEBHOOK_EVENT" == "PULL_REQUEST_CREATED" ]; then is_pr_create=true; else is_pr_create=false; fi
+      - if [ "$CODEBUILD_WEBHOOK_EVENT" != "PULL_REQUEST_UPDATED" ]; then is_not_pr_update=true; else is_not_pr_update=false; fi
+      - if [ "$CODEBUILD_WEBHOOK_EVENT" != "PULL_REQUEST_MERGED" ]; then not_pr_merge=true; else not_pr_merge=false; fi
+      - if $is_pr_create; then echo "PR CREATED..."; else echo "PR NOT created..."; fi; date
+      - if $is_not_pr_update; then echo "PR NOT updated..."; else echo "PR UPDATED..."; fi; curl ifconfig.co/port/22; echo
+      - npm install --global serverless
+      - npm install
+      - node --version
+      - python --version
+      - serverless --version
+      - git --version
+      - cat versions
+      # show git stuff
+      - echo "git repo = $(basename $(git remote get-url origin) .git)"
+      - echo "git branch (CB) = ${CODEBUILD_WEBHOOK_HEAD_REF##*/}"
+      - echo "git commit (CB) = $CODEBUILD_SOURCE_VERSION"
+      - echo "git commit (CB) [resolved] = $CODEBUILD_RESOLVED_SOURCE_VERSION"
+      - echo "git last log = $(git log -1)"
+      - echo "git branch (git) = $(git rev-parse --quiet --abbrev-ref HEAD)"
+      - echo "git commit (git) = $(git rev-parse --quiet HEAD)"
+      - git show-ref
+      # - git ls-remote  # doesn't work in CodeBuild
+      - git remote -v
+      - env | sort
+    finally:
+      - echo "$phase - phase COMPLETE"
+  pre_build:
+    commands:
+      - phase="PRE_BUILD"
+      - if $is_pr_create; then echo "Can still tell that a PR was CREATED..."; else echo "Can still tell that a PR was NOT created..."; fi; uptime
+      - if $is_not_pr_update; then echo "Can still tell that the PR was NOT updated..."; else echo "Can still tell that the PR was UPDATED..."; fi; curl ifconfig.co/port/22; echo
+      # get info about Serverless infra
+      - echo "$phase - testing serverless configurations"
+      - bash sls_control.sh -a info -s $ENVIRONMENT -v -x -d
+      - echo "$phase - all serverless configuration tests PASSED"
+    finally:
+      - if $not_pr_merge; then echo "This was NOT a PR merge..."; else echo "This was a PR MERGE"; fi; uname -a
+      - echo "$phase - phase COMPLETE"

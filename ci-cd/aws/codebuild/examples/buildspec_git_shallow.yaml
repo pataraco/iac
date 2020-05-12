@@ -1,0 +1,73 @@
+# CodeBuild project Buildspec to deploy serverless resources via Serverless Framework
+#
+# required environment variables
+#
+#  ARTIFACTS_LOC              = S3 bucket name/path for the artifacts upload
+#  ARTIFACT_NAME              = Artifact to create
+#  ENVIRONMENT                = Environment
+#  LAMBDA_LAYER               = Lambda layer to update
+#  LAMBDA_LAYER_ARN_SSM_PARAM = SSM parameter containing the Lambda layer's ARN
+
+version: 0.2
+
+phases:
+  install:
+    runtime-versions:
+      python: 3.7
+      # nodejs: 10  # nodejs 10.x included (choices: 8, 10)
+    commands:
+      - phase="INSTALL"
+      - env | sort
+      - npm install --global serverless
+      - npm install
+      - python --version
+      - node --version
+      - serverless --version
+      - script --help
+      - uname -a
+    finally:
+      - 'echo "$phase: phase COMPLETE"'
+  pre_build:
+    commands:
+      - phase="PRE_BUILD"
+      # try to get info about the files that changed
+      - |
+        echo "$phase - checking if git repo and if so, running some git commands"
+        if [ -d .git ]; then
+           echo "this is a git repo"
+           if [ -e .git/shallow ]; then
+              echo "but it is a shallow git repo, may not be able to get all commit info"
+           else
+              echo "git log:"
+              git log
+              echo "these are the files that changed:"
+              git show --pretty="" --name-only $CODEBUILD_RESOLVED_SOURCE_VERSION
+              echo "again, these are the files that changed:"
+              git diff-tree --no-commit-id --name-only -r $CODEBUILD_RESOLVED_SOURCE_VERSION
+           fi
+        else
+           # if/when the CodeBuild project is triggered by CodePipeline, cannot
+           # run `git` commands because BuildSpec just uses the artifact of
+           # CodePipeline which is a ZIP of the repo
+           echo "this is NOT a git repo, can't use git to get repo info"
+        fi
+      # get info about Serverless infra
+      - echo "$phase - testing serverless configurations"
+      - bash sls_control.sh -a info -s $ENVIRONMENT -v -x
+      - echo "$phase - all serverless configuration tests PASSED"
+    finally:
+      - 'echo "$phase: phase COMPLETE"'
+  build:
+    commands:
+      - phase="BUILD"
+      # deploy Serverless infra
+      - echo "$phase - deploying serverless infrastructure"
+      - bash sls_control.sh -a deploy -s $ENVIRONMENT -v -x -d  # dry-run (-d) for now
+      - echo "$phase - all serverless deployments SUCCEEDED"
+    finally:
+      - echo "$phase - phase COMPLETE"
+  post_build:
+    commands:
+      - phase="POST_BUILD"
+    finally:
+      - 'echo "$phase: phase COMPLETE"'

@@ -168,8 +168,8 @@ fi
 
 # set the list of configs to process
 case "$action" in
-   deploy) configs=$DEPLOYMENT_ORDER;;
-   info) configs=$DEPLOYMENT_ORDER;;
+   deploy) configs=("${DEPLOYMENT_ORDER[@]}");;
+   info) configs=("${DEPLOYMENT_ORDER[@]}");;
    '')
       echo "error: did not specify an action"
       print_usage;;
@@ -184,7 +184,7 @@ esac
 echo | tee -a "$LOG_FILE"
 echo "testing the configuration syntax and variable resolution" | tee -a "$LOG_FILE"
 echo "of all the serverless configuration files" | tee -a "$LOG_FILE"
-for config in $configs; do
+for config in "${configs[@]}"; do
    config_name=${config%.yaml}
    command="$SLS_CMD print --config $CONFIGS_LOCATION/$config"
    $ECHO_E "  checking: ${config}...${D2E}\c"
@@ -225,7 +225,7 @@ mcl=0          # max config name length     (for formating)
 mcs=0          # max CF stack status length (for formating)
 msl=0          # max status length          (for formating)
 i=0            # index into arrays
-for config in $configs; do
+for config in "${configs[@]}"; do
    config_name=${config%.yaml}
    [ ${#config_name} -gt $mcl ] && mcl=${#config_name}
    echo | tee -a "$LOG_FILE"
@@ -349,7 +349,7 @@ if [ "$dry_run" != "true" ]; then
       fi
    fi
    i=0
-   for config in $configs; do
+   for config in "${configs[@]}"; do
       # get warnings and errors
       unset wsnes
       [ -n "${warns[$i]}" ] && wsnes="(${warns[$i]})"

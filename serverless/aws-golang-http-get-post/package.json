@@ -5,6 +5,6 @@
   "author": "Pramono Winata <pramono_winata@gyahoo.com>",
   "license": "MIT",
   "dependencies": {
-    "serverless": "^1.60.5"
+    "serverless": "^3.25.1"
   }
 }
